@@ -1,4 +1,4 @@
-# QLever control
+# QLever Control
 
 This is a very small repository. Its main contents is a script `qlever`
 that can control everything that QLever does. The script is supossed to be very

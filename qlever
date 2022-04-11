@@ -13,6 +13,12 @@ GRAY=$(printf "\033[37m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
+
+
+###
+### PREAMBLE (basic variables and functions needed throughout)
+###
+
 # The command of this sript, as called (with relative,  absolute, or no path).
 QLEVER_CMD="${BASH_SOURCE[0]}"
 
@@ -27,7 +33,7 @@ APP_DIR=$(pwd)
 
 # Get the master Qleverfile (everything after __DATA__ in this file, see below).
 function get_master_qleverfile {
-  sed -e '1,/^__DATA__/d' ${QLEVER_CMD}
+  sed -e '1,/^__DATA__/d' ${QLEVER_CMD} | tee Qleverfile.master.debug
 }
 
 # Variant of make that reads the master Qleverfile (using GET_MASTER_QLEVERFILE)
@@ -54,9 +60,21 @@ function qlever_make_show {
 EXIT=exit
 if [ ${QLEVER_CMD} != $0 ]; then EXIT=return; fi
 
+# Where the QLever UI is found (on GitHub and locally).
+QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
+QLEVERUI_DIR="qlever-ui"
+# QLEVERUI_DIR="${APP_DIR}/qlever-ui"
+QLEVERUI_DOCKER_IMAGE="qlever-ui"
+
 echo
 echo "${GRAY}Called \"${QLEVER_CMD}\" from \"${APP_DIR}\"${NORMAL}"
 echo
+
+
+
+###
+### CONFIGURATION (called with . qlever)
+###
 
 # With arguments "reset", remove completions and local Qleverfile. TODO: warn
 # before actually doing this because the Qleverfile might contain valuable
@@ -105,26 +123,24 @@ EOT
   else
     # CASE 1.2: This script is being sourced -> activate bash completions and
     # write the completions to COMPLETIONS_FILE.
-    cat << EOT
-${BOLD}Settting up qlever script${NORMAL}
-
-EOT
+    echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
+    echo
     # Adding directory of QLEVER_CMD, unless it's already there.
     # Activating bash autocompletion.
     COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_-]+:" | sed 's/:$//' | paste -sd" ")
     echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
     complete -W "${COMPLETIONS}" qlever
-    cat << EOT
-Activated bash autocompletion. The following completions will be available:
-
-${BLUE}$(fold -s  ${COMPLETIONS_FILE})${NORMAL}
-
-EOT
+    echo "Done, the following completions will be available:"
+    echo
+    echo "${BLUE}$(fold -s  ${COMPLETIONS_FILE})${NORMAL}"
+    echo
   fi
 fi
 
 # If the is no Qleverfile in this directory yet, create a basic one.
 if [ ! -e Qleverfile ]; then
+  echo "${BOLD}Creating new local Qleverfile ...${NORMAL}"
+  echo
   # If a file with suffix .ttl or .nt exists, use the basename as the basename
   # for the index files (the DB variable in the configuration). If several such
   # files exist, take the largest one. If no such file exists, leave the
@@ -142,10 +158,14 @@ if [ ! -e Qleverfile ]; then
 # Created on $(date).
 # Modify or expand as you see fit.
 
-DB        = ${DB}
-RDF_FILES = ${INPUT_FILE}
-CAT_FILES = ${CAT} \$(RDF_FILES)
-PORT      = 7001
+DB              = ${DB}
+RDF_FILES       = ${INPUT_FILE}
+CAT_FILES       = ${CAT} \$(RDF_FILES)
+HOSTNAME        = $(hostname -f)
+SERVER_PORT     = 7001
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = ${QLEVERUI_DIR}
+QLEVERUI_CONFIG = ${DB}
 EOT
     cat << EOT
 There was no Qleverfile in this directory yet. A Qleverfile contains basic
@@ -157,15 +177,50 @@ ${BLUE}$(cat Qleverfile)${NORMAL}
 EOT
 fi
 
+# If the QLever UI repo is not there yet, download it.
+
+# TODO: For now, just have a working copy for each QLever instance. One central
+# working copy would be also fine, but it also doesn't hurt because it's less
+# than 50 MB large.
+if [ ! -d ${QLEVERUI_DIR} ]; then
+  echo "${BOLD}Downloading and building QLever UI ...${NORMAL}"
+  echo
+  cat << EOT | tr '\n' ' ' | fold -s
+Downloading a copy from ${QLEVERUI_GIT} (it's small) and building the docker
+image from it. This requires that you have docker installed. Stay tuned if you
+want to use the QLever UI without docker. Also, if you just want to interact
+with a QLever server via API, you don't need the QLever UI.
+EOT
+  echo && echo
+  git clone ${QLEVERUI_GIT} ${QLEVERUI_DIR}
+  echo 
+  # QLEVERUI_BUILD_LOG="qleverui.build-log.txt"
+  # echo "Building docker image \"${QLEVERUI_DOCKER_IMAGE}\", log in \"${QLEVERUI_BUILD_LOG}\" ..."
+  # echo
+  # (cd ${QLEVERUI_DIR} && docker build -t ${QLEVERUI_DOCKER_IMAGE} . \
+  #     | > qleverui.build-log.txt)
+fi
+
 # If the script was sourced (initial setup), exit (will be "return") now.
 if [ ${QLEVER_CMD} != $0 ]; then
+  echo "${BOLD}Setup is complete${NORMAL}"
   cat << EOT | fold -s
-Setup complete, you can use "qlever" normally. If you want to redo the
-setup, you can run ". qlever reset".
+
+Type "qlever" and use autocompletion to see which actions are available. Add a
+"show" in the end to see what an action does without executing it (for example,
+"qlever index show"). Typing "qlever" without arguments gives you overview over
+the basic configuration. Edit your local "Qleverfile" to change settings. If
+you want to redo the setup, you can run ".  qlever reset" anytime.
 
 EOT
   eval ${EXIT}
 fi
+
+
+
+###
+### WHAT THE SCRIPT ACTUALLY DOES (it's basically a wrapper for "make")
+###
 
 # When calling script with no arguments, show the config. TODO: Give the user
 # some more information here.
@@ -222,7 +277,11 @@ done
 
 eval ${EXIT}
 
-# Everything after __DATA__ is the master Qleverfile
+
+
+###
+### The master Qleverfile = Makefile (everything after __DATA__)
+###
 
 __DATA__
 SHELL=/bin/bash
@@ -269,7 +328,11 @@ DB=
 DB_BASE=$(firstword $(subst ., ,$(DB)))
 
 # The port of the QLever backend.
-PORT=
+HOSTNAME=must_specify
+SERVER_PORT=must_specify
+
+# The port of QLever UI.
+QLEVERUI_PORT=7000
 
 # The slug used in the URL of the QLever API and the QleverUI API. This is
 # typically the basename of the prefix. For example: wikidata. Or: freebase.
@@ -282,7 +345,7 @@ CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5
 CACHE_MAX_NUM_ENTRIES=1000
 
 # The local API of the server.
-SERVER_API=http://localhost:$(PORT)
+SERVER_API=http://$(HOSTNAME):$(SERVER_PORT)
 
 # The URL of the QLever backend.
 QLEVER_API=https://qlever.cs.uni-freiburg.de/api/$(SLUG)
@@ -319,7 +382,7 @@ TEXT_OPTIONS_START=$(if $(WITH_TEXT),-t,)
 show-config-default:
 	@ echo "Basic configuration variables:"
 	@ echo -e "\033[34m"
-	@ for VAR in DB SLUG RDF_FILES CAT_FILES PORT \
+	@ for VAR in DB SLUG RDF_FILES CAT_FILES SERVER_PORT \
 	   MEMORY_FOR_QUERIES CACHE_MAX_SIZE_GB CACHE_MAX_SIZE_GB_SINGLE_ENTRY CACHE_MAX_NUM_ENTRIES \
 	   TEXT_OPTIONS_INDEX TEXT_OPTIONS_START \
 	   QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
@@ -366,14 +429,14 @@ remove_index:
 # and don't start it. Note the # after the code that does this check -> it will
 # hence not be shown by qlever_make_show.
 QLEVER_START_CMD=ServerMain -i $(DB)
-QLEVER_START_OPTIONS=-j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(PORT) $(TEXT_OPTIONS_START)
+QLEVER_START_OPTIONS=-j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(SERVER_PORT) $(TEXT_OPTIONS_START)
 LOG_CMD=tail -f -n 10 $(DB).server-log.txt
 start:
-	if [ $$(curl --silent http://localhost:$(PORT) > /dev/null; echo $$?) == 0 ]; then #\
+	if [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) == 0 ]; then #\
 	  echo -e "\033[31mServer already running, to restart it first do \"stop\"\033[0m"; else #\
 	echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..." && echo #\
 	$(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
-	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(PORT) > /dev/null; echo $$?) != 0 ]; #\
+	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; #\
 	   do sleep 1; done; kill $${PID}; fi #
 
 # Command line for showing the log and following it.
@@ -394,7 +457,7 @@ stop:
 
 wait:
 	$(LOG_CMD) & PID=$$!; \
-	 while [ $$(curl --silent http://localhost:$(PORT) > /dev/null; echo $$?) != 0 ]; \
+	 while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; \
 	   do sleep 1; done; kill $$PID
 
 
@@ -419,8 +482,8 @@ wait:
 # be allocated because stdin is not a terminal." and "the input device is not a
 # TTY"). The manpage for ssh says: "Multiple -t options force tty allocation,
 # even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".
-autocompletion-warmup:
-	@ ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup $(SLUG) pin\"
+# autocompletion-warmup:
+# 	@ ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup $(SLUG) pin\"
 
 # pin.local:
 # 	docker exec -it qlever-ui bash -c "python manage.py warmup $(SLUG) pin"
@@ -467,5 +530,31 @@ server-settings:
 	echo "Getting settings from \"${SERVER_API}\" ..." #
 	curl -Gs $(SERVER_API) --data-urlencode "cmd=get-settings" \
 	  | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " #
+
+# QLever UI (work in progress).
+LOG_FILE=qleverui-log.tmp
+ERROR_CMD=(echo && echo -e "\033[31mAn error occured, check $(LOG_FILE) for details, the last 10 lines are:\033[0m" && tail $(LOG_FILE) && false)
+QLEVERUI_GIT=git@github.com:ad-freiburg/qlever-ui.git
+ui:
+	> $(LOG_FILE) #
+	# echo "Downloading QLever UI (unless it's already there) ..." #
+	# if [ ! -d "$(QLEVERUI_DIR)" ]; then date && git clone "$(QLEVERUI_GIT)" "$(QLEVERUI_DIR)" && date; fi \ #
+	#  >> $(LOG_FILE) 2>&1 || $(ERROR_CMD) #
+	echo "Creating configuration for the QLever UI ..." #
+	$(MAKE) -s -C "$(QLEVERUI_DIR)" CONFIG_SLUG=$(QLEVERUI_CONFIG) BACKEND_PORT=$(SERVER_PORT) overwrite_config \
+	  >> $(LOG_FILE) 2>&1 || $(ERROR_CMD) #
+	echo "Launching QLever UI web application ..." #
+	$(MAKE) -s -C $(QLEVERUI_DIR) HOSTNAME=$(HOSTNAME) FRONTEND_PORT=$(QLEVERUI_PORT) qlever-ui \
+	  >> $(LOG_FILE) 2>&1 || $(ERROR_CMD) #
+	# echo "Warmup queries for fast autocompletion (check HOSTNAME and PORTs if something goes wrong here) ..." #
+	# $(QLEVERUI_MAKE) -s CONFIG_SLUG=$(CONFIG_SLUG) QLEVERUI_CONTAINER=$(QLEVERUI_CONTAINER) warmup >> $(LOG_FILE) 2>&1 || $(ERROR_CMD) #
+	echo #
+	echo "Looks like it worked, go to http://$(HOSTNAME):$(QLEVERUI_PORT) and try out some queries. If it doesn't work, check \"$(LOG_FILE)\" for suspicious messages or \"$(QLEVERUI_DIR)/Makefile\" for troubleshooting help" | fold -s #
+	# (MAKE) -s -C "${QLEVERUI_DIR}" FRONTEND_PORT=$(QLEVERUI_PORT) BACKEND_PORT=$(SERVER_PORT) CONFIG_SLUG=$(DB) #
+
+autocompletion-warmup:
+	echo "Launch warmup queries for the QLever UI autocompletion ..." #
+	docker exec -i qlever-ui bash -c "python manage.py warmup $(QLEVERUI_CONFIG) pin" \
+	  >> $(LOG_FILE) 2>&1 || $(ERROR_CMD) #
 	
 export

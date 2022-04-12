@@ -163,11 +163,17 @@ if [ ! -e Qleverfile ]; then
 DB              = ${DB}
 RDF_FILES       = ${INPUT_FILE}
 CAT_FILES       = ${CAT} \$(RDF_FILES)
+
 HOSTNAME        = $(hostname -f)
 SERVER_PORT     = 7001
 QLEVERUI_PORT   = 7000
 QLEVERUI_DIR    = ${QLEVERUI_DIR}
 QLEVERUI_CONFIG = ${DB}
+
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     cat << EOT
 There was no Qleverfile in this directory yet. A Qleverfile contains basic

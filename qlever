@@ -129,7 +129,7 @@ EOT
     echo
     # Adding directory of QLEVER_CMD, unless it's already there.
     # Activating bash autocompletion.
-    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_-.]+:" | sed 's/:$//' | paste -sd" ")
+    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_.-]+:" | sed 's/:$//' | paste -sd" ")
     echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
     complete -W "${COMPLETIONS}" qlever
     echo "Done, the following completions will be available:"

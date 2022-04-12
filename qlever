@@ -218,8 +218,9 @@ if [ ${QLEVER_CMD} != $0 ]; then
 Type "qlever" and use autocompletion to see which actions are available. Add a
 "show" in the end to see what an action does without executing it (for example,
 "qlever index show"). Typing "qlever" without arguments gives you overview over
-the basic configuration. Edit your local "Qleverfile" to change settings. If
-you want to redo the setup, you can run ".  qlever reset" anytime.
+the basic configuration. Edit your local "Qleverfile" to change settings.
+
+If you want to redo the setup, you can run ".  qlever reset" anytime.
 
 EOT
   eval ${EXIT}

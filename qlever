@@ -25,7 +25,7 @@ QLEVER_CMD="${BASH_SOURCE[0]}"
 # Get the absolute path of QLEVER_CMD (assuming it's not a symbolic link). Note:
 # the trick is to just "cd" there and then use "pwd", all in a subshell. For a
 # hack that also works for symbolic links, see https://tinyurl.com/4jsurr86 .
-QLEVER_CMD_DIR=$( cd -- "$( dirname -- "${QLEVER_CMD}" )" &> /dev/null && pwd )
+QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
 
 # To get the directory from where this script has been called, we can simply use
 # "pwd".
@@ -52,7 +52,8 @@ function qlever_make_show {
   printf "${BLUE}"
   get_master_qleverfile \
       | make -f - -f ${APP_DIR}/Qleverfile -n "$@" \
-      | egrep -v "#.?\$" | sed 's/^\s*//; s/\s?*\\$//'
+      | egrep -v "#.?\$" | sed 's/^\s*//; s/\s?*\\$//' \
+      | sed 's/^: #/#/'
   printf "${NORMAL}"
 }
 
@@ -232,7 +233,7 @@ fi
  
 # First separate the variable assignment arguments from the others. The
 # assignment will go in VARS, the rest will stay in $@ (both arrays).
-VARS=()
+VARS=( "QLEVER_CMD=${QLEVER_CMD}" "QLEVER_CMD_DIR=${QLEVER_CMD_DIR}" )
 for ARG do
   shift
   [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
@@ -287,11 +288,12 @@ fi
 for ARG in "$@"; do
   echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
   echo
-  qlever_make_show "${VARS[@]}" "${ARG}"
-  echo
-  # Special precautions if index exists.
-  # if [ "${ARG}" == "index" ]; then
-  qlever_make "${VARS[@]}" "${ARG}"
+  # TODO: Handle non-existing commands more gracefully, currently an error
+  # message from "make" is shown (twice).
+  if qlever_make_show "${VARS[@]}" "${ARG}" ; then
+    echo
+    qlever_make "${VARS[@]}" "${ARG}"
+  fi
   echo
 done
 
@@ -412,8 +414,25 @@ show-config:
 	 printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
 	echo -e "\033[0m"
 
-%: %-default
-	@ true
+# Update the qlever script (locate, check whether it's a git working copy, git
+# pull). Note: When this is called by the qlever script, QLEVER_CMD and
+# QLEVER_CMD_DIR are from there via VARS.
+# TODO: Is the method via VARS sufficiently generic or is there a better way?
+QLEVER_CMD=
+QLEVER_CMD_DIR=
+update:
+	echo "Updating \"qlever\" script ..." #
+	echo #
+	if [ ! -d "$(QLEVER_CMD_DIR)/.git" ]; then #\
+	  echo -e "\033[31mDid not find directory \".git\" in \"${QLEVER_CMD_DIR}\"\033[0m" #\
+	  echo; fi #\
+	cd $(QLEVER_CMD_DIR) && git pull
+
+where:
+	echo "The absolute path of the directory where the \"qlever\" script is located..." #
+	echo -e "\033[34m" #
+	cd -- "$$(dirname -- "$(QLEVER_CMD)")" &> /dev/null && pwd
+	printf "\033[0m" #
 
 # Pull new image if image name contains a /
 

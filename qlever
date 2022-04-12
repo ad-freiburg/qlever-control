@@ -33,6 +33,7 @@ APP_DIR=$(pwd)
 
 # Get the master Qleverfile (everything after __DATA__ in this file, see below).
 function get_master_qleverfile {
+  # sed -e '1,/^__DATA__/d' ${QLEVER_CMD}
   sed -e '1,/^__DATA__/d' ${QLEVER_CMD} | tee Qleverfile.master.debug
 }
 
@@ -59,6 +60,7 @@ function qlever_make_show {
 # it is called normally, that is, within its own subshell).
 EXIT=exit
 if [ ${QLEVER_CMD} != $0 ]; then EXIT=return; fi
+function exit_qlever { eval ${EXIT}; }
 
 # Where the QLever UI is found (on GitHub and locally).
 QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
@@ -154,7 +156,7 @@ if [ ! -e Qleverfile ]; then
     if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
     if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
     cat << EOT > Qleverfile
-# Qleverfile for folder $(pwd) .
+# Qleverfile for folder $(pwd)
 # Created on $(date).
 # Modify or expand as you see fit.
 
@@ -221,11 +223,23 @@ fi
 ###
 ### WHAT THE SCRIPT ACTUALLY DOES (it's basically a wrapper for "make")
 ###
+ 
+# First separate the variable assignment arguments from the others. The
+# assignment will go in VARS, the rest will stay in $@ (both arrays).
+VARS=()
+for ARG do
+  shift
+  [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
+  set -- "$@" "${ARG}"
+done
+# for VAR in "${VARS[@]}"; do echo "VAR = \"${VAR}\""; done
+# for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
+# echo
 
 # When calling script with no arguments, show the config. TODO: Give the user
 # some more information here.
 if [ -z "$*" ]; then
-  qlever_make
+  qlever_make "${VARS[@]}"
   if [ -e ${COMPLETIONS_FILE} ]; then
     cat << EOT
 All completions:
@@ -251,7 +265,7 @@ if [ "${LAST}" == "show" ]; then
     if [ "${ARG}" != "show" ]; then
       echo "\"${ARG}\" would execute the following:"
       echo
-      qlever_make_show "${ARG}"
+      qlever_make_show "${VARS[@]}" "${ARG}"
       echo
     fi
   done
@@ -267,11 +281,11 @@ fi
 for ARG in "$@"; do
   echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
   echo
-  qlever_make_show "${ARG}"
+  qlever_make_show "${VARS[@]}" "${ARG}"
   echo
   # Special precautions if index exists.
   # if [ "${ARG}" == "index" ]; then
-  qlever_make "${ARG}"
+  qlever_make "${VARS[@]}" "${ARG}"
   echo
 done
 
@@ -375,23 +389,22 @@ DOCKER_CONTAINER=qlever.$(DB)
 
 # Configuration for SPARQL+Text.
 QLEVER_TOOL_DIR=$(dir $(lastword $(MAKEFILE_LIST)))misc
-WITH_TEXT =
-TEXT_OPTIONS_INDEX=$(if $(WITH_TEXT),-w $(DB).wordsfile.tsv -d $(DB).docsfile.tsv,)
-TEXT_OPTIONS_START=$(if $(WITH_TEXT),-t,)
+WITH_TEXT=
 
-show-config-default:
-	@ echo "Basic configuration variables:"
-	@ echo -e "\033[34m"
-	@ for VAR in DB SLUG RDF_FILES CAT_FILES SERVER_PORT \
-	   MEMORY_FOR_QUERIES CACHE_MAX_SIZE_GB CACHE_MAX_SIZE_GB_SINGLE_ENTRY CACHE_MAX_NUM_ENTRIES \
-	   TEXT_OPTIONS_INDEX TEXT_OPTIONS_START \
-	   QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
-	   printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
-	@ echo -e "\033[0m"
-	@ # echo "make index will do the following (but NOT if an index with that name exists):"
-	@ # echo
-	@ # $(MAKE) -sn index | egrep -v "^(if|fi)"
-	@ # echo
+# Activate text options iff WITH_TEXT is one of: true yes 1. Don't forget the
+# leading whitespace because this is appended to the other options.
+WITH_TEXT_EMPTY_IF_FALSE=$(findstring $(WITH_TEXT),true yes 1)
+TEXT_OPTIONS_INDEX=$(if $(WITH_TEXT_EMPTY_IF_FALSE), -w $(DB).wordsfile.tsv -d $(DB).docsfile.tsv,)
+TEXT_OPTIONS_START=$(if $(WITH_TEXT_EMPTY_IF_FALSE), -t,)
+
+show-config:
+	echo "Basic configuration variables:"
+	echo -e "\033[34m"
+	for VAR in DB SLUG RDF_FILES CAT_FILES WITH_TEXT SERVER_PORT  \
+	 MEMORY_FOR_QUERIES CACHE_MAX_SIZE_GB CACHE_MAX_SIZE_GB_SINGLE_ENTRY CACHE_MAX_NUM_ENTRIES \
+	 QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
+	 printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
+	echo -e "\033[0m"
 
 %: %-default
 	@ true
@@ -428,12 +441,13 @@ remove_index:
 # Starting the server in the background. If it is still runing, issue a warning
 # and don't start it. Note the # after the code that does this check -> it will
 # hence not be shown by qlever_make_show.
-QLEVER_START_CMD=ServerMain -i $(DB)
-QLEVER_START_OPTIONS=-j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(SERVER_PORT) $(TEXT_OPTIONS_START)
+QLEVER_START_CMD=ServerMain
+QLEVER_START_OPTIONS=-i $(DB) -j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(SERVER_PORT)$(TEXT_OPTIONS_START)
 LOG_CMD=tail -f -n 10 $(DB).server-log.txt
 start:
 	if [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) == 0 ]; then #\
-	  echo -e "\033[31mServer already running, to restart it first do \"stop\"\033[0m"; else #\
+	  echo -e "\033[31mServer already running on port ${SERVER_PORT}, to restart it first do \"stop\" (or check the PORT in your Qleverfile)\033[0m"; #\
+	  echo && ps -ef | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}" | tr -s " "; else #\
 	echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..." && echo #\
 	$(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
 	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; #\
@@ -445,15 +459,16 @@ log:
 	echo #
 	$(LOG_CMD)
 
-# Command line for stopping the server.
+# Command line for stopping the server. NOTE: This also pays attention that the
+# index name fits.
 STOP_CMD_NATIVE=$$(while read PID; do kill $$PID 2> /dev/null; sed -i "/^$$PID$$/d" $(DB).pid; done < $(DB).pid)
 STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
 STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
-	PS=$$(ps -ef | \grep "$(QLEVER_START_CMD)" | \grep -v "grep.*$(QLEVER_START_CMD)" | tr -s " ") && PID=$$(echo $${PS} | cut -d " " -f 2) && if [ -z "$${PID}" ]; then false; else kill "$${PID}"; fi \
+	PS=$$(ps -ef | \grep "$(QLEVER_START_CMD) -i $(DB)" | \grep -v "grep.*$(QLEVER_START_CMD)" | tr -s " ") && PID=$$(echo $${PS} | cut -d " " -f 2) && if [ -z "$${PID}" ]; then false; else kill "$${PID}"; fi \
 	  && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID}" || #\
-	  (echo && echo -e "\033[31mDid not find a running server or could not kill it\033[0m") #
+          (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it\033[0m") #
 
 wait:
 	$(LOG_CMD) & PID=$$!; \

@@ -129,7 +129,7 @@ EOT
     echo
     # Adding directory of QLEVER_CMD, unless it's already there.
     # Activating bash autocompletion.
-    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_-]+:" | sed 's/:$//' | paste -sd" ")
+    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_-.]+:" | sed 's/:$//' | paste -sd" ")
     echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
     complete -W "${COMPLETIONS}" qlever
     echo "Done, the following completions will be available:"
@@ -469,9 +469,9 @@ STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
 STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
-	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i $(DB)" | \grep -v "grep.*$(QLEVER_START_CMD)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} \
+	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i [^ ]*$(DB)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} \
 	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID}" || #\
-          (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it\033[0m") #
+          (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it, try \"qlever status\"\033[0m") #
 
 status:
 	echo "Showing all processes with command \"$(QLEVER_START_CMD)\" on this machine ..." #
@@ -505,9 +505,10 @@ wait:
 # so it does not have a terminal (the error message is "Pseudo-terminal will not
 # be allocated because stdin is not a terminal." and "the input device is not a
 # TTY"). The manpage for ssh says: "Multiple -t options force tty allocation,
-# even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".
-# autocompletion-warmup:
-# 	@ ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup $(SLUG) pin\"
+# even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".in.master:
+pin.INTERNAL:
+	echo "Launch warmup queries for the QLever UI autocompletion (via galera) ..." #
+	ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup $(SLUG) pin\"
 
 # pin.local:
 # 	docker exec -it qlever-ui bash -c "python manage.py warmup $(SLUG) pin"

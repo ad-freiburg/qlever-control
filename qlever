@@ -447,7 +447,10 @@ LOG_CMD=tail -f -n 10 $(DB).server-log.txt
 start:
 	if [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) == 0 ]; then #\
 	  echo -e "\033[31mServer already running on port ${SERVER_PORT}, to restart it first do \"stop\" (or check the PORT in your Qleverfile)\033[0m"; #\
-	  echo && ps -ef | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}" | tr -s " "; else #\
+	  echo -e "\033[34m"; #\
+	  ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}"; #\
+	  printf "\033[0m"; else #\
+	  # echo && ps -ef | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}" | tr -s " "; else #\
 	echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..." && echo #\
 	$(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
 	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; #\
@@ -466,9 +469,15 @@ STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
 STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
-	PS=$$(ps -ef | \grep "$(QLEVER_START_CMD) -i $(DB)" | \grep -v "grep.*$(QLEVER_START_CMD)" | tr -s " ") && PID=$$(echo $${PS} | cut -d " " -f 2) && if [ -z "$${PID}" ]; then false; else kill "$${PID}"; fi \
-	  && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID}" || #\
+	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i $(DB)" | \grep -v "grep.*$(QLEVER_START_CMD)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} \
+	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID}" || #\
           (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it\033[0m") #
+
+status:
+	echo "Showing all processes with command \"$(QLEVER_START_CMD)\" on this machine ..." #
+	echo -e "\033[34m" #
+	ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "${QLEVER_START_CMD}" | \grep -v "grep.*${QLEVER_START_CMD}"
+	printf "\033[0m" #
 
 wait:
 	$(LOG_CMD) & PID=$$!; \

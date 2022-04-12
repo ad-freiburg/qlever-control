@@ -13,6 +13,43 @@ GRAY=$(printf "\033[37m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
+###
+### HELP (the help text shown with "qlever help")
+###
+
+function qlever_help {
+  cat << EOT
+${BOLD}QLever help${NORMAL}
+
+The "qlever" script controls ALL things concerning QLever. Before using it the
+first time in a particular shell and directory, type ". qlever". This will
+enable autocompletion for the command line and create a basic Qleverfile (the
+file containing all the configuration for QLever).
+
+SETTINGS: When you call the script without arguments, you get an overview over
+the basic settings. This list is not complete, there are more settings. If you
+don't find something in the documentation, you can also just look in the script,
+it's a bash script with a Makefile appended and so humand-readable (well, for
+some humans).
+
+ACTIONS: The autocompletion shows you the available actions. You can also
+execute several actions with one command, for example "qlever index start log".
+If you just want to see what an action does, but not exeute it, append show.
+That you can also do for multiple actions, for example "qlever index start log
+show".
+
+BINARIES: You have two options for building and using the QLever binaries. You
+can either use them via "docker" (via prebuilt images or your own images) or
+"native"ly on your machine (then you have to do some installation first). The
+default mode is "docker". Then all you need is a docker installation. The qlever
+script will automatically download and run the right images for you.
+
+[The last three sentences are not yet true. You currently need the QLever
+binaries "IndexBuilderMain" and "ServerMain" on your machine and in your PATH.]
+
+EOT
+}
+
 
 
 ###
@@ -69,8 +106,17 @@ QLEVERUI_DIR="qlever-ui"
 # QLEVERUI_DIR="${APP_DIR}/qlever-ui"
 QLEVERUI_DOCKER_IMAGE="qlever-ui"
 
-echo
-echo "${GRAY}Called \"${QLEVER_CMD}\" from \"${APP_DIR}\"${NORMAL}"
+# echo
+# echo "${GRAY}Called \"${QLEVER_CMD}\" from \"${APP_DIR}\"${NORMAL}"
+# echo
+INTRO_MSG="This is the \"qlever\" script, type \"qlever help\" if you need help :-)"
+# if [ ! -z "$*" ]; then
+#   INTRO_MSG="${INTRO_MSG} When called without arguments, it will show you some basic settings."
+# fi
+if [ "$*" != "help" ]; then
+  echo
+  echo "${GRAY}${INTRO_MSG}${NORMAL}" | fold -s
+fi
 echo
 
 
@@ -79,38 +125,14 @@ echo
 ### CONFIGURATION (called with . qlever)
 ###
 
-# With arguments "reset", remove completions and local Qleverfile. TODO: warn
-# before actually doing this because the Qleverfile might contain valuable
-# informationC, so for now we are moving it.
-if [ "${QLEVER_CMD}" != "$0" ] && [ ! -z "$*" ] && [ "$*" == "reset" ]; then
-  cat << EOT
-${BOLD}Resetting configuration${NORMAL}
-
-Regenerating the completions. The QLeverfile is not regenerated. If you want to
-regenerate it, remove it and run ". qlever reset" again.
-
-EOT
-  complete -r qlever 2> /dev/null
-  rm -f qlever.completions
-  # Don't touch the QLeverfile for now.
-  # if [ -e Qleverfile ]; then
-  #   QLEVERFILE_BACKUP=DELETE/Qleverfile.DELETED_$(date +%Y%m%dT%H%M)
-  #   echo "Moving Qleverfile to ${QLEVERFILE_BACKUP}"
-  #   echo
-  #   mv -f Qleverfile ${QLEVERFILE_BACKUP}
-  # fi
-  # eval ${EXIT}
-fi
-
-# If there is COMPLETIONS_FILE yet, create it. For that we have to first ask the
-# user to call the script with "source" or "." (it's the only way to activate
-# bash completion).
 COMPLETIONS_FILE=qlever.completions
-if [ ! -e ${COMPLETIONS_FILE} ]; then
-  # echo "\${BASH_SOURCE[0]}: ${BASH_SOURCE[0]}"
-  # echo "\$0=$0"
-  if [ ${BASH_SOURCE[0]} == $0 ]; then
-    cat << EOT
+
+# If not called with ". qlever" and completions are missing, tell the user to
+# run ".  qlever" once for full functionality. Note that bash autocompletion can
+# only be activated by "sourcing" the respective commands (the ". qlever" is
+# equivalent to "source qlever").
+if [ ${BASH_SOURCE[0]} == $0 ] && [ ! -e ${COMPLETIONS_FILE} ]; then
+  cat << EOT
 It seems you are running this script for the first time in this shell and
 directory. Please run it once as follows:
 
@@ -120,43 +142,61 @@ Afterwards you can just call "qlever" again (without the dot), and you will have
 bash autocompletion available. If you don't care about bash autocompletion or
 something doesn't work, just create an empty file ${COMPLETIONS_FILE} before
 your proceed.
-
+    
 EOT
     eval ${EXIT}
-  else
-    # CASE 1.2: This script is being sourced -> activate bash completions and
-    # write the completions to COMPLETIONS_FILE.
-    echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-    echo
-    # Adding directory of QLEVER_CMD, unless it's already there.
-    # Activating bash autocompletion.
-    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_.-]+:" | sed 's/:$//' | paste -sd" ")
-    echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
-    complete -W "${COMPLETIONS}" qlever
-    echo "Done, the following completions will be available:"
-    echo
-    echo "${BLUE}$(fold -s  ${COMPLETIONS_FILE})${NORMAL}"
-    echo
-  fi
 fi
 
-# If the is no Qleverfile in this directory yet, create a basic one.
-if [ ! -e Qleverfile ]; then
-  echo "${BOLD}Creating new local Qleverfile ...${NORMAL}"
+# If called with ". qlever", setup what is not already setup: the PATH, the
+# QLeverfile, the bash autocompletion.
+if [ "${QLEVER_CMD}" != "$0" ]; then
+
+  # PATH: Check if QLEVER_CMD_DIR is in the path and if not add it to the path.
+  echo "${BOLD}Checking your PATH ...${NORMAL}"
   echo
-  # If a file with suffix .ttl or .nt exists, use the basename as the basename
-  # for the index files (the DB variable in the configuration). If several such
-  # files exist, take the largest one. If no such file exists, leave the
-  # basename empty and for the user to set.
-  INPUT_FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
-  if [ ! -z ${INPUT_FILE} ]; then DB=${INPUT_FILE/.*/}; else DB=; fi
-    # Get right version of "cat", depending on suffix.
-    CAT=cat
-    if [[ ${INPUT_FILE} =~ \.gz\$ ]]; then CAT=zcat; fi
-    if [[ ${INPUT_FILE} =~ \.bz\$ ]]; then CAT=bzcat; fi
-    if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
-    if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
-    cat << EOT > Qleverfile
+  if [[ ":${PATH}:" == *":${QLEVER_CMD_DIR}:"* ]]; then
+    echo "All fine, \"${QLEVER_CMD_DIR}\" is contained in your PATH."
+  else
+    export PATH=${PATH}:${QLEVER_CMD_DIR}
+    cat << EOT | tr '\n' '  ' | fold -s
+Added "${QLEVER_CMD_DIR}" to your PATH, so that you can just type "qlever" from
+now on (without writing out the full path to it).
+EOT
+    echo
+    # echo "${BLUE}${PATH}${NORMAL}"
+  fi
+  echo
+
+  # QLeverfile: If it's not there yet, create a basic one (with good guesses for
+  # some basic settings). Never overwrite an existing one, also not when called
+  # with ". qlever reset".
+  if [ -e Qleverfile ]; then
+    if [ "$*" == "reset" ]; then
+      echo "${BOLD}Redoing setup ...${NORMAL}"
+      echo
+      cat << EOT
+There is alreay a QLeverfile in this directory. If you want a freshly generated
+basic Qleverfile, remove or move the existing one and run ".  qlever reset"
+again.
+
+EOT
+    fi
+  else
+    echo "${BOLD}Creating new Qleverfile ...${NORMAL}"
+    echo
+    # If a file with suffix .ttl or .nt exists, use the basename as the basename
+    # for the index files (the DB variable in the configuration). If several such
+    # files exist, take the largest one. If no such file exists, leave the
+    # basename empty and for the user to set.
+    INPUT_FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
+    if [ ! -z ${INPUT_FILE} ]; then DB=${INPUT_FILE/.*/}; else DB=; fi
+      # Get right version of "cat", depending on suffix.
+      CAT=cat
+      if [[ ${INPUT_FILE} =~ \.gz\$ ]]; then CAT=zcat; fi
+      if [[ ${INPUT_FILE} =~ \.bz\$ ]]; then CAT=bzcat; fi
+      if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
+      if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
+      cat << EOT > Qleverfile
 # Qleverfile for folder $(pwd)
 # Created on $(date).
 # Modify or expand as you see fit.
@@ -176,44 +216,58 @@ CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 EOT
-    cat << EOT
-There was no Qleverfile in this directory yet. A Qleverfile contains basic
-configuration telling the "qlever" command how to do certain things. I now
-created the following basic Qleverfile.
+      cat << EOT
+There was no Qleverfile in this directory yet. A Qleverfile contains
+basic configuration telling the "qlever" command how to do certain
+things. The following basic Qleverfile was now created:
 
 ${BLUE}$(cat Qleverfile)${NORMAL}
 
 EOT
-fi
+  fi
 
-# If the QLever UI repo is not there yet, download it.
+  # Bash autocompletion: If there is no COMPLETIONS_FILE yet or if called with
+  # argument "reset", create it and activate the autocompletion (only has an
+  # effect outside of this script when called with ". qlever").
+  if [ ! -e ${COMPLETIONS_FILE} ] || [ "$*" == "reset" ]; then
+    echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
+    echo
+    COMPLETIONS=$(get_master_qleverfile | \grep -oE "^[a-zA-Z_.-]+:" | sed 's/:$//' | paste -sd" ")
+    echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
+    complete -W "${COMPLETIONS}" qlever
+    echo "Done, the following completions are now available:"
+    echo
+    echo "${BLUE}$(fold -s  ${COMPLETIONS_FILE})${NORMAL}"
+    echo
+  fi
 
-# TODO: For now, just have a working copy for each QLever instance. One central
-# working copy would be also fine, but it also doesn't hurt because it's less
-# than 50 MB large.
-if [ ! -d ${QLEVERUI_DIR} ]; then
-  echo "${BOLD}Downloading and building QLever UI ...${NORMAL}"
-  echo
-  cat << EOT | tr '\n' ' ' | fold -s
+  # QLever UI: if the repo is not there yet, download it via GitHub.
+  #
+  # TODO: For now, just have a working copy for each QLever instance. One central
+  # working copy would be also fine, but it also doesn't hurt because it's less
+  # than 50 MB large.
+  if [ ! -d ${QLEVERUI_DIR} ]; then
+    cat << EOT
+${BOLD}Downloading and building QLever UI ...${NORMAL}
+
 Downloading a copy from ${QLEVERUI_GIT} (it's small) and building the docker
 image from it. This requires that you have docker installed. Stay tuned if you
 want to use the QLever UI without docker. Also, if you just want to interact
 with a QLever server via API, you don't need the QLever UI.
 EOT
-  echo && echo
-  git clone ${QLEVERUI_GIT} ${QLEVERUI_DIR}
-  echo 
-  # QLEVERUI_BUILD_LOG="qleverui.build-log.txt"
-  # echo "Building docker image \"${QLEVERUI_DOCKER_IMAGE}\", log in \"${QLEVERUI_BUILD_LOG}\" ..."
-  # echo
-  # (cd ${QLEVERUI_DIR} && docker build -t ${QLEVERUI_DOCKER_IMAGE} . \
-  #     | > qleverui.build-log.txt)
-fi
+    echo && echo
+    git clone ${QLEVERUI_GIT} ${QLEVERUI_DIR}
+    echo 
+    # QLEVERUI_BUILD_LOG="qleverui.build-log.txt"
+    # echo "Building docker image \"${QLEVERUI_DOCKER_IMAGE}\", log in \"${QLEVERUI_BUILD_LOG}\" ..."
+    # echo
+    # (cd ${QLEVERUI_DIR} && docker build -t ${QLEVERUI_DOCKER_IMAGE} . \
+    #     | > qleverui.build-log.txt)
+  fi
 
-# If the script was sourced (initial setup), exit (will be "return") now.
-if [ ${QLEVER_CMD} != $0 ]; then
-  echo "${BOLD}Setup is complete${NORMAL}"
-  cat << EOT | fold -s
+  # DONE: give the user a short heads up what they can do now.
+  cat << EOT
+${BOLD}Setup is complete${NORMAL}
 
 Type "qlever" and use autocompletion to see which actions are available. Add a
 "show" in the end to see what an action does without executing it (for example,
@@ -225,6 +279,18 @@ If you want to redo the setup, you can run ".  qlever reset" anytime.
 EOT
   eval ${EXIT}
 fi
+
+
+#   cat << EOT | tr '\n' ' ' | fold -s
+#     ${BOLD}Resetting configuration${NORMAL}
+#     
+#     Regenerating the completions. The QLeverfile is not regenerated. If you want to
+#     regenerate it, remove it and run ". qlever reset" again.
+# 
+# EOT
+#   complete -r qlever 2> /dev/null
+#   rm -f qlever.completions
+
 
 
 
@@ -262,6 +328,14 @@ EOT
   fi
   eval ${EXIT}
 fi
+
+# When the only action is "help", show help info.
+if [ "$*" == "help" ]; then
+  qlever_help
+  eval ${EXIT}
+fi
+
+
 
 # If the last argument is "show", just show the commands, but don't execute
 # them. The first for loop is a portable hack to get the last argument.

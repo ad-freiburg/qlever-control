@@ -10,6 +10,7 @@
 BLUE=$(printf "\033[34m")
 RED=$(printf "\033[31m")
 GRAY=$(printf "\033[37m")
+MAGENTA=$(printf "\033[35m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
@@ -257,6 +258,11 @@ if [ "${LAST}" == "show" ]; then
   done
   eval ${EXIT}
 fi
+
+# USE_DOCKER=false
+# printf "${BOLD}${MAGENTA}"
+# if ${USE_DOCKER}; then echo "!! USE DOCKER !!"; else echo "!! USE NATIVE !!"; fi
+# echo "${NORMAL}"
 
 # Normal execution of script using make with two Makefiles. The first Makefile
 # is everything after __DATA__ below (that part is used as the master

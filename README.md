@@ -1,7 +1,7 @@
 # QLever Control
 
 This is a very small repository. Its main contents is a script `qlever`
-that can control everything that QLever does. The script is supossed to be very
+that can control everything that QLever does. The script is supposed to be very
 easy to use. If you use docker, you don't even have to download any QLever code
 (docker will pull anything it needs) and the script is all you need.
 

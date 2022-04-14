@@ -679,14 +679,22 @@ STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
 STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
-	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i [^ ]*$(DB)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} \
-          2> /dev/null && echo && rm -f $(DB).server-log.txt && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID} and removed \"$(DB).server-log.txt\"" || #\
-          (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it, try \"qlever status\"\033[0m") #
+	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i [^ ]*$(DB)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} && rm -f $(DB).server-log.txt \
+	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID} and removed \"$(DB).server-log.txt\"" || #\
+	  (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it, try \"qlever status\"\033[0m") #
+
+restart:
+	qlever stop \
+          | sed '1,3d' #
+	qlever start \
+          | sed '1,3d' #
 
 status:
 	echo "Showing all processes with command \"$(QLEVER_START_CMD)\" on this machine ..." #
 	echo -e "\033[34m" #
-	ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "${QLEVER_START_CMD}" | \grep -v "grep.*${QLEVER_START_CMD}"
+	ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -e '1p; /\bServerMain/!d' \
+	  | awk 'NR==1 {o=$$0; a=match($$0, $$5)} NR > 1 {o=$$0; $$4=int($$4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $$1, $$2, $$3, $$4, substr(o, a)}' #
+	# ps -e -o "%p" -o "  %U " -o start_time -o rss -o "  %a" | \grep "${QLEVER_START_CMD}" | \grep -v "grep.*${QLEVER_START_CMD}" #
 	printf "\033[0m" #
 
 wait:

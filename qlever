@@ -184,12 +184,16 @@ EOT
   echo
 
   # PATH 2: Same check for QLEVER_BINARIES_DIR (currently hard-coded, see its
-  # definition # above).
-  echo XXX
-  echo ${QLEVER_BIN_DIR}
-  echo XXX
+  # definition above).
   if [[ ":${PATH}:" != *":${QLEVER_BIN_DIR}:"* ]]; then
     export PATH=${PATH}:${QLEVER_BIN_DIR}
+  fi
+
+  # If we called ". qlever path" (just to set the paths), exit here.
+  if [ "$*" == "init" ]; then
+    echo "${BOLD}Called \". qlever init\", so leaving now${NORMAL}"
+    echo
+    eval ${EXIT}
   fi
 
   # Bash autocompletion: Set completions with "complete -W" and store the

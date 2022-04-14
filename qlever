@@ -639,12 +639,13 @@ cat-files:
 	eval $(CAT_FILES)
 
 # Building an index.
+INDEX_FLAGS=
 QLEVER_INDEX_CMD=IndexBuilderMain
 QLEVER_INDEX_OPTIONS=-F ttl -K $(DB) -f - -l -i $(DB) $(TEXT_OPTIONS_INDEX) -s $(DB_BASE).settings.json
 index:
 	if ls $(DB).index.* 1> /dev/null 2>&1; then #\
 	  echo -e "\033[31mIndex exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)\033[0m"; else #\
-          time ($(CAT_FILES) | $(QLEVER_INDEX_CMD) $(QLEVER_INDEX_OPTIONS) | tee $(DB).index.log.txt) \
+          time ($(CAT_FILES) | $(QLEVER_INDEX_CMD) $(QLEVER_INDEX_OPTIONS) $(INDEX_FLAGS) | tee $(DB).index.log.txt) \
 	; fi #
 
 # Removing an index.

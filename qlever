@@ -364,13 +364,18 @@ function is_docker_running {
     return 1
   fi
 }
-if is_docker_running && [[ "$*" != "docker-off"* ]]; then
+
+# If Docker is running, run in docker.
+# 
+# Exceptions: option -- provided or action "status" or "pin.INTERNAL"
+# 
+if is_docker_running && [[ "$*" != "docker-off"* ]] && [ "$*" != "status" ] && [ "$*" != "pin.INTERNAL" ]; then
   if [ -z "${OPT}" ]; then
     echo "${BOLD}${MAGENTA}DOCKER ACTIVATED (found a running container named \"${QLEVER_DOCKER_CONTAINER}\"), to force NATIVE use \"qlever -- ...\"${NORMAL}"
     echo
     echo "Continuing with running your command inside this docker container:"
     echo
-    DOCKER_QLEVER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ./qlever $@\""
+    DOCKER_QLEVER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && . qlever init > /dev/null && qlever $@\""
     echo "${BLUE}${DOCKER_QLEVER_CMD}${NORMAL}"
     echo
     eval "${DOCKER_QLEVER_CMD}" | sed '1,3d'
@@ -587,7 +592,7 @@ docker-on:
 	echo "Activating docker ..." #
 	echo #
 	docker rm -f $(QLEVER_DOCKER_CONTAINER) 2> /dev/null #
-	docker run -d -u $$(id -u):$$(id -g) -it -v $$(pwd):/index -p 7019:7019 --entrypoint bash --name $(QLEVER_DOCKER_CONTAINER) $(QLEVER_DOCKER_IMAGE) > /dev/null 2>&1
+	docker run -d -u $$(id -u):$$(id -g) -it -v $$(pwd):/index -p $(SERVER_PORT):$(SERVER_PORT) --entrypoint bash --name $(QLEVER_DOCKER_CONTAINER) $(QLEVER_DOCKER_IMAGE) > /dev/null
 	docker cp $(QLEVER_CMD_DIR)/qlever qlever:/index
 	printf "\033[34m" #
 	docker ps | tr -s " " | grep "$(QLEVER_DOCKER_CONTAINER) " #
@@ -662,7 +667,7 @@ start:
 	  printf "\033[0m"; else #\
 	  # echo && ps -ef | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}" | tr -s " "; else #\
 	echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..." && echo #\
-	$(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
+	nohup $(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
 	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; \
 	   do sleep 1; done; kill $${PID}; fi
 

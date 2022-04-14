@@ -685,7 +685,7 @@ STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
 	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i [^ ]*$(DB)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} \
-	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID}" || #\
+          2> /dev/null && echo && rm -f $(DB).server-log.txt && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID} and removed \"$(DB).server-log.txt\"" || #\
           (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it, try \"qlever status\"\033[0m") #
 
 status:

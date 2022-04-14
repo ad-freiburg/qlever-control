@@ -170,26 +170,21 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # ALso check if 
   echo "${BOLD}Checking your PATH ...${NORMAL}"
   echo
-  if [[ ":${PATH}:" == *":${QLEVER_CMD_DIR}:"* ]]; then
-    echo "All fine, \"${QLEVER_CMD_DIR}\" is contained in your PATH."
-  else
-    export PATH=${PATH}:${QLEVER_CMD_DIR}
-    cat << EOT | tr '\n' '  ' | fold -s
-Added "${QLEVER_CMD_DIR}" to your PATH, so that you can just type "qlever" from
-now on (without writing out the full path to it).
-EOT
-    echo
-    # echo "${BLUE}${PATH}${NORMAL}"
-  fi
+  for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do
+    if [[ ":${PATH}:" == *":${DIR}:"* ]]; then
+      echo "The directory \"${DIR}\" is already contained in your PATH"
+    else
+      export PATH=${PATH}:${DIR}
+      echo "Added the directory \"${DIR}\" to your PATH"
+    fi
+  done
   echo
 
-  # PATH 2: Same check for QLEVER_BINARIES_DIR (currently hard-coded, see its
-  # definition # above).
-  echo XXX
-  echo ${QLEVER_BIN_DIR}
-  echo XXX
-  if [[ ":${PATH}:" != *":${QLEVER_BIN_DIR}:"* ]]; then
-    export PATH=${PATH}:${QLEVER_BIN_DIR}
+  # If we called ". qlever path" (just to set the paths), exit here.
+  if [ "$*" == "path" ]; then
+    echo "${NORMAL}Called \". qlever path\", so leaving now${NORMAL}"
+    echo
+    eval ${EXIT}
   fi
 
   # Bash autocompletion: Set completions with "complete -W" and store the
@@ -211,7 +206,7 @@ EOT
   # If we called ". qlever init" (for use in .bashrc, where we only want to set
   # the PATH and activate the autocompletion), exit here.
   if [ "$*" == "init" ]; then
-    echo "${BOLD}Called \". qlever init\", so leaving now${NORMAL}"
+    echo "${NORMAL}Called \". qlever init\", so leaving now${NORMAL}"
     echo
     eval ${EXIT}
   fi

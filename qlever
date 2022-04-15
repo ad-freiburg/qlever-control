@@ -74,17 +74,20 @@ function get_master_qleverfile {
   sed -e '1,/^__DATA__/d' ${QLEVER_CMD} | tee Qleverfile.master.debug
 }
 
+function use_docker {
+  [ "${USE_DOCKER}" == "1" ]
+}
+
 # Variant of make that reads the master Qleverfile (using GET_MASTER_QLEVERFILE)
 # and the local Qleverfile (in the directory from which this script is called).
 # The -s option stands for "silent" (do not show the commands while executing
 # them).
 function qlever_make {
+  QLEVERFILE_ARG=
   if [ -e "${APP_DIR}/Qleverfile" ]; then
-    get_master_qleverfile \
-        | make -s -f - -f ${APP_DIR}/Qleverfile "$@" #2> /dev/null
-  else
-    get_master_qleverfile | make -s -f - "$@"
+    QLEVERFILE_ARG=" -f ${APP_DIR}/Qleverfile"
   fi
+  get_master_qleverfile | make -s -f - ${QLEVERFILE_ARG} "$@"
 }
 
 # Like the above, but only show what would be executed (using the -n option of
@@ -123,6 +126,51 @@ if [ ! -z "$*" ] && [ "$*" != "help" ]; then
 fi
 echo
 
+# When no arguments or "help", show help info.
+if [ -z "$*" ] || [ "$*" == "help" ]; then
+  qlever_help
+  eval ${EXIT}
+fi
+
+
+ 
+###
+### GET MAKEFILE VARIABLES INTO THIS SCRIPT
+###
+
+# First separate the variable assignment arguments from the others. The
+# assignment will go in VARS, the rest will stay in $@ (both arrays).
+# VARS=( "QLEVER_CMD=${QLEVER_CMD}" "QLEVER_CMD_DIR=${QLEVER_CMD_DIR}" )
+VARS=()
+OPT=""
+for ARG do
+  shift
+  [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
+  [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
+  set -- "$@" "${ARG}"
+done
+# for VAR in "${VARS[@]}"; do echo "VAR = \"${VAR}\""; done
+# for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
+# echo
+
+# Special command "show-config" (for debugging, not one of the completions).
+if [ "$*" == "show-config" ]; then
+  echo "${BOLD}${MAGENTA}Secret action \"show-config\":${NORMAL}"
+  echo
+  cat << EOT
+Showing the settings of some variables after they went through "make" and then
+exported to the "qlever" script again (for debugging). If you call the script
+with a variable assignment as in "qlever USE_DOCKER=0 ...", that value should
+overrule the one from the QLeverfile.
+EOT
+  echo "${BLUE}"
+  qlever_make "${VARS[@]}" export.HIDDEN
+  echo "${NORMAL}"
+  eval ${EXIT}
+fi
+
+# Actually do these assignments. NO: this is already done above!
+eval $(qlever_make "${VARS[@]}" export.HIDDEN)
 
 
 ###
@@ -131,7 +179,7 @@ echo
 
 # Get selected variables from the master Qleverfile (and also the local
 # Qleverfile if it exists).
-eval $(qlever_make export.HIDDEN)
+# eval $(qlever_make export.HIDDEN)
 # echo "${MAGENTA}DEBUG: qlever_make export${NORMAL}"
 # echo
 # echo "BASH_COMPLETION = ${BASH_COMPLETION}"
@@ -339,84 +387,30 @@ fi
 ###
 ### WHAT THE SCRIPT ACTUALLY DOES (it's basically a wrapper for "make")
 ###
- 
-# First separate the variable assignment arguments from the others. The
-# assignment will go in VARS, the rest will stay in $@ (both arrays).
-VARS=( "QLEVER_CMD=${QLEVER_CMD}" "QLEVER_CMD_DIR=${QLEVER_CMD_DIR}" )
-OPT=""
-for ARG do
-  shift
-  [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
-  [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
-  set -- "$@" "${ARG}"
-done
-# for VAR in "${VARS[@]}"; do echo "VAR = \"${VAR}\""; done
-# for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
-# echo
 
-# Docker handling.
-QLEVER_DOCKER_IMAGE=adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER=qlever
-function is_docker_running {
-  if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# If Docker is running, run in docker.
-# 
-# Exceptions: option -- provided or action "status" or "pin.INTERNAL"
-# 
-if is_docker_running && [[ "$*" != "docker-off"* ]] && [ "$*" != "status" ] && [ "$*" != "pin.INTERNAL" ]; then
-  if [ -z "${OPT}" ]; then
-    echo "${BOLD}${MAGENTA}DOCKER ACTIVATED (found a running container named \"${QLEVER_DOCKER_CONTAINER}\"), to force NATIVE use \"qlever -- ...\"${NORMAL}"
-    echo
-    echo "Continuing with running your command inside this docker container:"
-    echo
-    DOCKER_QLEVER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && . qlever init > /dev/null && qlever $@\""
-    echo "${BLUE}${DOCKER_QLEVER_CMD}${NORMAL}"
-    echo
-    eval "${DOCKER_QLEVER_CMD}" | sed '1,3d'
-    # echo "${MAGENTA}${BOLD}DOCKER EXEC done -> explicit EXIT${NORMAL}"
-    # echo
-    eval "${EXIT}"
-  else
-    # DEBUG: (last) Show optional argument if it exists.
-    if [ ! -z "${OPT}" ]; then
-      echo "${MAGENTA}OPTION ${OPT} PROVIDED -> force NATIVE mode despite running docker container${NORMAL}"
+# Use docker is USE_DOCKER is 1, otherwise assume that the QLever binaries are in the PATH.
+# Optional argument -- is a shorthand for NOT using docker.
+if [ "${OPT}" != "--" ] && [ "$*" != "status" ]; then
+  if [ "${USE_DOCKER}" == "1" ]; then
+    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+      echo "${MAGENTA}Using the already running docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
       echo
+    else
+      echo "${MAGENTA}Starting new docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
+      echo
+      qlever_make_show "${VARS[@]}" QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" docker-run.HIDDEN
+      echo
+      qlever_make QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" "${VARS[@]}" docker-run.HIDDEN
+    fi
+  else
+    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+      echo "${MAGENTA}USE_DOCKER=0 but found docker container \"${QLEVER_DOCKER_CONTAINER}\", removing it ...${NORMAL}"
+      echo
+      qlever_make_show "${VARS[@]}" docker-remove.HIDDEN
+      echo
+      qlever_make "${VARS[@]}" docker-remove.HIDDEN
     fi
   fi
-fi
-
-# When calling script with no arguments, show the config. TODO: Give the user
-# some more information here.
-# if [ -z "$*" ]; then
-#   # qlever_make "${VARS[@]}"
-#   if [ "${BASH_COMPLETION}" == "0" ]; then
-#     echo "${RED}Completions deactivated (set BASH_COMPLETION = 1 in Qleverfile to activate)${NORMAL}"
-#     echo
-#   elif [ ! -z "${QLEVER_COMPLETIONS}" ]; then
-#     cat << EOT
-# All completions:
-# 
-# ${BLUE}$(echo ${QLEVER_COMPLETIONS} | fold -s)${NORMAL}
-# 
-# To see what a particular command would do (without executing it), just type
-# something like "qlever index show" (single command) or "qlever start log show"
-# (multiple commands)
-# 
-# EOT
-#   fi
-#   eval ${EXIT}
-# fi
-
-# When no arguments or "help", show help info.
-if [ -z "$*" ] || [ "$*" == "help" ]; then
-  qlever_help
-  eval ${EXIT}
 fi
 
 # If the last argument is "show", just show the commands, but don't execute
@@ -445,13 +439,24 @@ fi
 for ARG in "$@"; do
   echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
   echo
-  # TODO: Handle non-existing commands more gracefully, currently an error
-  # message from "make" is shown (twice).
-  if qlever_make_show "${VARS[@]}" "${ARG}" ; then
+  # NEW: If the docker container is running, stop here and run the same command with docker exec.
+  #
+  # TODO: I tried exec docker exec before, but that didn't work. Hence now eval + exit.
+  if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ] \
+    && [ "$ARG" != "status" ]; then
+    DOCKER_EXEC_CMD='docker exec -it '"${QLEVER_DOCKER_CONTAINER}"' bash -c "cd /index && ./qlever '"${VARS[@]}"' '"${ARG}"'"'
+    echo "${MAGENTA}${DOCKER_EXEC_CMD}${NORMAL}"
     echo
-    qlever_make "${VARS[@]}" "${ARG}"
+    eval ${DOCKER_EXEC_CMD} | sed '1,5d'
+  else
+    # TODO: Handle non-existing commands more gracefully, currently an error
+    # message from "make" is shown (twice).
+    if qlever_make_show "${VARS[@]}" "${ARG}" ; then
+      echo
+      qlever_make "${VARS[@]}" "${ARG}"
+    fi
+    echo
   fi
-  echo
 done
 
 eval ${EXIT}
@@ -548,9 +553,9 @@ FREQUENT_PATTERNS_WITHOUT_ORDER =
 QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
 
 # Docker-related variables.
-USE_DOCKER =
-DOCKER_IMAGE=adfreiburg/qlever:latest
-DOCKER_CONTAINER=qlever.$(DB)
+USE_DOCKER=1
+QLEVER_DOCKER_IMAGE=adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER=qlever.$(DB)
 
 # Configuration for SPARQL+Text.
 QLEVER_TOOL_DIR=$(dir $(lastword $(MAKEFILE_LIST)))misc
@@ -562,14 +567,15 @@ WITH_TEXT_EMPTY_IF_FALSE=$(findstring $(WITH_TEXT),true yes 1)
 TEXT_OPTIONS_INDEX=$(if $(WITH_TEXT_EMPTY_IF_FALSE), -w $(DB).wordsfile.tsv -d $(DB).docsfile.tsv,)
 TEXT_OPTIONS_START=$(if $(WITH_TEXT_EMPTY_IF_FALSE), -t,)
 
-show-config.HIDDEN:
-	echo "Basic configuration variables:" #
-	echo -e "\033[34m" #
-	for VAR in DB SLUG RDF_FILES CAT_FILES WITH_TEXT SERVER_PORT \
-	  MEMORY_FOR_QUERIES CACHE_MAX_SIZE_GB CACHE_MAX_SIZE_GB_SINGLE_ENTRY CACHE_MAX_NUM_ENTRIES \
-	  QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
-	  printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
-	printf "\033[0m" #
+# show-config.HIDDEN:
+# 	echo "Basic configuration variables:" #
+# 	echo -e "\033[34m" #
+# 	for VAR in \
+#           USE_DOCKER BASH_COMPLETION \
+#           DB RDF_FILES CAT_FILES WITH_TEXT \
+# 	  QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
+# 	  printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
+# 	printf "\033[0m" #
 
 # Target for exporting selected variables. This is used by the "qlever" script
 # to get access to some of the variable from the Qleverfile. Note that the value
@@ -580,31 +586,21 @@ show-config.HIDDEN:
 # NOTE: We could also export the values literally using something like $(info
 # PORT=$(PORT)), but that is not what we want here.
 export.HIDDEN:
-	@ for VAR in BASH_COMPLETION USE_DOCKER QLEVER_BIN_DIR; do \
+	for VAR in USE_DOCKER BASH_COMPLETION QLEVER_BIN_DIR QLEVER_DOCKER_CONTAINER; do \
 	  echo "$$VAR=$${!VAR}"; done \
 
 # Activate docker.
 QLEVER_CMD=
 QLEVER_CMD_DIR=
-QLEVER_DOCKER_IMAGE=adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER=qlever
-docker-on:
-	echo "Activating docker ..." #
-	echo #
-	docker rm -f $(QLEVER_DOCKER_CONTAINER) 2> /dev/null #
-	docker run -d -u $$(id -u):$$(id -g) -it -v $$(pwd):/index -p $(SERVER_PORT):$(SERVER_PORT) --entrypoint bash --name $(QLEVER_DOCKER_CONTAINER) $(QLEVER_DOCKER_IMAGE) > /dev/null
-	docker cp $(QLEVER_CMD_DIR)/qlever qlever:/index
-	printf "\033[34m" #
-	docker ps | tr -s " " | grep "$(QLEVER_DOCKER_CONTAINER) " #
-	echo -e "\033[0m" #
-	echo "Server actions will now be executed via the docker container \"$(QLEVER_DOCKER_CONTAINER)\"" #
+docker-run.HIDDEN:
+	docker run -d -u $$(id -u):$$(id -g) -it -v $$(pwd):/index -p $(SERVER_PORT):$(SERVER_PORT) --entrypoint bash --name $(QLEVER_DOCKER_CONTAINER) $(QLEVER_DOCKER_IMAGE) \
+          > /dev/null; #\
+	docker cp $(QLEVER_CMD_DIR)/qlever qlever:/index \
+	  > /dev/null #
 
-docker-off:
-	echo "Deactivating docker ..." #
-	docker rm -f $(QLEVER_DOCKER_CONTAINER) 2> /dev/null > /dev/null
-	# docker ps | tr -s " " | grep "$(QLEVER_DOCKER_CONTAINER) " #
-	echo #
-	echo "Server actions will now be executed via the binaries \"IndexBuilderMain\" and \"ServerMain\" (assuming they are in your PATH)"
+docker-remove.HIDDEN:
+	docker rm -f "$(QLEVER_DOCKER_CONTAINER)" \
+          > /dev/null #
 
 # Update the qlever script (locate, check whether it's a git working copy, git
 # pull). Note: When this is called by the qlever script, QLEVER_CMD and
@@ -624,12 +620,6 @@ where:
 	cd -- "$$(dirname -- "$(QLEVER_CMD)")" &> /dev/null && pwd
 	printf "\033[0m" #
 
-# Pull new image if image name contains a /
-
-docker-pull.HIDDEN:
-	@ if [[ "$(DOCKER_IMAGE)" == */* ]]; then docker pull $(DOCKER_IMAGE); fi
-	@ docker images -f "reference=$(DOCKER_IMAGE)"
-
 # Produce list of all input files.
 rdf-files:
 	ls $(RDF_FILES)
@@ -639,13 +629,12 @@ cat-files:
 	eval $(CAT_FILES)
 
 # Building an index.
-INDEX_FLAGS=
-QLEVER_INDEX_CMD=IndexBuilderMain
-QLEVER_INDEX_OPTIONS=-F ttl -K $(DB) -f - -l -i $(DB) $(TEXT_OPTIONS_INDEX) -s $(DB_BASE).settings.json
+INDEX_BUILD_CMD=IndexBuilderMain
+INDEX_BUILD_OPTIONS=-F ttl -K $(DB) -f - -l -i $(DB) $(TEXT_OPTIONS_INDEX) -s $(DB_BASE).settings.json
 index:
 	if ls $(DB).index.* 1> /dev/null 2>&1; then #\
 	  echo -e "\033[31mIndex exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)\033[0m"; else #\
-          time ($(CAT_FILES) | $(QLEVER_INDEX_CMD) $(QLEVER_INDEX_OPTIONS) $(INDEX_FLAGS) | tee $(DB).index.log.txt) \
+          time ($(CAT_FILES) | $(INDEX_BUILD_CMD) $(INDEX_BUILD_OPTIONS) | tee $(DB).index.log.txt) \
 	; fi #
 
 # Removing an index.
@@ -657,18 +646,18 @@ remove_index:
 # Starting the server in the background. If it is still runing, issue a warning
 # and don't start it. Note the # after the code that does this check -> it will
 # hence not be shown by qlever_make_show.
-QLEVER_START_CMD=ServerMain
-QLEVER_START_OPTIONS=-i $(DB) -j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(SERVER_PORT)$(TEXT_OPTIONS_START)
+SERVER_START_CMD=ServerMain
+SERVER_START_OPTIONS=-i $(DB) -j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(SERVER_PORT)$(TEXT_OPTIONS_START)
 LOG_CMD=tail -f -n 10 $(DB).server-log.txt
 start:
 	if [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) == 0 ]; then #\
 	  echo -e "\033[31mServer already running on port ${SERVER_PORT}, to restart it first do \"stop\" (or check the PORT in your Qleverfile)\033[0m"; #\
 	  echo -e "\033[34m"; #\
-	  ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}"; #\
+	  ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "${SERVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${SERVER_START_CMD}"; #\
 	  printf "\033[0m"; else #\
-	  # echo && ps -ef | \grep "${QLEVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${QLEVER_START_CMD}" | tr -s " "; else #\
+	  # echo && ps -ef | \grep "${SERVER_START_CMD} .*-p ${SERVER_PORT}" | \grep -v "grep.*${SERVER_START_CMD}" | tr -s " "; else #\
 	echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..." && echo #\
-	nohup $(QLEVER_START_CMD) $(QLEVER_START_OPTIONS) > $(DB).server-log.txt & \
+	$(SERVER_START_CMD) $(SERVER_START_OPTIONS) > $(DB).server-log.txt & \
 	$(LOG_CMD) & PID=$$!; while [ $$(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $$?) != 0 ]; \
 	   do sleep 1; done; kill $${PID}; fi
 
@@ -680,13 +669,12 @@ log:
 
 # Command line for stopping the server. NOTE: This also pays attention that the
 # index name fits.
-STOP_CMD_NATIVE=$$(while read PID; do kill $$PID 2> /dev/null; sed -i "/^$$PID$$/d" $(DB).pid; done < $(DB).pid)
-STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
-STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
+SERVER_PS_CMD=ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(SERVER_START_CMD) -i [^ ]*$(DB)"
 stop:
 	echo "Stop the QLever server (find and kill manually if it fails) ..." #
-	PS=$$(ps -e -o "%p" -o "  %U " -o start_time -o "  %a" | \grep "$(QLEVER_START_CMD) -i [^ ]*$(DB)") && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} && rm -f $(DB).server-log.txt \
-	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && echo "Killed process with PID $${PID} and removed \"$(DB).server-log.txt\"" || #\
+	PS=$$($(SERVER_PS_CMD)) && PID=$$(echo $${PS} | cut -d " " -f 1) && kill $${PID} && rm -f $(DB).server-log.txt \
+	  2> /dev/null && echo && echo -e "\033[34m$${PS}\033[0m" && echo && #\
+	  echo "Killed process with PID $${PID} and removed \"$(DB).server-log.txt\"" || #\
 	  (echo && echo -e "\033[31mDid not find a running server for \"$(DB)\" or could not kill it, try \"qlever status\"\033[0m") #
 
 restart:
@@ -696,11 +684,11 @@ restart:
           | sed '1,3d' #
 
 status:
-	echo "Showing all processes with command \"$(QLEVER_START_CMD)\" on this machine ..." #
+	echo "Showing all processes with command \"$(SERVER_START_CMD)\" on this machine ..." #
 	echo -e "\033[34m" #
 	ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -e '1p; /\bServerMain/!d' \
 	  | awk 'NR==1 {o=$$0; a=match($$0, $$5)} NR > 1 {o=$$0; $$4=int($$4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $$1, $$2, $$3, $$4, substr(o, a)}' #
-	# ps -e -o "%p" -o "  %U " -o start_time -o rss -o "  %a" | \grep "${QLEVER_START_CMD}" | \grep -v "grep.*${QLEVER_START_CMD}" #
+	# ps -e -o "%p" -o "  %U " -o start_time -o rss -o "  %a" | \grep "${SERVER_START_CMD}" | \grep -v "grep.*${SERVER_START_CMSERVER_START_CMD}" #
 	printf "\033[0m" #
 
 wait:

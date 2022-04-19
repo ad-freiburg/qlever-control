@@ -97,7 +97,7 @@ NOSHOW=
 
 function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
-    echo "${RED}Index exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)${NORMAL}"
+    echo "${RED}Index exists, delete it first with \"qlever remove-index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
     eval $SHOW ${INDEXER_CMD}
   fi

@@ -28,24 +28,50 @@ first time in a particular shell and directory, type ". qlever". This will
 enable autocompletion for the command line and create a basic Qleverfile.
 
 QLEVERFILE: You need a file named "QLeverfile" in the directory from which you
-are calling the "qlever" script. It controls settings of the script, the dataset
-you want to process, the server, and the QLever UI. After the initial call to ".
-qlever", the Qleverfile will contain default settings.
+are calling the "qlever" script. The initial call to ". qlever" will create one
+for you, which you can then modify as you see fit. The QLeverfile controls
+settings of the script, the dataset you want to process, the server, whether to
+use docker or not, and the QLever UI.
 
-ACTIONS: The autocompletion shows you the available actions. You can also
-execute several actions with one command, for example "qlever index start log".
-If you just want to see what an action does, but not exeute it, append show.
-That you can also do for multiple actions, for example "qlever index start log
-show".
+ACTIONS: On the command line, typing TAB after "qlever" gives you the available
+actions. You can also execute several actions with one command, for example
+"qlever index start log". If you just want to see what an action does, but not
+exeute it, append show.  That you can also do for multiple actions, for example
+"qlever index start log show".
 
-BINARIES: You have two options for building and using the QLever binaries. You
-can either use them via "docker" (via prebuilt images or your own images) or
-"native"ly on your machine (then you have to do some installation first). The
-default mode is "docker". Then all you need is a docker installation. The qlever
-script will automatically download and run the right images for you.
+BINARIES: For the actions "index" and "start", you need QLever's binaries. You
+can either use them via docker (USE_DOCKER=1, the default in the Qleverfile), or
+compile them on your machine (see "qlever install" for instructions). With
+docker, all you need is a docker installation. The "qlever" script will
+automatically download and run the right images for you.
 
-[The last three sentences are not yet true. You currently need the QLever
-binaries "IndexBuilderMain" and "ServerMain" on your machine and in your PATH.]
+EOT
+}
+
+function qlever_install {
+  cat << EOT
+${BOLD}QLever install${NORMAL}
+
+If you don't want to use docker for the actions "index" (building an index) and
+"start" (starting a server), you have to compile the binaries "IndexBuilderMain"
+and "ServerMain" on your machine. As a first step, do the following somewhere on
+your machine. We recommend that you have a directory "qlever", with subfolders
+for the different components: "qlever-code", "qlever-control", "qlever-indices",
+etc.
+
+git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
+cd qlever-code
+mkdir -p build && cd build
+
+If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides two Dockerfile under
+https://github.com/ad-freiburg/qlever/tree/master/Dockerfiles . Pick the right
+one for your machine, consider all lines starting with RUN and run them from the
+command line, without the RUN and with a "sudo" before each "apt", "apt-get",
+"add-apt-repository", or "tee".
+
+After this, you have the two binaries in your "build" folder.  Put the path to
+it in your PATH. Then you can use the actions "index" and "start" also with
+USE_DOCKER=0 in your Qleverfile.
 
 EOT
 }
@@ -61,10 +87,14 @@ else
   echo
 fi
 
-# When no arguments or "help", show help info.
+# Help info.
 if [ -z "$*" ] || [ "$*" == "help" ]; then
   qlever_help
-  eval ${EXIT}
+  exit
+fi
+if [ "$*" == "install" ]; then
+  qlever_install
+  exit
 fi
  
 

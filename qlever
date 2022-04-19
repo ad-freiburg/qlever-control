@@ -199,7 +199,7 @@ function action_pin_INTERNAL {
 # Clear the cache.
 function action_clear_cache {
   echo "Clearing the cache (unpinned entries only) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" > /dev/null
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -207,7 +207,7 @@ function action_clear_cache {
 
 function action_clear_cache_complete {
   echo "Clearing the cache completely (including pinned entries) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" > /dev/null
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -225,7 +225,7 @@ function action_disk_usage {
 
 function action_cache_stats {
   echo "Show cache statistics (in number of IDs, an ID has 8 bytes) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
 }
@@ -242,7 +242,7 @@ function action_memory_usage {
 
 function action_server_settings {
   echo "Getting settings from \"${SERVER_API}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" \
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
 }
 

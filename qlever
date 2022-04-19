@@ -157,11 +157,11 @@ function action_wait {
 function action_log {
   echo "Showing the log (abort with Ctrl+C) ..."
   echo
-  $SHOW tail -f -n 10 $(DB).server-log.txt
+  $SHOW tail -f -n 10 ${DB}.server-log.txt
 }
 
 function action_log_until_server_up {
-  $SHOW tail -f -n 10 $(DB).server-log.txt & PID=$$!
+  $SHOW tail -f -n 10 ${DB}.server-log.txt & PID=$!
   while ! curl --silent http://localhost:${SERVER_PORT} > /dev/null; do sleep 1; done
   kill ${PID}
 }

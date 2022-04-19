@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # This is the script that is called when calling "qlever" from the command line.
-# It essentially calls "make", using the "Qleverfile" in the QLever home and in
-# the current directory as Makefiles.
+# The script is self-explanatory when you run it. Type ". qlever" for initial
+# configuration and then "qlever" or "qlever help" for initial help.
 #
 # © 2022, University of Freiburg, Chair of Algorithms and Data Structures
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
@@ -10,463 +10,791 @@
 BLUE=$(printf "\033[34m")
 RED=$(printf "\033[31m")
 GRAY=$(printf "\033[37m")
-BOLD_ON=$(printf "\033[1m")
-BOLD_OFF=$(printf "\033[22m")
+MAGENTA=$(printf "\033[35m")
+BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
-# This command (possibly with relative or absolute path).
-QLEVER_CMD="${BASH_SOURCE[0]}"
+###
+### HELP (the help text shown with "qlever help")
+###
 
-# Command to get the master Qleverfile (everything after __DATA__ in this file,
-# see below).
-GET_MASTER_QLEVERFILE="sed -e '1,/^__DATA__/d' ${QLEVER_CMD}"
+function qlever_help {
+  cat << EOT
+${BOLD}QLever help${NORMAL}
 
-# Command to leave the script ("return" when the script is sourced, "exit" when
-# it is called normally, that is, within its own subshell).
-if [ ${QLEVER_CMD} == $0 ]; then EXIT=exit; else EXIT=return; fi
+The "qlever" script controls ALL things concerning QLever. Before using it the
+first time in a particular shell and directory, type ". qlever". This will
+enable autocompletion for the command line and create a basic Qleverfile.
 
-# # Get the location of this script, from wherever it's called. If $QLEVER_HOME is
-# # set, assume it's in $QLEVER_HOME/qlever-code. Otherwise, use $0.
-# if [ ! -z ${QLEVER_HOME} ]; then
-#   QLEVER_DIR=${QLEVER_HOME}/qlever-code
-# else
-#   QLEVER_DIR=$(dirname -- "$0")
-# fi
-# # Make sure we have the absolute path (by going to the directory in a subshell
-# # and then simply doing pwd, see https://tinyurl.com/4jsurr86 ).
-# QLEVER_DIR=$(cd -- "${QLEVER_DIR}" &> /dev/null && pwd)
-# 
-# # Directory with the data (index and configuration) of a particular QLever
-# # application. Default: the directory from which the script is called.
-APP_DIR=$(pwd)
+QLEVERFILE: You need a file named "QLeverfile" in the directory from which you
+are calling the "qlever" script. The initial call to ". qlever" will create one
+for you, which you can then modify as you see fit. The QLeverfile controls
+settings of the script, the dataset you want to process, the server, whether to
+use docker or not, and the QLever UI.
 
-echo
-echo "${GRAY}Called \"${QLEVER_CMD}\" from \"${APP_DIR}\"${NORMAL}"
-echo
+ACTIONS: On the command line, typing TAB after "qlever" gives you the available
+actions. You can also execute several actions with one command, for example
+"qlever index start log". If you just want to see what an action does, but not
+exeute it, append show.  That you can also do for multiple actions, for example
+"qlever index start log show".
 
-# With arguments "reset", remove completions and local Qleverfile. TODO: warn
-# before actually doing this because the Qleverfile might contain valuable
-# informationC, so for now we are moving it.
-if [ "${QLEVER_CMD}" != "$0" ] && [ ! -z "$*" ] && [ "$*" == "reset" ]; then
-  complete -r qlever 2> /dev/null
-  rm -f qlever.completions
-  rm -f *.pid
-  if [ -e Qleverfile ]; then
-    QLEVERFILE_BACKUP=Qleverfile.DELETED_$(date +%Y%m%dT%H%M)
-    echo "Moving Qleverfile to ${QLEVERFILE_BACKUP}"
-    echo
-    mv Qleverfile ${QLEVERFILE_BACKUP}
-  fi
-  echo "Reset configuration, you can now start from scratch."
-  echo
-  eval ${EXIT}
-fi
-
-# If there is COMPLETIONS_FILE yet, create it. For that we have to first ask the
-# user to call the script with "source" or "." (it's the only way to activate
-# bash completion).
-COMPLETIONS_FILE=qlever.completions
-if [ ! -e ${COMPLETIONS_FILE} ]; then
-  # echo "\${BASH_SOURCE[0]}: ${BASH_SOURCE[0]}"
-  # echo "\$0=$0"
-  if [ ${BASH_SOURCE[0]} == $0 ]; then
-    cat << EOT
-It seems you are running this script for the first time in this shell and
-directory. Please run it once as follows:
-
-${BLUE}. qlever${NORMAL}
-
-Afterwards you can just call "qlever" again (without the dot), and you will have
-bash autocompletion available. If you don't care about bash autocompletion or
-something doesn't work, just create an empty file ${COMPLETIONS_FILE} before
-your proceed.
+BINARIES: For the actions "index" and "start", you need QLever's binaries. You
+can either use them via docker (USE_DOCKER=1, the default in the Qleverfile), or
+compile them on your machine (see "qlever install" for instructions). With
+docker, all you need is a docker installation. The "qlever" script will
+automatically download and run the right images for you.
 
 EOT
-    eval ${EXIT}
+}
+
+function qlever_install {
+  cat << EOT
+${BOLD}QLever install${NORMAL}
+
+If you don't want to use docker for the actions "index" (building an index) and
+"start" (starting a server), you have to compile the binaries "IndexBuilderMain"
+and "ServerMain" on your machine. As a first step, do the following somewhere on
+your machine. We recommend that you have a directory "qlever", with subfolders
+for the different components: "qlever-code", "qlever-control", "qlever-indices",
+etc.
+
+git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
+cd qlever-code
+mkdir -p build && cd build
+
+If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides two Dockerfile under
+https://github.com/ad-freiburg/qlever/tree/master/Dockerfiles . Pick the right
+one for your machine, consider all lines starting with RUN and run them from the
+command line, without the RUN and with a "sudo" before each "apt", "apt-get",
+"add-apt-repository", or "tee".
+
+After this, you have the two binaries in your "build" folder.  Put the path to
+it in your PATH. Then you can use the actions "index" and "start" also with
+USE_DOCKER=0 in your Qleverfile.
+
+EOT
+}
+
+# Welcome message. TODO: remove this eventually.
+if [ ! -f /.dockerenv ]; then
+  echo
+  echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
+  echo
+else
+  echo
+  echo "${MAGENTA}This is the \"qlever\" script, being executed within DOCKER${NORMAL}"
+  echo
+fi
+
+# Help info.
+if [ -z "$*" ] || [ "$*" == "help" ]; then
+  qlever_help
+  exit
+fi
+if [ "$*" == "install" ]; then
+  qlever_install
+  exit
+fi
+ 
+
+###
+### AVAILABLE ACTIONS
+###
+
+SHOW=
+NOSHOW=
+
+function action_index {
+  if ls ${DB}.index.* > /dev/null 2>&1; then
+    echo "${RED}Index exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
-    # CASE 1.2: This script is being sourced -> activate bash completions and
-    # write the completions to COMPLETIONS_FILE.
-    COMPLETIONS=$(eval ${GET_MASTER_QLEVERFILE} | \grep -oE "^[a-zA-Z_]+:" | sed 's/:$//' | paste -sd" ")
-    echo "${COMPLETIONS}" > ${COMPLETIONS_FILE}
-    complete -W "${COMPLETIONS}" qlever
-    cat << EOT
-Activated bash autocompletion. The following completions will be available:
-
-${BLUE}$(fold -s  ${COMPLETIONS_FILE})${NORMAL}
-
-EOT
+    eval $SHOW ${INDEXER_CMD}
   fi
-fi
+}
 
-# If the is no Qleverfile in this directory yet, create a basic one.
-if [ ! -e Qleverfile ]; then
-  # If a file with suffix .ttl or .nt exists, use the basename as the basename
-  # for the index files (the DB variable in the configuration). If several such
-  # files exist, take the largest one. If no such file exists, leave the
-  # basename empty and for the user to set.
-  INPUT_FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
-  if [ ! -z ${INPUT_FILE} ]; then DB=${INPUT_FILE/.*/}; else DB=; fi
-    # Get right version of "cat", depending on suffix.
-    CAT=cat
-    if [[ ${INPUT_FILE} =~ \.gz\$ ]]; then CAT=zcat; fi
-    if [[ ${INPUT_FILE} =~ \.bz\$ ]]; then CAT=bzcat; fi
-    if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
-    if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
-    cat << EOT > Qleverfile
-# Qleverfile for folder $(pwd) .
-# Created on $(date).
-# Modify or expand as you see fit.
+function action_remove_index {
+  $SHOW rm -f ${DB}.index.* ${DB}.vocabulary.* ${DB}.prefixes ${DB}.meta-data.json ${DB}.index-log.txt
+  echo "The index files have been removed."
+}
 
-DB=${DB}
-CAT_TTL=${CAT} ${INPUT_FILE}
-PORT=7001
-EOT
-    cat << EOT
-There was no Qleverfile in this directory yet. A Qleverfile contains basic
-configuration telling the "qlever" command how to do certain things. I now
-created the following basic Qleverfile.
-
-${BLUE}$(cat Qleverfile)${NORMAL}
-
-EOT
-fi
-
-# If the script was sourced (initial setup), exit (will be "return") now.
-if [ ${QLEVER_CMD} != $0 ]; then
-  cat << EOT | fold -s
-Setup completed, you can now use "qlever" normally.
-
-EOT
-  eval ${EXIT}
-fi
-
-# When calling script with no arguments, show the config. TODO: Give the user
-# some more information here.
-if [ -z "$*" ]; then
-  eval ${GET_MASTER_QLEVERFILE} | make -f - -f ${APP_DIR}/Qleverfile
-  if [ -e ${COMPLETIONS_FILE} ]; then
-    cat << EOT
-All completions:
-
-${BLUE}$(cat ${COMPLETIONS_FILE} | fold -s)${NORMAL}
-
-To see what a particular command would do (without executing it), just type
-something like "qlever index show" (single command) or "qlever start log show"
-(multiple commands)
-
-EOT
-  fi
-  eval ${EXIT}
-fi
-
-# If the last argument is "show", just show the commands, but don't execute
-# them. The first for loop is a portable hack to get the last argument.
-for LAST; do true; done
-if [ "${LAST}" == "show" ]; then
-  echo "${BOLD_ON}Just showing what would be executed${BOLD_OFF}"
-  echo
-  for ARG in "$@"; do
-    if [ "${ARG}" != "show" ]; then
-      echo "\"${ARG}\" would execute the following:"
-      echo ${BLUE}
-      eval ${GET_MASTER_QLEVERFILE} \
-        | make -n -f - -f ${APP_DIR}/Qleverfile "${ARG}" | grep -v "^echo"
-      echo ${NORMAL}
+function action_start {
+  if curl --silent http://localhost:${SERVER_PORT} > /dev/null; then 
+    echo "${RED}Server already running on port ${SERVER_PORT}, use \"qlever restart\" or check SERVER_PORT in your Qleverfile${NORMAL}"
+    echo "${BLUE}"
+    ps -e -o "%p" -o "  %U " -o start_time -o "  %a" \
+      | \grep "${SERVER_BINARY} .*-p ${SERVER_PORT}" \
+      | \grep -v "grep.*${SERVER_BINARY}"
+    printf "${NORMAL}"
+  else
+    if [ -f "${DB}.index.sop" ] && [ -f "${DB}.index.spo" ]; then
+      echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..."
+      echo
+      rm -f ${DB}.server-log.txt
+      eval $SHOW ${SERVER_CMD}
+      tail -f -n 10 ${DB}.server-log.txt & PID=$!
+      while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
+      kill ${PID}
+    else
+      echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
     fi
-  done
-  eval ${EXIT}
-fi
+  fi
+}
 
-# Normal execution of script using make with two Makefiles. The first Makefile
-# is everything after __DATA__ below (that part is used as the master
-# Qleverfile and by having it here, we avoid having two files). The second
-# Makefile is the Qleverfile in this directory
-# 
-# First show the command before executing it (make -n).
-for ARG in "$@"; do
-  echo "Executing \"${ARG}\":"
-  echo "${BLUE}"
-  eval ${GET_MASTER_QLEVERFILE} \
-    | make -n -f - -f ${APP_DIR}/Qleverfile "${ARG}" | grep -v "^echo"
-  echo ${NORMAL}
-  # Special precautions if index exists.
-  # if [ "${ARG}" == "index" ]; then
-  eval ${GET_MASTER_QLEVERFILE} \
-    | make -f - -f ${APP_DIR}/Qleverfile "${ARG}"
+function action_stop {
+  echo "Stop the QLever server (find and kill manually if it fails) ..."
   echo
-done
+  if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
+    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt
+    echo
+    echo "Killed processes and removed \"${DB}.server-log.txt\""
+  else
+    echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
+  fi
+}
 
-eval ${EXIT}
+function action_restart {
+  $SHOW qlever stop $NOSHOW | sed '1,3d'
+  $SHOW qlever start $NOSHOW | sed '1,3d'
+}
 
-# Everything after __DATA__ is the master Qleverfile
+function action_wait {
+  tail -f -n 10 ${DB}.server-log.txt & PID=$!
+  while [ $(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $?) != 0 ]; do sleep 1; done
+  kill $PID
+}
 
-__DATA__
-SHELL=/bin/bash
-.DEFAULT_GOAL=show-config
+function action_log {
+  echo "Showing the log (abort with Ctrl+C) ..."
+  echo
+  $SHOW tail -f -n 10 $(DB).server-log.txt
+}
 
-# PIN WARMUP QUERIES TO CACHE (for the QLever UI)
-# (c) Algorithms and Data Structures, University of Freiburg
-# Originally written by Hannah Bast, 20.02.2021
+function action_log_until_server_up {
+  $SHOW tail -f -n 10 $(DB).server-log.txt & PID=$$!
+  while ! curl --silent http://localhost:${SERVER_PORT} > /dev/null; do sleep 1; done
+  kill ${PID}
+}
 
-# This Makefile provides the following targets:
+
+function action_status {
+  echo "Showing all processes with command \"${SERVER_BINARY}\" on this machine ..."
+  echo "${BLUE}"
+  $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -e '1p; /\bServerMain/!d; /bash -c/d' $NOSHOW \
+    | awk 'NR==1 {o=$0; a=match($0, $5)} NR > 1 {o=$0; $4=int($4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $1, $2, $3, $4, substr(o, a)}'
+  printf "${NORMAL}"
+  if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+    echo "${BLUE}"
+    $SHOW docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
+    printf "${NORMAL}"
+  fi
+}
+
+# Warmup queries for the autocompletion.
+# 
+# TODO: This requires a running QLever UI and his currently hard-coded to use
+# instances on particular machine (galera.informatik.privat). It will be fixed
+# soon.
 #
-# pin: Pin queries to cache, so that all autocompletion queries are fast, even
-#      when "Clear cache" is clicked in the QLever UI (ther results for pinned 
-#      queries will never be removed, unless ... see target clear).
-#
-# clear: Clear the cache completely (including pinned results). Note that this
-#        can NOT be activated from the QLever UI.
-#
-# clear-unpinned: Clear all unpinned results from the cache. This is exactly
-#                 what happens when clicking "Clear cache" in the QLever UI.
-#
-# show-all-ac-queries: Show the AC queries for subject, predicat, object for
-#                      copy&paste in the QLever UI backend settings.
+# NOTE: We need -tt here because the "qlever" script calls "make" via a pipe and
+# so it does not have a terminal (the error message is "Pseudo-terminal will not
+# be allocated because stdin is not a terminal." and "the input device is not a
+# TTY"). The manpage for ssh says: "Multiple -t options force tty allocation,
+# even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".in.master:
+function action_pin_INTERNAL {
+  echo "Launch warmup queries for the QLever UI autocompletion (via galera) ..." 
+  $SHOW ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup ${SLUG} pin\"
+}
 
-# This Makefile should be used as follows:
-#
-# 1. In the directors with the particular index, create a new Makefile
-# 2. At the top add: include /local/data/qlever/qlever-indices/Makefile
-#    (or wherever this Makefile - the master Makefile - resides)
-# 3. Redefine API and FREQUENT_PREDICATES (see below) in the local Makefile
-# 4. Redefine any of the patterns in the local Makefile
-#    (the patterns below give a default functionality, which should work
-#    for any knowledge base, but only using the raw IRIs, and no names,
-#    aliases, or whatever special data the knowledge base has to offer.
+# Clear the cache.
+function action_clear_cache {
+  echo "Clearing the cache (unpinned entries only) ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" > /dev/null
+  curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
+    | numfmt --field=2,5,8,11,14 --grouping
+}
 
-# A prefix that identifies a particular build. This typically consists of a base
-# name and optionally further specificataion separated by dots. For example:
-# wikidata. Or: wikidata.2021-06-27
-DB=
+function action_clear_cache_complete {
+  echo "Clearing the cache completely (including pinned entries) ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" > /dev/null
+  curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
+    | numfmt --field=2,5,8,11,14 --grouping
+}
 
-# The base name of the prefix=the part before the first dot. Often, the name
-# of the input (ttl) file or of the settings (json) file use only the basename
-# and not the full prefix.
-DB_BASE=$(firstword $(subst ., ,$(DB)))
+# Get various settings and statistics.
+function action_disk_usage {
+  echo "Disk usage of all files in this QLever index, and the size of the input files"
+  echo
+  $SHOW du -hc ${DB}.index.[ops]* ${DB}.vocabulary.* ${DB}.prefixes ${DB}.meta-data.json
+  echo
+  # echo && echo "For comparison, the size of the input files" && echo #
+  du -hc ${RDF_FILES}
+}
 
-# The port of the QLever backend.
-PORT=
+function action_cache_stats {
+  echo "Show cache statistics (in number of IDs, an ID has 8 bytes) ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
+    | numfmt --field=2,5,8,11,14 --grouping
+}
 
-# The slug used in the URL of the QLever API and the QleverUI API. This is
-# typically the basename of the prefix. For example: wikidata. Or: freebase.
-SLUG=$(DB_BASE)
+function action_memory_usage {
+  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+    $SHOW docker stats --no-stream \
+      --format "Memory usage of docker container ${QLEVER_DOCKER_CONTAINER}: {{.MemUsage}}" \
+      ${QLEVER_DOCKER_CONTAINER}
+  else
+    echo "${RED}Docker container \"${QLEVER_DOCKER_CONTAINER}\" not running${NORMAL}"
+  fi
+}
 
-# Memory for queries and for the cache (all in GB).
-MEMORY_FOR_QUERIES=30
-CACHE_MAX_SIZE_GB=30
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5
-CACHE_MAX_NUM_ENTRIES=1000
+function action_server_settings {
+  echo "Getting settings from \"${SERVER_API}\" ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+}
 
-# The URL of the QLever backend.
-QLEVER_API=https://qlever.cs.uni-freiburg.de/api/$(SLUG)
+# QLever UI (work in progress).
+LOG_FILE=qleverui-log.tmp
+ERROR_CMD="(echo && echo \"${BLUE}An error occured, check ${LOG_FILE} for details, the last 10 lines are:${NORMAL}\" && tail ${LOG_FILE} && false)"
+QLEVERUI_GIT=git@github.com:ad-freiburg/qlever-ui.git
+function action_ui {
+  > ${LOG_FILE}
+  # We need the QLever UI repository.
+  if [ ! -d "${QLEVERUI_DIR}" ]; then
+    echo "Downloading QLever UI from GitHub ..."
+    git clone "${QLEVERUI_GIT}" "${QLEVERUI_DIR}"
+  fi
+  # Configure using Makefile from QLever UI repo.
+  echo "Creating configuration for the QLever UI ..."
+  $SHOW make -s -C "${QLEVERUI_DIR}" CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  # Launching the web app.
+  echo "Launching QLever UI web application ..."
+  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} FRONTEND_PORT=${QLEVERUI_PORT} qlever-ui $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  echo
+  echo "Looks like it worked, go to http://${HOSTNAME}:${QLEVERUI_PORT} and try out some queries. If it doesn't work, check \"${LOG_FILE}\" for suspicious messages or \"${QLEVERUI_DIR}/Makefile\" for troubleshooting help" | fold -s
+}
 
-# The URL of the QLever UI istance ... TODO: it's confusing that this also has
-# /api/ in the name, it actually has nothing to do with the URLs from the QLever
-# backends (which are defined in the Apache configuration of QLever).
-WARMUP_API=$(subst /api/,/api/warmup/,$(QLEVER_API))
-
-# Admin token
-TOKEN=aof4Ad
-
-# Frequent predicates that should be pinned to the cache (can be left empty).
-# Separate by space. You can use all the prefixes from PREFIXES (e.g. wdt:P31 if
-# PREFIXES defines the prefix for wdt), but you can also write full IRIs. Just
-# see how it is used in target pin: below, it's very simple.
-FREQUENT_PREDICATES =
-FREQUENT_PATTERNS_WITHOUT_ORDER =
-
-# Directory with the QLever binaries.
-QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
-
-# Docker-related variables.
-USE_DOCKER =
-DOCKER_IMAGE=adfreiburg/qlever:latest
-DOCKER_CONTAINER=qlever.$(DB)
-
-# Configuration for SPARQL+Text.
-QLEVER_TOOL_DIR=$(dir $(lastword $(MAKEFILE_LIST)))misc
-WITH_TEXT =
-TEXT_OPTIONS_INDEX=$(if $(WITH_TEXT),-w $(DB).wordsfile.tsv -d $(DB).docsfile.tsv,)
-TEXT_OPTIONS_START=$(if $(WITH_TEXT),-t,)
-
-show-config-default:
-	@ echo "Basic configuration variables:"
-	@ echo -e "\033[34m"
-	@ for VAR in DB SLUG CAT_TTL PORT \
-	   MEMORY_FOR_QUERIES CACHE_MAX_SIZE_GB CACHE_MAX_SIZE_GB_SINGLE_ENTRY CACHE_MAX_NUM_ENTRIES \
-	   TEXT_OPTIONS_INDEX TEXT_OPTIONS_START \
-	   QLEVER_BIN_DIR USE_DOCKER DOCKER_IMAGE DOCKER_CONTAINER; do \
-	   printf "%-30s = %s\n" "$$VAR" "$${!VAR}"; done
-	@ echo -e "\033[0m"
-	@ # echo "make index will do the following (but NOT if an index with that name exists):"
-	@ # echo
-	@ # $(MAKE) -sn index | egrep -v "^(if|fi)"
-	@ # echo
-
-%: %-default
-	@ true
-
-# Pull new image if image name contains a /
-
-docker_pull:
-	@ if [[ "$(DOCKER_IMAGE)" == */* ]]; then docker pull $(DOCKER_IMAGE); fi
-	@ docker images -f "reference=$(DOCKER_IMAGE)"
-
-# Building an index.
-CAT_TTL=cat $(DB).ttl
-QLEVER_INDEX_CMD=$(if $(USE_DOCKER),IndexBuilderMain,$(QLEVER_BIN_DIR)/IndexBuilderMain)
-INDEX_CMD_LINE=$(CAT_TTL) | $(QLEVER_INDEX_CMD) -F ttl -f - -l -i $(DB) $(TEXT_OPTIONS_INDEX) -s $(DB_BASE).settings.json | tee $(DB).index-log.txt
-INDEX_CMD_NATIVE=$(INDEX_CMD_LINE)
-INDEX_CMD_DOCKER=docker run -it --rm -v $(shell pwd):/index --entrypoint bash --name qlever.$(DB)-index $(DOCKER_IMAGE) -c "cd /index && $(INDEX_CMD_LINE)"
-INDEX_CMD=time ( $(if $(USE_DOCKER),$(INDEX_CMD_DOCKER),$(INDEX_CMD_NATIVE)) )
-index:
-	@if ls $(DB).index.* 1> /dev/null 2>&1; then echo -e "\033[31mIndex exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)\033[0m"; else $(INDEX_CMD); fi
-
-# Check if index exists.
-# index_exists:
-# 	@ if ls $(DB).index.* 1> /dev/null 2>&1; then (exit 42); else (exit 0); fi
-
-# Starting the server in the background.
-QLEVER_START_CMD=$(if $(USE_DOCKER),ServerMain,$(QLEVER_BIN_DIR)/ServerMain)
-START_CMD_LINE=$(QLEVER_START_CMD) -i $(DB) -j 8 -m $(MEMORY_FOR_QUERIES) -c $(CACHE_MAX_SIZE_GB) -e $(CACHE_MAX_SIZE_GB_SINGLE_ENTRY) -k $(CACHE_MAX_NUM_ENTRIES) -p $(PORT) $(TEXT_OPTIONS_START)
-START_CMD_NATIVE=$(START_CMD_LINE) > $(DB).server-log.txt & echo $$! >> $(DB).pid
-START_CMD_DOCKER=docker run -d --restart=unless-stopped -p $(PORT):$(PORT) -v $(shell pwd):/index --entrypoint bash --name $(DOCKER_CONTAINER) $(DOCKER_IMAGE) -c "cd /index && $(START_CMD_LINE)"
-START_CMD=$(if $(USE_DOCKER),docker rm -f $(DOCKER_CONTAINER); $(START_CMD_DOCKER),$(START_CMD_NATIVE))
-start:
-	@ echo "Starting the QLever server in the background ..."
-	@ $(START_CMD)
-
-# Command line for showing the log and following it.
-LOG_CMD_NATIVE=tail -f -n 100 $(DB).server-log.txt
-LOG_CMD_DOCKER=docker logs -f --tail 100 $(DOCKER_CONTAINER)
-LOG_CMD=$(if $(USE_DOCKER),$(LOG_CMD_DOCKER),$(LOG_CMD_NATIVE))
-log:
-	@ echo "Showing the log (abort with Ctrl+C) ..."
-	@ echo
-	@ $(LOG_CMD)
-
-# Command line for stopping the server.
-STOP_CMD_NATIVE=$$(while read PID; do kill $$PID 2> /dev/null; sed -i "/^$$PID$$/d" $(DB).pid; done < $(DB).pid)
-STOP_CMD_DOCKER=docker stop $(DOCKER_CONTAINER)
-STOP_CMD=$(if $(USE_DOCKER),$(STOP_CMD_DOCKER),$(STOP_CMD_NATIVE))
-stop:
-	@ echo "Killing the QLever server (find and kill manually if it fails) ..."
-	@ $(STOP_CMD)
-
-
-
-
-index.OLD:
-	time ( docker run -it --rm -v $(shell pwd):/index --entrypoint bash --name qlever.$(DB)-index $(DOCKER_IMAGE) -c "cd /index && $(CAT_TTL) | IndexBuilderMain -F ttl -f - -l -i $(DB) -K $(DB) $(TEXT_OPTIONS_INDEX) -s $(DB_BASE).settings.json | tee $(DB).index-log.txt" ) \
-
-remove_index:
-	@ rm -f $(DB).index.* $(DB).literals-index $(DB).vocabulary $(DB).prefixes $(DB).meta-data.json $(DB).index-log.txt
-	@ echo "The index files have been removed."
+function action_autocompletion_warmup {
+  echo "Launch warmup queries for the QLever UI autocompletion ..."
+  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+}
 
 # Create wordsfile and docsfile from all literals of the given NT file.
 # Using this as input for a SPARQL+Text index build will effectively enable
 # keyword search in literals. To understand how, look at the wordsfile and
 # docsfile produced. See git:ad-freiburg/qlever/docs/sparql_and_text.md .
-text_input_from_nt_literals:
-	python3 $(QLEVER_TOOL_DIR)/words-and-docs-file-from-nt.py $(DB)
+#
+function action_text_input_from_nt_literals {
+  if [ -f "${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py" ]; then
+    if [ -f "${DB}.nt" ]; then
+      echo "Creating text input from ${DB}.nt (experimental), which can then be used for an index build by setting WITH_TEXT=1 ..." | fold -s
+      $SHOW python3 ${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py ${DB}
+    else
+      echo "${RED}This requires an NT file ${DB}.nt${NORMAL}"
+    fi
+  else
+    echo "${RED}This requires a working copy of the QLever repository${NORMAL}"
+  fi
+}
 
-# START, WAIT (until the backend is read to respond), STOP, and view LOG
+# Do we still need these actions?
+function action_update {
+  echo "Updating \"qlever\" script ..."
+  echo
+  if [ -d "${QLEVER_CMD_DIR}/.git" ]; then
+    $SHOW cd ${QLEVER_CMD_DIR} && git pull
+  else
+    echo "${RED}Did not find directory \".git\" in \"${QLEVER_CMD_DIR}\"${NORMAL}"
+    echo
+  fi
+}
 
-start.OLD:
-	docker run -d --restart=unless-stopped -v $(shell pwd):/index -p $(PORT):7001 -e INDEX_PREFIX=$(DB) -e MEMORY_FOR_QUERIES=$(MEMORY_FOR_QUERIES) -e CACHE_MAX_SIZE_GB=${CACHE_MAX_SIZE_GB} -e CACHE_MAX_SIZE_GB_SINGLE_ENTRY=${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -e CACHE_MAX_NUM_ENTRIES=${CACHE_MAX_NUM_ENTRIES} --name $(DOCKER_CONTAINER) $(DOCKER_IMAGE) $(TEXT_OPTIONS_START)
-	
-wait:
-	@ $(LOG_CMD) & PID=$$!; \
-	 while [ $$(curl --silent http://localhost:$(PORT) > /dev/null; echo $$?) != 0 ]; \
-	   do sleep 1; done; kill $$PID
+function action_where {
+  printf "${BLUE}"
+  cat << EOT
+Directory with "qlever" script : ${QLEVER_CMD_DIR}
+Directory with QLever UI repo  : ${QLEVERUI_DIR}
+Directory with Qlever binaries : ${QLEVER_BIN_DIR}
+${NORMAL}
+EOT
+}
 
-start_and_pin:
-	$(MAKE) -s start wait pin
+# Produce list of all input files.
+function action_rdf_files {
+  ls ${RDF_FILES}
+}
 
+# Produce the input as fed to the index builder.
+function action_cat_files {
+  eval ${CAT_FILES}
+}
 
+function action_docker_on {
+  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+    echo "${MAGENTA}Docker container \"${QLEVER_DOCKER_CONTAINER}\" already running${NORMAL}"
+  else
+    docker rm -f "${QLEVER_DOCKER_CONTAINER}" > /dev/null 2> /dev/null
+    echo "${MAGENTA}Starting docker container \"${QLEVER_DOCKER_CONTAINER}\" ...${NORMAL}"
+    $SHOW docker run -d -u $(id -u):$(id -g) -it -v $(pwd):/index \
+      -p ${SERVER_PORT}:${SERVER_PORT} \
+      --entrypoint bash \
+      --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} $NOSHOW \
+      > /dev/null
+    while ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; do sleep 0.1; done
+    $SHOW docker cp ${QLEVER_CMD_DIR}/qlever \
+      ${QLEVER_DOCKER_CONTAINER}:/index $NOSHOW \
+      > /dev/null #
+  fi
+  echo "${BLUE}"
+  docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
+  echo "${NORMAL}"
+}
 
-# WARMUP queries. The .local target only works on the machine, where the
-# qlever-ui Docker container is running. It has the advantage of being more
-# interactive than the WARMUP_API call (which for pin: returns only after all
-# warmup queries have been executed and times out if this takes too long, for
-# reasons I have not fully understood yet, apparently there is a time out in one
-# of the proxies involved).
-HTML2ANSI=jq -r '.log|join("\n")' | sed 's|<strong>\(.*\)</strong>|\\033[1m\1\\033[0m|; s|<span style="color: blue">\(.*\)</span>|\\033[34m\1\\033[0m|' | xargs -0 echo -e
-
-# NOTE: We need -tt here because the "qlever" script calls "make" via a pipe and
-# so it does not have a terminal (the error message is "Pseudo-terminal will not
-# be allocated because stdin is not a terminal." and "the input device is not a
-# TTY"). The manpage for ssh says: "Multiple -t options force tty allocation,
-# even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".
-pin:
-	@ ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup $(SLUG) pin\"
-
-pin.local:
-	docker exec -it qlever-ui bash -c "python manage.py warmup $(SLUG) pin"
-
-clear.local:
-	docker exec -it qlever-ui bash -c "python manage.py warmup $(SLUG) clear"
-
-clear_unpinned.local:
-	docker exec -it qlever-ui bash -c "python manage.py warmup $(SLUG) clear_unpinned"
-
-pin.VIA_CURL:
-	@if ! curl -Gsf $(WARMUP_API)/pin?token=$(TOKEN) | $(HTML2ANSI); \
-	  then curl -Gi $(WARMUP_API)/pin?token=$(TOKEN); fi
-
-clear:
-	@curl -Gs $(WARMUP_API)/clear?token=$(TOKEN) | $(HTML2ANSI)
-	@# curl -Gs $(QLEVER_API) --data-urlencode "cmd=clearcachecomplete" > /dev/null
-
-clear_unpinned:
-	@curl -Gsf $(WARMUP_API)/clear_unpinned?token=$(TOKEN) | $(HTML2ANSI)
-	@# curl -Gs $(QLEVER_API) --data-urlencode "cmd=clearcache" > /dev/null
-
-
-# STATISTICS on cache, memory, and the number of triples per predicate.
-
-disk_usage:
-	du -hc $(DB).index.* $(DB).vocabulary.* $(DB).prefixes $(DB).meta-data.json
-
-cachestats:
-	@curl -Gs $(QLEVER_API) --data-urlencode "cmd=cachestats" \
-	  | sed 's/[{}]//g; s/:/: /g; s/,/ , /g' | numfmt --field=2,5,8,11,14 --grouping && echo
-
-memory_usage:
-	@echo && docker stats --no-stream --format \
-	  "Memory usage of docker container $(DOCKER_CONTAINER): {{.MemUsage}}" $(DOCKER_CONTAINER)
-
-
-num_triples:
-	@echo -e "\033[1mCompute total number of triples by computing the number of triples for each predicate\033[0m"
-	curl -Gs $(QLEVER_API) --data-urlencode "query=SELECT ?p (COUNT(?p) AS ?count) WHERE { ?x ql:has-predicate ?p } GROUP BY ?p ORDER BY DESC(?count)" --data-urlencode "action=tsv_export" \
-	  | cut -f1 | grep -v "QLever-internal-function" \
-	  > $(DB).predicates.txt
-	cat $(DB).predicates.txt \
-	  | while read P; do \
-	      $(MAKE) -s clear-unpinned > /dev/null; \
-	      printf "$$P\t" && curl -Gs $(QLEVER_API) --data-urlencode "query=SELECT ?x ?y WHERE { ?x $$P ?y }" --data-urlencode "send=10" \
-	        | grep resultsize | sed 's/[^0-9]//g'; \
-	    done \
-	  | tee $(DB).predicate-counts.tsv | numfmt --field=2 --grouping
-	cut -f2 $(DB).predicate-counts.tsv | paste -sd+ | bc | numfmt --grouping \
-	  | tee $(DB).num-triples.txt
+function action_docker_off {
+  $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
+}
 
 
-# SETTINGS
-settings:
-	@curl -Gs $(QLEVER_API) --data-urlencode "cmd=get-settings" \
-	  | sed 's/[{}]//g; s/:/: /g; s/,/ , /g' && echo
+###
+### CONFIGURATION (when called with . qlever or if we need to)
+###
 
-BB_FACTOR_SORTED=100
-BB_FACTOR_UNSORTED=150
-set_bb:
-	@echo -e "\033[1mSet factor for BB FILTER cost estimate to $(BB_FACTOR)\033[0m"
-	@curl -Gs $(QLEVER_API) \
-	  --data-urlencode "bounding_box_filter_sorted_cost_estimate=$(BB_FACTOR_SORTED)" \
-	  --data-urlencode "bounding_box_filter_unsorted_cost_estimate=$(BB_FACTOR_UNSORTED)" \
-	  > \dev\null
-	@$(MAKE) -s settings
-	
-export
+QLEVER_CMD="${BASH_SOURCE[0]}"   # Command of this script
+QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
 
+# If not called with ". qlever" and completions or the Qleverfile are missing,
+# tell the user to run ". qlever" once for full functionality. Note that bash
+# autocompletion can only be activated by "sourcing" the respective commands
+# (the ". qlever" is equivalent to "source qlever"). If the Qleverfile has
+# BASH_COMPLETION = 0, don't mind the autocompletion.
+#
+# NEW: Not when running inside docker.
+if [ ${BASH_SOURCE[0]} == $0 ] && [ ! -f /.dockerenv ] \
+  && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
+       [ ! -e Qleverfile ] ); then
+    cat << EOT
+Bash completion not activated or no Qleverfile exists or both. Please run the
+qlever configuration once as follows (an existing Qleverfile will not be
+overwritten, don't worry): 
+
+${BLUE}. qlever${NORMAL}
+
+Afterwards you can just call "qlever" (without the dot). If you don't care about
+bash autocompletion or it doesn't work on your system, set BASH_COMPLETION = 0
+in your Qleverfile.
+
+EOT
+    exit
+fi
+
+# If called with ". qlever", setup what is not already setup: the PATH, the bash
+# autocompletion (unless user don't want it), the QLeverfile.
+if [ "${QLEVER_CMD}" != "$0" ]; then
+
+  # PATH: Check if QLEVER_CMD_DIR is in the path and if not add it to the path.
+  # ALso check if 
+  echo "${BOLD}Checking your PATH ...${NORMAL}"
+  echo
+  for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do
+    if [[ ":${PATH}:" == *":${DIR}:"* ]]; then
+      echo "The directory \"${DIR}\" is already contained in your PATH"
+    else
+      export PATH=${PATH}:${DIR}
+      echo "Added the directory \"${DIR}\" to your PATH"
+    fi
+  done
+  echo
+
+  # If we called ". qlever path" (just to set the paths), exit here.
+  if [ "$*" == "path" ]; then
+    echo "${NORMAL}Called \". qlever path\", so leaving now${NORMAL}"
+    echo
+    return
+  fi
+
+  # Bash autocompletion: Set completions with "complete -W" and store the
+  # completions in "QLEVER_COMPLETIONS". We need the latter so that we know that
+  # the completions are set (complete -p does not work in a subshell).
+  COMPLETIONS_FILE=no_longer_needed
+  echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
+  echo
+  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
+  export QLEVER_COMPLETIONS="${COMPLETIONS}"
+  complete -W "${COMPLETIONS}" qlever
+  eval ${COMPLETIONS_CMD}
+  echo "Done, the following completions are now available:"
+  echo
+  echo "${BLUE}$(echo ${QLEVER_COMPLETIONS} | fold -s)${NORMAL}"
+  echo
+
+  # If we called ". qlever init" (for use in .bashrc, where we only want to set
+  # the PATH and activate the autocompletion), exit here.
+  if [ "$*" == "shell_init" ]; then
+    echo "${NORMAL}Called \". qlever shell_init\", so leaving now${NORMAL}"
+    echo
+    return
+  fi
+
+  # QLeverfile: If it's not there yet, create a basic one (with good guesses for
+  # some basic settings). Never overwrite an existing one, also not when called
+  # with ". qlever reset".
+  if [ -e Qleverfile ]; then
+    echo "${BOLD}Checking Qleverfile ...${NORMAL}"
+    echo
+    cat << EOT
+There is alreay a QLeverfile in this directory. If you want a freshly generated
+basic Qleverfile, remove or move the existing one and run ". qlever reset"
+again.
+
+EOT
+  else
+    echo "${BOLD}Creating new Qleverfile ...${NORMAL}"
+    echo
+    # If a file with suffix .ttl or .nt exists, use the basename as the basename
+    # for the index files (the DB variable in the configuration) and pick the
+    # right "cat" command according to the suffix. If several such files exist,
+    # take the largest one. If no such file exists, leave the basename empty and
+    # for the user to set.
+    INPUT_FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
+    CAT=cat
+    if [ ! -z ${INPUT_FILE} ]; then
+      DB=${INPUT_FILE/.*/}
+      if [[ ${INPUT_FILE} =~ \.gz\$ ]]; then CAT=zcat; fi
+      if [[ ${INPUT_FILE} =~ \.bz\$ ]]; then CAT=bzcat; fi
+      if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
+      if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
+      QLEVERUI_CONFIG=${DB}
+    else
+      DB=must_specify
+      INPUT_FILE=must_specifiy
+      QLEVERUI_CONFIG=default
+    fi
+    cat << EOT > Qleverfile
+# Qleverfile for folder $(pwd)
+# Automatically created on $(date).
+# Modify or expand as you see fit.
+
+# Command-line settings
+BASH_COMPLETION = 1
+QLEVER_CMD_DIR  = ${QLEVER_CMD_DIR}
+
+# Indexer settings
+DB              = ${DB}
+RDF_FILES       = ${INPUT_FILE}
+CAT_FILES       = "${CAT} \${RDF_FILES}"
+WITH_TEXT       = 0
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7001
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# Docker settings
+USE_DOCKER              = 1
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = ${QLEVERUI_DIR}
+QLEVERUI_CONFIG = ${QLEVERUI_CONFIG}
+EOT
+    cat << EOT
+There was no "Qleverfile" in this directory yet, so I created one for you. A
+Qleverfile contains basic configuration telling the "qlever" command how to do
+certain things. Please check and modify as you see fit.
+
+EOT
+# ${BLUE}$(cat Qleverfile)${NORMAL}
+  fi
+
+  # Settings file: If it's not there yet, create an empty one.
+  if [ ! -e ${DB}.settings.json ]; then
+    echo "${BOLD}Checking .settings.json file ...${NORMAL}"
+    echo
+    echo "{}" > ${DB}.settings.json
+    cat << EOT
+The index builder currently also requires a file "${DB}.settings.json", and I
+created an empty one for you. In this file, you can specify specialized settings
+for the indexer, for example: prefixes of IRIs for which the names are stored on
+disk (to save RAM), the locale by which literals are sorted, the batch size used
+by the indexer (default: 10M), and whether the input is well behaved in a
+certain way (which enables faster indexing). See the QLever Wiki for more
+information.
+
+EOT
+  fi
+
+  # DONE: give the user a short heads up what they can do now.
+  cat << EOT
+${BOLD}Setup is complete${NORMAL}
+
+Type "qlever" and use autocompletion to see which actions are available. Add a
+"show" in the end to see what an action does without executing it (for example,
+"qlever index show"). Typing "qlever" without arguments gives you overview over
+the basic configuration. Edit your local "Qleverfile" to change settings.
+
+EOT
+  return
+fi
+
+
+
+###
+### VARIABLE ASSIGNMENTS
+###
+### 1. Default settings
+### 2. Read from Qleverfile (space around = allowed)
+### 3. Computed derived variables
+###
+
+# Some default settings.
+APP_DIR=$(pwd)                   # Where the script was called from
+DB=must_specify
+USE_DOCKER=0
+WITH_TEXT=0
+QLEVER_DOCKER_IMAGE=adfreiburg/qlever
+QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
+QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
+QLEVERUI_DIR="qlever-ui"
+HOSTNAME=must_specify     # backend host
+SERVER_PORT=must_specify  # backend port
+QLEVERUI_PORT=7000        # frontend port
+MEMORY_FOR_QUERIES=30             # in GB
+CACHE_MAX_SIZE_GB=30              # in GB
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5  # in GB
+CACHE_MAX_NUM_ENTRIES=1000
+ADMIN_TOKEN=              # for actions requiring privilege
+
+# Read from Qleverfile (only lines that look like an assignment are considered,
+# space around = allowed).
+# echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
+# echo
+eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
+# echo "CAT_FILES = \"${CAT_FILES}\""
+
+# Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
+QLEVER_DOCKER_CONTAINER=qlever.${DB}
+DB_BASE=$(echo ${DB} | sed 's/\..*$//')
+SLUG=${DB_BASE} # URL slug used in the QLever UI
+INDEXER_BINARY=IndexBuilderMain
+INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} ${TEXT_OPTIONS_INDEX} -s ${DB_BASE}.settings.json"
+if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
+fi
+if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
+  INDEXER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
+else
+  INDEXER_CMD="${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
+fi
+SERVER_BINARY=ServerMain
+SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
+if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
+  SERVER_CMD="docker exec -d ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
+  # SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
+else
+  SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
+fi
+SERVER_API=http://${HOSTNAME}:${SERVER_PORT}
+
+
+
+# Variant of make that reads the master Qleverfile (using GET_MASTER_QLEVERFILE)
+# and the local Qleverfile (in the directory from which this script is called).
+# The -s option stands for "silent" (do not show the commands while executing
+# them).
+function qlever_make {
+  QLEVERFILE_ARG=
+  if [ -e "${APP_DIR}/Qleverfile" ]; then
+    QLEVERFILE_ARG=" -f ${APP_DIR}/Qleverfile"
+  fi
+  get_master_qleverfile | make -s -f - ${QLEVERFILE_ARG} "$@"
+}
+
+# Like the above, but only show what would be executed (using the -n option of
+# "make"), in blue. Leave out command lines that end with #.
+function qlever_make_show {
+  printf "${BLUE}"
+  get_master_qleverfile \
+      | make -f - -f ${APP_DIR}/Qleverfile -n "$@" \
+      | egrep -v "#.?\$" | sed 's/^\s*//; s/\s?*\\$//' \
+      | sed 's/^: #/#/'
+  printf "${NORMAL}"
+}
+
+# Execute action function (given as argument $1).
+function execute_action {
+  ACTION_FUNCTION=$1
+  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
+    # echo "Executing function \"${ACTION_FUNCTION}\" ..."
+    # echo
+    eval ${ACTION_FUNCTION}
+  else
+    echo "${RED}Action function \"$1\" not defined${NORMAL}"
+  fi
+}
+
+# Show selected code of action function (given as argument $1).
+function show_action {
+  QUOTE=\"
+  DOLLAR=\$
+  ACTION_FUNCTION="$1"
+  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
+    printf "${BLUE}"
+    # This miracle code show the code of the action function. It works as
+    # follows:
+    # 1. The declare -t gives the full code (as written above).
+    # 2. The first sed filters out the lines starting with $SHOW and removing any
+    # parts after $NOSHOW (this gives us control which part to show).
+    # 3. The second sed temporarily replaces all $ that are not followed by a {
+    # and all " by ${DOLLAR} and ${QUOTE}, respsectively. That way, these will
+    # be be preserved (and not get interpreted somehow).
+    # 4. The last part expands all the ${...} variables (without the eval, no
+    # expansion would happen), including the ${DOLLAR} and ${QUOTE} introduced
+    # in the previous step.
+    declare -f ${ACTION_FUNCTION} \
+      | sed -En 's/\s+\$NOSHOW.*$//; s/;$//; s/^.*\$SHOW //p' \
+      | sed -En 's/"/${QUOTE}/g; s/\$([^{])/${DOLLAR}\1/g; p' \
+      | while read LINE; do eval "echo \"${LINE}\""; done
+    printf "${NORMAL}"
+  else
+    echo "${RED}Action function \"$1\" not defined${NORMAL}"
+  fi
+}
+
+# Command to leave the script ("return" when the script is sourced, "exit" when
+# it is called normally, that is, within its own subshell).
+EXIT=exit
+if [ ${QLEVER_CMD} != $0 ]; then EXIT=return; fi
+function exit_qlever { eval ${EXIT}; }
+
+
+
+# First separate the variable assignment arguments from the others. The
+# assignment will go in VARS, the rest will stay in $@ (both arrays).
+# VARS=( "QLEVER_CMD=${QLEVER_CMD}" "QLEVER_CMD_DIR=${QLEVER_CMD_DIR}" )
+# VARS=()
+# # OPT=""
+# for ARG do
+#   shift
+#   # [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
+#   [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
+#   set -- "$@" "${ARG}"
+# done
+# # for VAR in "${VARS[@]}"; do echo "VAR = \"${VAR}\""; done
+# # for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
+# # echo
+# 
+# # Special command "show-config" (for debugging, not one of the completions).
+# if [ "$*" == "show-config" ]; then
+#   echo "${BOLD}${MAGENTA}Secret action \"show-config\":${NORMAL}"
+#   echo
+#   cat << EOT
+# Showing the settings of some variables after they went through "make" and then
+# exported to the "qlever" script again (for debugging). If you call the script
+# with a variable assignment as in "qlever USE_DOCKER=0 ...", that value should
+# overrule the one from the QLeverfile.
+# EOT
+#   echo "${BLUE}"
+#   qlever_make "${VARS[@]}" export.HIDDEN
+#   echo "${NORMAL}"
+#   eval ${EXIT}
+# fi
+# 
+# # Actually do these assignments. NO: this is already done above!
+# $(qlever_make "${VARS[@]}" export.HIDDEN)
+# eval $(qlever_make "${VARS[@]}" export.HIDDEN)
+
+
+
+
+###
+### WHAT THE SCRIPT ACTUALLY DOES (it's basically a wrapper for "make")
+###
+
+# For selected actions: If USE_DOCKER=1 check if docker container is running
+# and if not run it.
+USE_DOCKER_ACTIONS=:start:index:
+if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
+  if [ "${USE_DOCKER}" == "1" ]; then
+    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+      echo "${MAGENTA}Using the already running docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
+      echo
+    else
+      echo "${MAGENTA}Starting new docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
+      echo
+      qlever_make_show "${VARS[@]}" QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" docker-run.HIDDEN
+      echo
+      qlever_make QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" "${VARS[@]}" docker-run.HIDDEN
+    fi
+  else
+    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+      echo "${MAGENTA}USE_DOCKER=0 but found docker container \"${QLEVER_DOCKER_CONTAINER}\", removing it ...${NORMAL}"
+      echo
+      qlever_make_show "${VARS[@]}" docker-remove.HIDDEN
+      echo
+      qlever_make "${VARS[@]}" docker-remove.HIDDEN
+    fi
+  fi
+fi
+
+
+# If the last argument is "show", just show the commands, but don't execute
+# them. The first for loop is a portable hack to get the last argument.
+for LAST; do true; done
+if [ "${LAST}" == "show" ]; then
+  echo "${BOLD}Just showing what would be executed${NORMAL}"
+  echo
+  for ARG in "$@"; do
+    if [ "${ARG}" != "show" ]; then
+      ACTION_FUNCTION=action_$(echo ${ARG} | sed 's/-/_/g')
+      if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
+        echo "\"${ARG}\" would execute the following:"
+        echo
+        show_action "${ACTION_FUNCTION}"
+        # qlever_make_show "${VARS[@]}" "${ARG}"
+        echo
+      else
+        echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
+        echo
+      fi
+    fi
+  done
+  exit
+fi
+
+# For each action, check whether the corresponding action function exists, and
+# if yes, show the command and then execute it.
+for ARG in "$@"; do
+  # If USE_DOCKER=1 and action requires docker, make sure it's running.
+  USE_DOCKER_ACTIONS=:start:index:
+  if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
+    if [ "${USE_DOCKER}" == "1" ]; then
+      if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+        execute_action action_docker_on
+      fi
+    fi
+  fi
+  # Now execute the action.
+  echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
+  echo
+  ACTION_FUNCTION=action_$(echo ${ARG} | sed 's/-/_/g')
+  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
+    if show_action "${ACTION_FUNCTION}"; then
+      echo
+      execute_action "${ACTION_FUNCTION}"
+      echo
+    fi
+  else
+    echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
+    echo
+  fi
+done

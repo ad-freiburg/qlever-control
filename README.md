@@ -36,14 +36,14 @@ qlever stop           # Stop the current server
 You can also perform a sequence of actions with a single call, for example:
 
 ```
-qlever remove_index index start
+qlever stop remove-index index start
 ```
 
 If you just want to know what an action or sequence of actions is doing, but not (yet)
 execute it, append "show":
 
 ```
-qlever remove_index index start
+qlever index start show
 ```
 
 There are many more actions. The script supports autocompletion. Just type "qlever "

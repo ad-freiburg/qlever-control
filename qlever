@@ -789,6 +789,7 @@ for ARG in "$@"; do
     if [ "${USE_DOCKER}" == "1" ]; then
       if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
         execute_action action_docker_on
+        echo
       fi
     fi
   fi

@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # This is the script that is called when calling "qlever" from the command line.
-# It's a bash script that invokes "make" for the various actions, using the
-# Makefile contained at the end of this script (after the special line __DATA__)
-# and the "Qleverfile" in the directory from which the script is called.
+# The script is self-explanatory when you run it. Type ". qlever" for initial
+# configuration and then "qlever" or "qlever help" for initial help.
 #
 # © 2022, University of Freiburg, Chair of Algorithms and Data Structures
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
@@ -291,10 +290,10 @@ function action_autocompletion_warmup {
 # docsfile produced. See git:ad-freiburg/qlever/docs/sparql_and_text.md .
 #
 function action_text_input_from_nt_literals {
-  if [ -f "${QLEVER_BIN_DIR}/misc/words-and-docs-file-from-nt.py" ]; then
+  if [ -f "${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py" ]; then
     if [ -f "${DB}.nt" ]; then
       echo "Creating text input from ${DB}.nt (experimental), which can then be used for an index build by setting WITH_TEXT=1 ..." | fold -s
-      python3 ${QLEVER_BIN_DIR}/misc/words-and-docs-file-from-nt.py ${DB}
+      $SHOW python3 ${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py ${DB}
     else
       echo "${RED}This requires an NT file ${DB}.nt${NORMAL}"
     fi
@@ -435,8 +434,8 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
 
   # If we called ". qlever init" (for use in .bashrc, where we only want to set
   # the PATH and activate the autocompletion), exit here.
-  if [ "$*" == "bashrc" ]; then
-    echo "${NORMAL}Called \". qlever bashrc\", so leaving now${NORMAL}"
+  if [ "$*" == "shell_init" ]; then
+    echo "${NORMAL}Called \". qlever shell_init\", so leaving now${NORMAL}"
     echo
     return
   fi
@@ -487,7 +486,7 @@ QLEVER_CMD_DIR  = ${QLEVER_CMD_DIR}
 # Indexer settings
 DB              = ${DB}
 RDF_FILES       = ${INPUT_FILE}
-CAT_FILES       = ${CAT} \$(RDF_FILES)
+CAT_FILES       = "${CAT} \${RDF_FILES}"
 WITH_TEXT       = 0
 
 # Server settings
@@ -515,6 +514,23 @@ certain things. Please check and modify as you see fit.
 
 EOT
 # ${BLUE}$(cat Qleverfile)${NORMAL}
+  fi
+
+  # Settings file: If it's not there yet, create an empty one.
+  if [ ! -e ${DB}.settings.json ]; then
+    echo "${BOLD}Checking .settings.json file ...${NORMAL}"
+    echo
+    echo "{}" > ${DB}.settings.json
+    cat << EOT
+The index builder currently also requires a file "${DB}.settings.json", and I
+created an empty one for you. In this file, you can specify specialized settings
+for the indexer, for example: prefixes of IRIs for which the names are stored on
+disk (to save RAM), the locale by which literals are sorted, the batch size used
+by the indexer (default: 10M), and whether the input is well behaved in a
+certain way (which enables faster indexing). See the QLever Wiki for more
+information.
+
+EOT
   fi
 
   # DONE: give the user a short heads up what they can do now.

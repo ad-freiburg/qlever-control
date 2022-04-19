@@ -79,7 +79,7 @@ function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
     echo "${RED}Index exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
-    $SHOW ${CAT_FILES} | ${INDEXER_CMD} | tee ${DB}.index-log.txt
+    eval $SHOW ${INDEXER_CMD}
   fi
 }
 
@@ -89,23 +89,25 @@ function action_remove_index {
 }
 
 function action_start {
-  if [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $$?) == 0 ]; then 
-    echo "${RED}Server already running on port ${SERVER_PORT}, to restart it first do \"stop\" (or check the PORT in your Qleverfile)${NORMAL}"
+  if curl --silent http://localhost:${SERVER_PORT} > /dev/null; then 
+    echo "${RED}Server already running on port ${SERVER_PORT}, use \"qlever restart\" or check SERVER_PORT in your Qleverfile${NORMAL}"
     echo "${BLUE}"
     ps -e -o "%p" -o "  %U " -o start_time -o "  %a" \
       | \grep "${SERVER_BINARY} .*-p ${SERVER_PORT}" \
       | \grep -v "grep.*${SERVER_BINARY}"
     printf "${NORMAL}"
   else
-    echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..."
-    echo
-    rm -f ${DB}.server-log.txt
-    # echo "USE_DOCKER: ${USE_DOCKER}"
-    # echo "SERVER_START_CMD: ${SERVER_START_CMD}"
-    eval $SHOW ${SERVER_CMD}
-    tail -f -n 10 ${DB}.server-log.txt & PID=$!
-    while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
-    kill ${PID}
+    if [ -f "${DB}.index.sop" ] && [ -f "${DB}.index.spo" ]; then
+      echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..."
+      echo
+      rm -f ${DB}.server-log.txt
+      eval $SHOW ${SERVER_CMD}
+      tail -f -n 10 ${DB}.server-log.txt & PID=$!
+      while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
+      kill ${PID}
+    else
+      echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
+    fi
   fi
 }
 
@@ -115,15 +117,15 @@ function action_stop {
   if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
     $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt
     echo
-    echo "Killed process with PID ${PID} and removed \"${DB}.server-log.txt\""
+    echo "Killed processes and removed \"${DB}.server-log.txt\""
   else
     echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
   fi
 }
 
 function action_restart {
-  qlever stop
-  qlever start
+  $SHOW qlever stop $NOSHOW | sed '1,3d'
+  $SHOW qlever start $NOSHOW | sed '1,3d'
 }
 
 function action_wait {
@@ -146,7 +148,7 @@ function action_log_until_server_up {
 
 
 function action_status {
-  echo "Showing all processes with command \"${SERVER_START_BINARY}\" on this machine ..."
+  echo "Showing all processes with command \"${SERVER_BINARY}\" on this machine ..."
   echo "${BLUE}"
   $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -e '1p; /\bServerMain/!d; /bash -c/d' $NOSHOW \
     | awk 'NR==1 {o=$0; a=match($0, $5)} NR > 1 {o=$0; $4=int($4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $1, $2, $3, $4, substr(o, a)}'
@@ -171,7 +173,7 @@ function action_status {
 # even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".in.master:
 function action_pin_INTERNAL {
   echo "Launch warmup queries for the QLever UI autocompletion (via galera) ..." 
-  ssh -tt galera docker exec -it qlever-ui bash -c "python manage.py warmup ${SLUG} pin"
+  $SHOW ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup ${SLUG} pin\"
 }
 
 # Clear the cache.
@@ -186,7 +188,7 @@ function action_clear_cache {
 function action_clear_cache_complete {
   echo "Clearing the cache completely (including pinned entries) ..."
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" > /dev/null
-  curl -Gs $(SERVER_API) --data-urlencode "cmd=cache-stats" \
+  curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
 }
@@ -195,10 +197,10 @@ function action_clear_cache_complete {
 function action_disk_usage {
   echo "Disk usage of all files in this QLever index, and the size of the input files"
   echo
-  $SHOW du -hc $(DB).index.[ops]* $(DB).vocabulary.* $(DB).prefixes $(DB).meta-data.json
+  $SHOW du -hc ${DB}.index.[ops]* ${DB}.vocabulary.* ${DB}.prefixes ${DB}.meta-data.json
   echo
   # echo && echo "For comparison, the size of the input files" && echo #
-  du -hc $(RDF_FILES)
+  du -hc ${RDF_FILES}
 }
 
 function action_cache_stats {
@@ -209,7 +211,13 @@ function action_cache_stats {
 }
 
 function action_memory_usage {
-  $SHOW echo && docker stats --no-stream --format "Memory usage of docker container ${DOCKER_CONTAINER}: {{.MemUsage}}" ${DOCKER_CONTAINER}
+  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+    $SHOW docker stats --no-stream \
+      --format "Memory usage of docker container ${QLEVER_DOCKER_CONTAINER}: {{.MemUsage}}" \
+      ${QLEVER_DOCKER_CONTAINER}
+  else
+    echo "${RED}Docker container \"${QLEVER_DOCKER_CONTAINER}\" not running${NORMAL}"
+  fi
 }
 
 function action_server_settings {
@@ -231,17 +239,20 @@ function action_ui {
   fi
   # Configure using Makefile from QLever UI repo.
   echo "Creating configuration for the QLever UI ..."
-  $SHOW make -s -C "${QLEVERUI_DIR}" CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  $SHOW make -s -C "${QLEVERUI_DIR}" CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
   # Launching the web app.
   echo "Launching QLever UI web application ..."
-  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} FRONTEND_PORT=${QLEVERUI_PORT} qlever-ui >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} FRONTEND_PORT=${QLEVERUI_PORT} qlever-ui $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
   echo
-  echo "Looks like it worked, go to http://${HOSTNAME}:${QLEVERUI_PORT} and try out some queries. If it doesn't work, check \"$(LOG_FILE)\" for suspicious messages or \"${QLEVERUI_DIR}/Makefile\" for troubleshooting help" | fold -s
+  echo "Looks like it worked, go to http://${HOSTNAME}:${QLEVERUI_PORT} and try out some queries. If it doesn't work, check \"${LOG_FILE}\" for suspicious messages or \"${QLEVERUI_DIR}/Makefile\" for troubleshooting help" | fold -s
 }
 
 function action_autocompletion_warmup {
   echo "Launch warmup queries for the QLever UI autocompletion ..."
-  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" $NOSHOW \
+    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
 }
 
 # Create wordsfile and docsfile from all literals of the given NT file.
@@ -294,6 +305,30 @@ function action_cat_files {
   eval ${CAT_FILES}
 }
 
+function action_docker_on {
+  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+    echo "${MAGENTA}Docker container \"${QLEVER_DOCKER_CONTAINER}\" already running${NORMAL}"
+  else
+    docker rm -f "${QLEVER_DOCKER_CONTAINER}" > /dev/null 2> /dev/null
+    echo "${MAGENTA}Starting docker container \"${QLEVER_DOCKER_CONTAINER}\" ...${NORMAL}"
+    $SHOW docker run -d -u $(id -u):$(id -g) -it -v $(pwd):/index \
+      -p ${SERVER_PORT}:${SERVER_PORT} \
+      --entrypoint bash \
+      --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} $NOSHOW \
+      > /dev/null
+    while ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; do sleep 0.1; done
+    $SHOW docker cp ${QLEVER_CMD_DIR}/qlever \
+      ${QLEVER_DOCKER_CONTAINER}:/index $NOSHOW \
+      > /dev/null #
+  fi
+  echo "${BLUE}"
+  docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
+  echo "${NORMAL}"
+}
+
+function action_docker_off {
+  $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
+}
 
 
 ###
@@ -476,6 +511,7 @@ APP_DIR=$(pwd)                   # Where the script was called from
 DB=must_specify
 USE_DOCKER=0
 WITH_TEXT=0
+QLEVER_DOCKER_IMAGE=adfreiburg/qlever
 QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
 QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
 QLEVERUI_DIR="qlever-ui"
@@ -491,8 +527,8 @@ ADMIN_TOKEN=              # for actions requiring privilege
 
 # Read from Qleverfile (only lines that look like an assignment are considered,
 # space around = allowed).
-echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
-echo
+# echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
+# echo
 eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
 # echo "CAT_FILES = \"${CAT_FILES}\""
 
@@ -505,12 +541,16 @@ INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} ${TEXT_OPTIONS_INDEX} -s ${DB_
 if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
-INDEXER_CMD="${INDEXER_BINARY} ${INDEXER_OPTIONS}"
+if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
+  INDEXER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
+else
+  INDEXER_CMD="${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
+fi
 SERVER_BINARY=ServerMain
 SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker exec -d ${QLEVER_DOCKER_CONTAINER} bash -c \"cd
-  /index && ${SERVER_BINARY} ${SERVER_OPTIONS}\""
+  SERVER_CMD="docker exec -d ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
+  # SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
 else
   SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
 fi
@@ -674,10 +714,8 @@ if [ "${LAST}" == "show" ]; then
         # qlever_make_show "${VARS[@]}" "${ARG}"
         echo
       else
-        cat << EOT | fold -s
-${RED}Action \"${ARG}\" not defined, check the list of available action from the
-autocompletion${NORMAL}
-EOT
+        echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
+        echo
       fi
     fi
   done
@@ -687,6 +725,16 @@ fi
 # For each action, check whether the corresponding action function exists, and
 # if yes, show the command and then execute it.
 for ARG in "$@"; do
+  # If USE_DOCKER=1 and action requires docker, make sure it's running.
+  USE_DOCKER_ACTIONS=:start:index:
+  if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
+    if [ "${USE_DOCKER}" == "1" ]; then
+      if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
+        execute_action action_docker_on
+      fi
+    fi
+  fi
+  # Now execute the action.
   echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
   echo
   ACTION_FUNCTION=action_$(echo ${ARG} | sed 's/-/_/g')
@@ -697,9 +745,7 @@ for ARG in "$@"; do
       echo
     fi
   else
-    cat << EOT | fold -s
-${RED}Action \"${ARG}\" not defined, check the list of available action from the
-autocompletion${NORMAL}
-EOT
+    echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
+    echo
   fi
 done

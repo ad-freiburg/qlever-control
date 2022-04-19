@@ -405,8 +405,8 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
 
   # If we called ". qlever init" (for use in .bashrc, where we only want to set
   # the PATH and activate the autocompletion), exit here.
-  if [ "$*" == "init" ]; then
-    echo "${NORMAL}Called \". qlever init\", so leaving now${NORMAL}"
+  if [ "$*" == "bashrc" ]; then
+    echo "${NORMAL}Called \". qlever bashrc\", so leaving now${NORMAL}"
     echo
     return
   fi
@@ -415,11 +415,11 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # some basic settings). Never overwrite an existing one, also not when called
   # with ". qlever reset".
   if [ -e Qleverfile ]; then
-    echo "${BOLD}Redoing setup ...${NORMAL}"
+    echo "${BOLD}Checking Qleverfile ...${NORMAL}"
     echo
     cat << EOT
 There is alreay a QLeverfile in this directory. If you want a freshly generated
-basic Qleverfile, remove or move the existing one and run ".  qlever reset"
+basic Qleverfile, remove or move the existing one and run ". qlever reset"
 again.
 
 EOT
@@ -447,17 +447,18 @@ EOT
     fi
     cat << EOT > Qleverfile
 # Qleverfile for folder $(pwd)
-# Created on $(date).
+# Automatically created on $(date).
 # Modify or expand as you see fit.
 
-# QLever actions
-USE_DOCKER      = 1
+# Command-line settings
 BASH_COMPLETION = 1
+QLEVER_CMD_DIR  = ${QLEVER_CMD_DIR}
 
-# Dataset
+# Indexer settings
 DB              = ${DB}
 RDF_FILES       = ${INPUT_FILE}
 CAT_FILES       = ${CAT} \$(RDF_FILES)
+WITH_TEXT       = 0
 
 # Server settings
 HOSTNAME                       = $(hostname -f)
@@ -467,20 +468,23 @@ CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 
+# Docker settings
+USE_DOCKER              = 1
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
 # QLever UI
 QLEVERUI_PORT   = 7000
 QLEVERUI_DIR    = ${QLEVERUI_DIR}
 QLEVERUI_CONFIG = ${QLEVERUI_CONFIG}
-
 EOT
     cat << EOT
-There was no Qleverfile in this directory yet. A Qleverfile contains
-basic configuration telling the "qlever" command how to do certain
-things. The following basic Qleverfile was now created:
-
-${BLUE}$(cat Qleverfile)${NORMAL}
+There was no "Qleverfile" in this directory yet, so I created one for you. A
+Qleverfile contains basic configuration telling the "qlever" command how to do
+certain things. Please check and modify as you see fit.
 
 EOT
+# ${BLUE}$(cat Qleverfile)${NORMAL}
   fi
 
   # DONE: give the user a short heads up what they can do now.
@@ -515,7 +519,6 @@ QLEVER_DOCKER_IMAGE=adfreiburg/qlever
 QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
 QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
 QLEVERUI_DIR="qlever-ui"
-QLEVERUI_DOCKER_IMAGE="qlever-ui"
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
 QLEVERUI_PORT=7000        # frontend port

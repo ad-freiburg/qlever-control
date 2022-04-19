@@ -603,6 +603,9 @@ else
 fi
 SERVER_BINARY=ServerMain
 SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
+if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
+  SERVER_OPTIONS="${SERVER_OPTIONS} -t"
+fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   SERVER_CMD="docker exec -d ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
   # SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""

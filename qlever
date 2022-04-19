@@ -86,15 +86,6 @@ else
   echo
 fi
 
-# Help info.
-if [ -z "$*" ] || [ "$*" == "help" ]; then
-  qlever_help
-  exit
-fi
-if [ "$*" == "install" ]; then
-  qlever_install
-  exit
-fi
  
 
 ###
@@ -259,6 +250,7 @@ function action_server_settings {
 LOG_FILE=qleverui-log.tmp
 ERROR_CMD="(echo && echo \"${BLUE}An error occured, check ${LOG_FILE} for details, the last 10 lines are:${NORMAL}\" && tail ${LOG_FILE} && false)"
 QLEVERUI_GIT=git@github.com:ad-freiburg/qlever-ui.git
+QLEVERUI_DIR="qlever-ui"
 function action_ui {
   > ${LOG_FILE}
   # We need the QLever UI repository.
@@ -352,7 +344,7 @@ function action_docker_on {
   fi
   echo "${BLUE}"
   docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
-  echo "${NORMAL}"
+  printf "${NORMAL}"
 }
 
 function action_docker_off {
@@ -382,11 +374,11 @@ Bash completion not activated or no Qleverfile exists or both. Please run the
 qlever configuration once as follows (an existing Qleverfile will not be
 overwritten, don't worry): 
 
-${BLUE}. qlever${NORMAL}
+${BLUE}. ${QLEVER_CMD}${NORMAL}
 
-Afterwards you can just call "qlever" (without the dot). If you don't care about
-bash autocompletion or it doesn't work on your system, set BASH_COMPLETION = 0
-in your Qleverfile.
+Afterwards you can just call "qlever" (without the dot and without specifying
+the path). If you don't care about bash autocompletion or it doesn't work on
+your system, set BASH_COMPLETION = 0 in your Qleverfile.
 
 EOT
     exit
@@ -547,6 +539,22 @@ EOT
 fi
 
 
+###
+### BASIC HELP AND INSTALL INFO
+###
+### Note that this must come after the code for ". qlever" (which is also called
+### without arguments).
+###
+
+if [ -z "$*" ] || [ "$*" == "help" ]; then
+  qlever_help
+  exit
+fi
+if [ "$*" == "install" ]; then
+  qlever_install
+  exit
+fi
+
 
 ###
 ### VARIABLE ASSIGNMENTS
@@ -563,8 +571,6 @@ USE_DOCKER=0
 WITH_TEXT=0
 QLEVER_DOCKER_IMAGE=adfreiburg/qlever
 QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
-QLEVERUI_GIT="git@github.com:ad-freiburg/qlever-ui.git"
-QLEVERUI_DIR="qlever-ui"
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
 QLEVERUI_PORT=7000        # frontend port

@@ -135,9 +135,9 @@ function action_stop {
   echo "Stop the QLever server (find and kill manually if it fails) ..."
   echo
   if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
-    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt
     echo
-    echo "Killed processes and removed \"${DB}.server-log.txt\""
+    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt $NOSHOW \
+      && echo "Killed processes and removed \"${DB}.server-log.txt\""
   else
     echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
   fi

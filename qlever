@@ -318,12 +318,12 @@ EOT
 
 # Produce list of all input files.
 function action_rdf_files {
-  ls ${RDF_FILES}
+  $SHOW ls ${RDF_FILES}
 }
 
 # Produce the input as fed to the index builder.
 function action_cat_files {
-  eval ${CAT_FILES}
+  eval $SHOW ${CAT_FILES}
 }
 
 function action_docker_on {
@@ -592,7 +592,10 @@ QLEVER_DOCKER_CONTAINER=qlever.${DB}
 DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${DB_BASE} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
-INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} ${TEXT_OPTIONS_INDEX} -s ${DB_BASE}.settings.json"
+INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} -s ${DB_BASE}.settings.json"
+if [[ :1:yes:true: == *:${POS_AND_PSO_ONLY}:* ]]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pos-and-pso-permutations --no-patterns"
+fi
 if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi

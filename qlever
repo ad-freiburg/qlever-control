@@ -254,7 +254,7 @@ function action_ui {
   fi
   # Configure using Makefile from QLever UI repo.
   echo "Creating configuration for the QLever UI ..."
-  $SHOW make -s -C "${QLEVERUI_DIR}" CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config $NOSHOW \
+  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config $NOSHOW \
     >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
   # Launching the web app.
   echo "Launching QLever UI web application ..."

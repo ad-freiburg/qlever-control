@@ -76,15 +76,9 @@ EOT
 }
 
 # Welcome message. TODO: remove this eventually.
-if [ ! -f /.dockerenv ]; then
-  echo
-  echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
-  echo
-else
-  echo
-  echo "${MAGENTA}This is the \"qlever\" script, being executed within DOCKER${NORMAL}"
-  echo
-fi
+echo
+echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
+echo
 
  
 
@@ -338,9 +332,9 @@ function action_docker_on {
       --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} $NOSHOW \
       > /dev/null
     while ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; do sleep 0.1; done
-    $SHOW docker cp ${QLEVER_CMD_DIR}/qlever \
-      ${QLEVER_DOCKER_CONTAINER}:/index $NOSHOW \
-      > /dev/null #
+    # $SHOW docker cp ${QLEVER_CMD_DIR}/qlever \
+    #   ${QLEVER_DOCKER_CONTAINER}:/index $NOSHOW \
+    #   > /dev/null #
   fi
   echo "${BLUE}"
   docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
@@ -364,9 +358,7 @@ QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
 # autocompletion can only be activated by "sourcing" the respective commands
 # (the ". qlever" is equivalent to "source qlever"). If the Qleverfile has
 # BASH_COMPLETION = 0, don't mind the autocompletion.
-#
-# NEW: Not when running inside docker.
-if [ ${BASH_SOURCE[0]} == $0 ] && [ ! -f /.dockerenv ] \
+if [ ${BASH_SOURCE[0]} == $0 ] \
   && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
        [ ! -e Qleverfile ] ); then
     cat << EOT
@@ -597,7 +589,7 @@ if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  INDEXER_CMD="docker exec -it ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
+  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
 else
   INDEXER_CMD="${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
 fi
@@ -607,7 +599,7 @@ if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker exec -d ${QLEVER_DOCKER_CONTAINER} bash -c \"cd /index && ${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
+  SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
   # SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
 else
   SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"

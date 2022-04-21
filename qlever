@@ -91,7 +91,7 @@ NOSHOW=
 
 function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
-    echo "${RED}Index exists, delete it first with \"qlever remove_index\" (add \"show\" to find out what gets deleted)${NORMAL}"
+    echo "${RED}Index exists, delete it first with \"qlever remove-index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
     eval $SHOW ${INDEXER_CMD}
   fi
@@ -129,9 +129,9 @@ function action_stop {
   echo "Stop the QLever server (find and kill manually if it fails) ..."
   echo
   if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
-    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt
     echo
-    echo "Killed processes and removed \"${DB}.server-log.txt\""
+    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt $NOSHOW \
+      && echo "Killed processes and removed \"${DB}.server-log.txt\""
   else
     echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
   fi
@@ -193,7 +193,7 @@ function action_pin_INTERNAL {
 # Clear the cache.
 function action_clear_cache {
   echo "Clearing the cache (unpinned entries only) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" > /dev/null
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -201,7 +201,7 @@ function action_clear_cache {
 
 function action_clear_cache_complete {
   echo "Clearing the cache completely (including pinned entries) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" > /dev/null
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -219,7 +219,7 @@ function action_disk_usage {
 
 function action_cache_stats {
   echo "Show cache statistics (in number of IDs, an ID has 8 bytes) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
 }
@@ -236,7 +236,7 @@ function action_memory_usage {
 
 function action_server_settings {
   echo "Getting settings from \"${SERVER_API}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" \
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
 }
 
@@ -312,12 +312,12 @@ EOT
 
 # Produce list of all input files.
 function action_rdf_files {
-  ls ${RDF_FILES}
+  $SHOW ls ${RDF_FILES}
 }
 
 # Produce the input as fed to the index builder.
 function action_cat_files {
-  eval ${CAT_FILES}
+  eval $SHOW ${CAT_FILES}
 }
 
 function action_docker_on {
@@ -584,7 +584,13 @@ QLEVER_DOCKER_CONTAINER=qlever.${DB}
 DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${DB_BASE} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
-INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} ${TEXT_OPTIONS_INDEX} -s ${DB_BASE}.settings.json"
+INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} -s ${DB_BASE}.settings.json"
+if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
+fi
+if [ "${STXXL_MEMORY_GB}" ]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} --stxxl-memory-gb ${STXXL_MEMORY_GB}"
+fi
 if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
@@ -781,6 +787,7 @@ for ARG in "$@"; do
     if [ "${USE_DOCKER}" == "1" ]; then
       if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
         execute_action action_docker_on
+        echo
       fi
     fi
   fi

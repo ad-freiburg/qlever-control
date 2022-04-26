@@ -102,6 +102,32 @@ function action_remove_index {
   echo "The index files have been removed."
 }
 
+function action_index_stats {
+  if [ ! -e ${DB}.index-log.txt ]; then echo "${RED}Need file \"${DB}.index-log.txt\"${NORMAL}"; return; fi
+  $SHOW readarray -t T < <(sed -En '/INFO:  (Processing|Done|Converting triples|Creating|Index build)/p' ${DB}.index-log.txt | cut -c1-19)
+  if [ ${#T[@]} != 8 ]; then echo "${RED}Missing key lines in \"${DB}.index-log.txt\"${NORMAL}"; return; fi
+  Ts=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[0]}"))" | bc)
+  if [ "${Ts}" -gt "3600" ]; then Tdiv=3600; Tunit="h"; else Tdiv=60; Tunit="min"; fi
+  T1=$(echo "($(date +%s -d "${T[1]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
+  T2=$(echo "($(date +%s -d "${T[2]}") - $(date +%s -d "${T[1]}")) / ${Tdiv}" | bc -l)
+  T3=$(echo "($(date +%s -d "${T[3]}") - $(date +%s -d "${T[2]}")) / ${Tdiv}" | bc -l)
+  T4=$(echo "($(date +%s -d "${T[4]}") - $(date +%s -d "${T[3]}")) / ${Tdiv}" | bc -l)
+  T5=$(echo "($(date +%s -d "${T[5]}") - $(date +%s -d "${T[4]}")) / ${Tdiv}" | bc -l)
+  T6=$(echo "($(date +%s -d "${T[6]}") - $(date +%s -d "${T[5]}")) / ${Tdiv}" | bc -l)
+  T7=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[6]}")) / ${Tdiv}" | bc -l)
+  TT=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
+  echo "Time needed for the various phases of the indexing build"
+  echo
+  printf "%-23s : %5.1f ${Tunit}\n" "Parse input"            ${T1}
+  printf "%-23s : %5.1f ${Tunit}\n" "Build vocabularies"     $(echo "${T2} + ${T4}" | bc)
+  printf "%-23s : %5.1f ${Tunit}\n" "Convert to global IDs"  ${T3}
+  printf "%-23s : %5.1f ${Tunit}\n" "PSO & POS permutations" ${T5}
+  printf "%-23s : %5.1f ${Tunit}\n" "SPO & SOP permutations" ${T6}
+  printf "%-23s : %5.1f ${Tunit}\n" "OSP & OPS permutations" ${T7}
+  echo
+  printf "%-23s : %5.1f ${Tunit}\n" "TOTAL index build time" ${TT}
+}
+
 function action_start {
   if curl --silent http://localhost:${SERVER_PORT} > /dev/null; then 
     echo "${RED}Server already running on port ${SERVER_PORT}, use \"qlever restart\" or check SERVER_PORT in your Qleverfile${NORMAL}"

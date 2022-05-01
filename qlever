@@ -14,11 +14,12 @@ MAGENTA=$(printf "\033[35m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
+
 ###
-### HELP (the help text shown with "qlever help")
+### AVAILABLE ACTIONS (all available via autocompletion)
 ###
 
-function qlever_help {
+function action_help {
   cat << EOT
 ${BOLD}QLever help${NORMAL}
 
@@ -40,14 +41,14 @@ exeute it, append show.  That you can also do for multiple actions, for example
 
 BINARIES: For the actions "index" and "start", you need QLever's binaries. You
 can either use them via docker (USE_DOCKER=1, the default in the Qleverfile), or
-compile them on your machine (see "qlever install" for instructions). With
+compile them on your machine (see "qlever help-install" for instructions). With
 docker, all you need is a docker installation. The "qlever" script will
 automatically download and run the right images for you.
 
 EOT
 }
 
-function qlever_install {
+function action_help_install {
   cat << EOT
 ${BOLD}QLever install${NORMAL}
 
@@ -57,34 +58,27 @@ and "ServerMain" on your machine. As a first step, do the following somewhere on
 your machine. We recommend that you have a directory "qlever", with subfolders
 for the different components: "qlever-code", "qlever-control", "qlever-indices",
 etc.
-
+${BLUE}
 git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
 cd qlever-code
 mkdir -p build && cd build
-
+${NORMAL}
 If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides two Dockerfile under
-https://github.com/ad-freiburg/qlever/tree/master/Dockerfiles . Pick the right
-one for your machine, consider all lines starting with RUN and run them from the
-command line, without the RUN and with a "sudo" before each "apt", "apt-get",
-"add-apt-repository", or "tee".
-
-After this, you have the two binaries in your "build" folder.  Put the path to
+qlever-code/master/Dockerfiles . Pick the right one for your machine, consider
+all lines starting with RUN and run them from the command line, without the RUN
+and with a "sudo" before each "apt", "apt-get", "add-apt-repository", or "tee".
+Here is a command line to get the commands automatically from the respective
+Dockerfile:
+${BLUE}
+cat /path/to/qlever-code/Dockerfiles/Dockerfile.Ubuntu20.04 \\
+  | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q'
+${NORMAL}
+After this, you have the two binaries in your "build" folder. Put the path to
 it in your PATH. Then you can use the actions "index" and "start" also with
 USE_DOCKER=0 in your Qleverfile.
 
 EOT
 }
-
-# Welcome message. TODO: remove this eventually.
-echo
-echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
-echo
-
- 
-
-###
-### AVAILABLE ACTIONS
-###
 
 SHOW=
 NOSHOW=
@@ -388,6 +382,7 @@ if [ ${BASH_SOURCE[0]} == $0 ] \
   && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
        [ ! -e Qleverfile ] ); then
     cat << EOT
+
 Bash completion not activated or no Qleverfile exists or both. Please run the
 qlever configuration once as follows (an existing Qleverfile will not be
 overwritten, don't worry): 
@@ -408,6 +403,7 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
 
   # PATH: Check if QLEVER_CMD_DIR is in the path and if not add it to the path.
   # ALso check if 
+  echo
   echo "${BOLD}Checking your PATH ...${NORMAL}"
   echo
   for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do
@@ -451,15 +447,14 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   fi
 
   # QLeverfile: If it's not there yet, create a basic one (with good guesses for
-  # some basic settings). Never overwrite an existing one, also not when called
-  # with ". qlever reset".
+  # some basic settings). Never overwrite an existing one, it has to be removed
+  # explicitly by the user.
   if [ -e Qleverfile ]; then
     echo "${BOLD}Checking Qleverfile ...${NORMAL}"
     echo
     cat << EOT
 There is alreay a QLeverfile in this directory. If you want a freshly generated
-basic Qleverfile, remove or move the existing one and run ". qlever reset"
-again.
+basic Qleverfile, remove or move the existing one and run ". qlever" again.
 
 EOT
   else
@@ -474,10 +469,9 @@ EOT
     CAT=cat
     if [ ! -z ${INPUT_FILE} ]; then
       DB=${INPUT_FILE/.*/}
-      if [[ ${INPUT_FILE} =~ \.gz\$ ]]; then CAT=zcat; fi
-      if [[ ${INPUT_FILE} =~ \.bz\$ ]]; then CAT=bzcat; fi
-      if [[ ${INPUT_FILE} =~ \.bz2\$ ]]; then CAT=bzca; fi
-      if [[ ${INPUT_FILE} =~ \.xz\$ ]]; then CAT=xzca; fi
+      if [[ ${INPUT_FILE} =~ .gz$ ]]; then CAT=zcat; fi
+      if [[ ${INPUT_FILE} =~ .bz2?$ ]]; then CAT=bzcat; fi
+      if [[ ${INPUT_FILE} =~ .xz$ ]]; then CAT=xzcat; fi
       QLEVERUI_CONFIG=${DB}
     else
       DB=must_specify
@@ -549,8 +543,8 @@ ${BOLD}Setup is complete${NORMAL}
 
 Type "qlever" and use autocompletion to see which actions are available. Add a
 "show" in the end to see what an action does without executing it (for example,
-"qlever index show"). Typing "qlever" without arguments gives you overview over
-the basic configuration. Edit your local "Qleverfile" to change settings.
+"qlever index show"). Typing "qlever" without arguments gives some basic help
+and pointers for further help. Edit your local "Qleverfile" to change settings.
 
 EOT
   return
@@ -565,13 +559,20 @@ fi
 ###
 
 if [ -z "$*" ] || [ "$*" == "help" ]; then
-  qlever_help
+  echo
+  action_help
   exit
 fi
-if [ "$*" == "install" ]; then
-  qlever_install
+if [ "$*" == "help-install" ]; then
+  echo
+  action_help_install
   exit
 fi
+
+# Welcome message. TODO: remove this eventually.
+echo
+echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
+echo
 
 
 ###

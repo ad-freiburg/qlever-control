@@ -131,7 +131,7 @@ function action_start {
       | \grep -v "grep.*${SERVER_BINARY}"
     printf "${NORMAL}"
   else
-    if [ -f "${DB}.index.sop" ] && [ -f "${DB}.index.spo" ]; then
+    if [ -f "${DB}.index.pso" ] && [ -f "${DB}.index.pos" ]; then
       echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..."
       echo
       rm -f ${DB}.server-log.txt
@@ -628,6 +628,9 @@ else
 fi
 SERVER_BINARY=ServerMain
 SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
+if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
+  SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
+fi
 if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi

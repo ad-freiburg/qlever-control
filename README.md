@@ -31,6 +31,7 @@ qlever index          # Build a QLever index for your RDF data
 qlever start          # Start a QLever server using that index
 qlever status         # Show the current status
 qlever stop           # Stop the current server
+qlever ...            # There are many more actions, see below.
 ```
 
 You can also perform a sequence of actions with a single call, for example:

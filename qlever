@@ -126,7 +126,7 @@ function action_index_stats {
   if [ ! -e ${DB}.index-log.txt ]; then echo "${RED}Need file \"${DB}.index-log.txt\"${NORMAL}"; return; fi
   $SHOW readarray -t T < <(sed -En '/INFO:  (Processing|Done|Converting triples|Creating|Index build)/p' ${DB}.index-log.txt | cut -c1-19)
   if [ "${#T[@]}" -lt "6" ]; then echo "${RED}Missing key lines in \"${DB}.index-log.txt\"${NORMAL}"; return; fi
-  Ts=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[0]}"))" | bc)
+  Ts=$(echo "($(date +%s -d "${T[-1]}") - $(date +%s -d "${T[0]}"))" | bc)
   if [ "${Ts}" -gt "3600" ]; then Tdiv=3600; Tunit="h"; else Tdiv=60; Tunit="min"; fi
   T1=$(echo "($(date +%s -d "${T[1]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
   T2=$(echo "($(date +%s -d "${T[2]}") - $(date +%s -d "${T[1]}")) / ${Tdiv}" | bc -l)

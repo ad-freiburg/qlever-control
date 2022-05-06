@@ -83,10 +83,20 @@ EOT
 SHOW=
 NOSHOW=
 
+
 function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
     echo "${RED}Index exists, delete it first with \"qlever remove-index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
+    # Create settings.json.
+    if jq --version > /dev/null 2>&1; then
+      echo ${SETTINGS_JSON} | jq -M > ${DB}.settings.json
+    else
+      echo ${SETTINGS_JSON} > ${DB}.settings.json
+    fi
+    # Create prefix definitions
+    if [ ! -z "${EXTRACT_PREFIXES}" ]; then eval $SHOW ${EXTRACT_PREFIXES} $NOSHOW; fi
+    # Build index.
     eval $SHOW ${INDEXER_CMD}
   fi
 }
@@ -465,44 +475,70 @@ EOT
     # right "cat" command according to the suffix. If several such files exist,
     # take the largest one. If no such file exists, leave the basename empty and
     # for the user to set.
-    INPUT_FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
+    RDF_FILES=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
     CAT=cat
-    if [ ! -z ${INPUT_FILE} ]; then
-      DB=${INPUT_FILE/.*/}
-      if [[ ${INPUT_FILE} =~ .gz$ ]]; then CAT=zcat; fi
-      if [[ ${INPUT_FILE} =~ .bz2?$ ]]; then CAT=bzcat; fi
-      if [[ ${INPUT_FILE} =~ .xz$ ]]; then CAT=xzcat; fi
+    if [ ! -z ${RDF_FILES} ]; then
+      DB=${RDF_FILES/.*/}
+      if [[ ${RDF_FILES} =~ .gz$ ]]; then CAT=zcat; fi
+      if [[ ${RDF_FILES} =~ .bz2?$ ]]; then CAT=bzcat; fi
+      if [[ ${RDF_FILES} =~ .xz$ ]]; then CAT=xzcat; fi
       QLEVERUI_CONFIG=${DB}
     else
       DB=must_specify
       INPUT_FILE=must_specifiy
       QLEVERUI_CONFIG=default
     fi
-    cat << EOT > Qleverfile
-# Qleverfile for folder $(pwd)
-# Automatically created on $(date).
-# Modify or expand as you see fit.
-
-# Command-line settings
-BASH_COMPLETION = 1
-QLEVER_CMD_DIR  = ${QLEVER_CMD_DIR}
-
-# Indexer settings
-DB              = ${DB}
-RDF_FILES       = ${INPUT_FILE}
-CAT_FILES       = "${CAT} \${RDF_FILES}"
-WITH_TEXT       = 0
-
-# Server settings
+    # Default configuration parameters.
+    read -r -d "" INDEXER_SETTINGS << EOT
+DB               = ${DB}
+RDF_FILES        = ${RDF_FILES}
+CAT_FILES        = "${CAT} \${RDF_FILES}"
+WITH_TEXT        = false
+SETTINGS_JSON    = '{ "num-triples-per-batch": 10000000 }'
+EOT
+    read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
+EOT
+    # Pre-configure according to first argument (if known).
+    if [ "$1" == "wikidata" ]; then
+      DB=wikidata-latest
+      read -r -d "" INDEXER_SETTINGS << EOT
+DB                = ${DB}
+RDF_FILES         = "latest-lexemes.ttl.bz2 latest-all.ttl.bz2"
+EXTRACT_PREFIXES  = "for F in \${RDF_FILES}; do bzcat \\\$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
+CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
+WITH_TEXT         = false
+STXXL_MEMORY_GB   = 40
+SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
+EOT
+      read -r -d "" SERVER_SETTINGS << EOT
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7001
+MEMORY_FOR_QUERIES             = 40
+CACHE_MAX_SIZE_GB              = 30
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
+CACHE_MAX_NUM_ENTRIES          = 100
+EOT
+    fi
+    cat << EOT > Qleverfile
+# Qleverfile for folder $(pwd)
+# Automatically created on $(date).
+# Modify or expand as you see fit.
 
-# Docker settings
-USE_DOCKER              = 1
+# Indexer settings
+${INDEXER_SETTINGS}
+
+# Server settings
+${SERVER_SETTINGS}
+
+# QLever binaries
+QLEVER_BIN_DIR          = ${QLEVER_BIN_DIR}
+USE_DOCKER              = false
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
 QLEVER_DOCKER_CONTAINER = qlever.${DB}
 
@@ -598,6 +634,13 @@ CACHE_MAX_SIZE_GB=30              # in GB
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5  # in GB
 CACHE_MAX_NUM_ENTRIES=1000
 ADMIN_TOKEN=              # for actions requiring privilege
+LANGUAGES_INTERNAL=en
+PREFIXES_EXTERNAL=
+LOCALE_LANGUAGE=en
+LOCALE_COUNTRY=US
+LOCALE_IGNORE_PUNCTUATION=false
+ASCII_PREFIXES_ONLY=false
+NUM_TRIPLES_PER_BATCH=10000000
 
 # Read from Qleverfile (only lines that look like an assignment are considered,
 # space around = allowed).
@@ -611,7 +654,7 @@ QLEVER_DOCKER_CONTAINER=qlever.${DB}
 DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${DB_BASE} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
-INDEXER_OPTIONS="-F ttl -K ${DB} -f - -l -i ${DB} -s ${DB_BASE}.settings.json"
+INDEXER_OPTIONS="-F ttl -K ${DB} -f - -i ${DB} -s ${DB_BASE}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
@@ -697,10 +740,13 @@ function show_action {
     # 4. The last part expands all the ${...} variables (without the eval, no
     # expansion would happen), including the ${DOLLAR} and ${QUOTE} introduced
     # in the previous step.
+    # 5. Remove empty lines (these correpond to commands which are only exeuted
+    # under certain circumstances)
     declare -f ${ACTION_FUNCTION} \
       | sed -En 's/\s+\$NOSHOW.*$//; s/;$//; s/^.*\$SHOW //p' \
       | sed -En 's/"/${QUOTE}/g; s/\$([^{])/${DOLLAR}\1/g; p' \
-      | while read LINE; do eval "echo \"${LINE}\""; done
+      | while read LINE; do eval "echo \"${LINE}\""; done \
+      | sed -E '/^\s*$/d'
     printf "${NORMAL}"
   else
     echo "${RED}Action function \"$1\" not defined${NORMAL}"

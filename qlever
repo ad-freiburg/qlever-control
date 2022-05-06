@@ -83,6 +83,22 @@ EOT
 SHOW=
 NOSHOW=
 
+function action_remove_data {
+  echo "Removing files specified in RDF_FILES in Qleverfile ..."
+  echo
+  ls -l "${RDF_FILES}"
+  $SHOW rm -f "${RDF_FILES}"
+}
+
+function action_download_data {
+  if [ -z "${DOWNLOAD_URLS}" ]; then
+    echo "${RED}No DOWNLOAD_URLS specified in Qleverfile${NORMAL}"
+  else
+    echo "Downloading URLs from DOWNLOAD_URLS in Qleverfile ..."
+    echo
+    $SHOW wget ${DOWNLOAD_URLS}
+  fi
+}
 
 function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
@@ -307,6 +323,10 @@ function action_autocompletion_warmup {
 #
 function action_text_input_from_nt_literals {
   if [ -f "${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py" ]; then
+    if [ -f "${DB}.nt.gz" ] && [ ! -f "${DB}.nt" ]; then
+      echo "Uncompressing NT file ..."
+      zcat "${DB}.nt.gz" > "${DB}.nt"
+    fi
     if [ -f "${DB}.nt" ]; then
       echo "Creating text input from ${DB}.nt (experimental), which can then be used for an index build by setting WITH_TEXT=1 ..." | fold -s
       $SHOW python3 ${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py ${DB}
@@ -375,6 +395,7 @@ function action_docker_off {
   $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
 }
 
+QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
 
 ###
 ### CONFIGURATION (when called with . qlever or if we need to)
@@ -505,7 +526,24 @@ CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     # Pre-configure according to first argument (if known).
-    if [ "$1" == "wikidata" ]; then
+    if [ "$1" == "olympics" ]; then
+      DB=olympics
+      read -r -d "" INDEXER_SETTINGS << EOT
+DB                = ${DB}
+RDF_FILES         = "olympics-nt-nodup.zip"
+CAT_FILES         = "unzip -q -c olympics-nt-nodup.zip"
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+DOWNLOAD_URLS     = "https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
+EOT
+      read -r -d "" SERVER_SETTINGS << EOT
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7019
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+EOT
+    elif [ "$1" == "wikidata" ]; then
       DB=wikidata-latest
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
@@ -515,6 +553,7 @@ CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
 WITH_TEXT         = false
 STXXL_MEMORY_GB   = 40
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
+DOWNLOAD_URLS     = "https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -522,6 +561,24 @@ SERVER_PORT                    = 7001
 MEMORY_FOR_QUERIES             = 40
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
+CACHE_MAX_NUM_ENTRIES          = 100
+EOT
+    elif [ "$1" == "dblp" ]; then
+      DB=dblp
+      read -r -d "" INDEXER_SETTINGS << EOT
+DB                = ${DB}
+RDF_FILES         = dblp.nt.gz
+CAT_FILES         = "zcat \${RDF_FILES}"
+WITH_TEXT         = true
+SETTINGS_JSON    = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+DOWNLOAD_URLS     = "https://dblp.org/rdf/dblp.nt.gz"
+EOT
+      read -r -d "" SERVER_SETTINGS << EOT
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7015
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     fi
@@ -625,7 +682,6 @@ DB=must_specify
 USE_DOCKER=0
 WITH_TEXT=0
 QLEVER_DOCKER_IMAGE=adfreiburg/qlever
-QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
 QLEVERUI_PORT=7000        # frontend port
@@ -634,13 +690,6 @@ CACHE_MAX_SIZE_GB=30              # in GB
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5  # in GB
 CACHE_MAX_NUM_ENTRIES=1000
 ADMIN_TOKEN=              # for actions requiring privilege
-LANGUAGES_INTERNAL=en
-PREFIXES_EXTERNAL=
-LOCALE_LANGUAGE=en
-LOCALE_COUNTRY=US
-LOCALE_IGNORE_PUNCTUATION=false
-ASCII_PREFIXES_ONLY=false
-NUM_TRIPLES_PER_BATCH=10000000
 
 # Read from Qleverfile (only lines that look like an assignment are considered,
 # space around = allowed).

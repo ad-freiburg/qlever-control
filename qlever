@@ -90,7 +90,7 @@ function action_index {
   else
     # Create settings.json.
     if jq --version > /dev/null 2>&1; then
-      echo ${SETTINGS_JSON} | jq -M > ${DB}.settings.json
+      echo ${SETTINGS_JSON} | jq -M '.' > ${DB}.settings.json
     else
       echo ${SETTINGS_JSON} > ${DB}.settings.json
     fi

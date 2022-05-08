@@ -703,7 +703,7 @@ eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
 # Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
 QLEVER_DOCKER_CONTAINER=qlever.${DB}
 DB_BASE=$(echo ${DB} | sed 's/\..*$//')
-SLUG=${DB_BASE} # URL slug used in the QLever UI
+SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
 INDEXER_OPTIONS="-F ttl -K ${DB} -f - -i ${DB} -s ${DB_BASE}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then

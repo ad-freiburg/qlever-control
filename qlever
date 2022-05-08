@@ -124,7 +124,7 @@ function action_remove_index {
 
 function action_index_stats {
   if [ ! -e ${DB}.index-log.txt ]; then echo "${RED}Need file \"${DB}.index-log.txt\"${NORMAL}"; return; fi
-  $SHOW readarray -t T < <(sed -En '/INFO:  (Processing|Done|Converting triples|Creating|Index build)/p' ${DB}.index-log.txt | cut -c1-19)
+  $SHOW readarray -t T < <(sed -En '/INFO:  (Processing|Done, total|Converting triples|Creating|Index build|Text index build)/p' ${DB}.index-log.txt | cut -c1-19)
   if [ "${#T[@]}" -lt "6" ]; then echo "${RED}Missing key lines in \"${DB}.index-log.txt\"${NORMAL}"; return; fi
   Ts=$(echo "($(date +%s -d "${T[-1]}") - $(date +%s -d "${T[0]}"))" | bc)
   if [ "${Ts}" -gt "3600" ]; then Tdiv=3600; Tunit="h"; else Tdiv=60; Tunit="min"; fi
@@ -135,6 +135,7 @@ function action_index_stats {
   T5=$(echo "($(date +%s -d "${T[5]}") - $(date +%s -d "${T[4]}")) / ${Tdiv}" | bc -l)
   T6=$(echo "($(date +%s -d "${T[6]}") - $(date +%s -d "${T[5]}")) / ${Tdiv}" | bc -l)
   T7=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[6]}")) / ${Tdiv}" | bc -l)
+  T8=$(echo "($(date +%s -d "${T[8]}") - $(date +%s -d "${T[7]}")) / ${Tdiv}" | bc -l)
   TT=$(echo "($(date +%s -d "${T[-1]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
   echo "Time needed for the various phases of the index build"
   echo
@@ -144,6 +145,7 @@ function action_index_stats {
   printf "%-23s : %5.1f ${Tunit}\n" "PSO & POS permutations" ${T5}
   if [ "${#T[@]}" -gt "6" ]; then printf "%-23s : %5.1f ${Tunit}\n" "SPO & SOP permutations" ${T6}; fi
   if [ "${#T[@]}" -gt "7" ]; then printf "%-23s : %5.1f ${Tunit}\n" "OSP & OPS permutations" ${T7}; fi
+  if [ "${#T[@]}" -gt "8" ]; then printf "%-23s : %5.1f ${Tunit}\n" "Add text index" ${T8}; fi
   echo
   printf "%-23s : %5.1f ${Tunit}\n" "TOTAL index build time" ${TT}
 }
@@ -257,7 +259,7 @@ function action_clear_cache_complete {
 function action_disk_usage {
   echo "Disk usage of all files in this QLever index, and the size of the input files"
   echo
-  $SHOW du -hc ${DB}.index.[ops]* ${DB}.vocabulary.* ${DB}.prefixes ${DB}.meta-data.json
+  $SHOW du -hc $(ls ${DB}.* | sed -E '/(index\.|vocabulary|prefixes|meta-data|text)/!d')
   echo
   # echo && echo "For comparison, the size of the input files" && echo #
   du -hc ${RDF_FILES}
@@ -713,6 +715,9 @@ fi
 if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
+if [[ :from_literals: == *:${WITH_TEXT}:* ]]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.vocabulary"
+fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
 else
@@ -723,7 +728,7 @@ SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
-if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
+if [[ :1:yes:true:from_literals: == *:${WITH_TEXT}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then

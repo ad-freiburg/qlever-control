@@ -210,9 +210,9 @@ function action_log_until_server_up {
 
 
 function action_status {
-  echo "Showing all processes with command \"${SERVER_BINARY}\" on this machine ..."
+  echo "Showing all processes with command \"${SERVER_BINARY}\" or \"${INDEXER_BINARY}\" on this machine ..."
   echo "${BLUE}"
-  $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -e '1p; /\bServerMain/!d; /bash -c/d' $NOSHOW \
+  $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -E '1p; /\b('${SERVER_BINARY}'|'${INDEXER_BINARY}')/!d; /bash -c/d' $NOSHOW \
     | awk 'NR==1 {o=$0; a=match($0, $5)} NR > 1 {o=$0; $4=int($4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $1, $2, $3, $4, substr(o, a)}'
   printf "${NORMAL}"
   if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then

@@ -7,13 +7,24 @@
 # © 2022, University of Freiburg, Chair of Algorithms and Data Structures
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
 
+
+###
+### STRUCTURE OF THIS SCRIPT
+###
+### 1. Definition of available actions (as bash functions)
+### 2. Setup code when called with ". qlever"
+### 3. Handle calls "qlever", "qlever help", "qlever help-install"
+### 4. Settings (default + from Qleverfile + derived settings)
+### 5. Process actions
+###
+
+
 BLUE=$(printf "\033[34m")
 RED=$(printf "\033[31m")
 GRAY=$(printf "\033[37m")
 MAGENTA=$(printf "\033[35m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
-
 
 ###
 ### AVAILABLE ACTIONS (all available via autocompletion)
@@ -54,34 +65,45 @@ ${BOLD}QLever install${NORMAL}
 
 If you don't want to use docker for the actions "index" (building an index) and
 "start" (starting a server), you have to compile the binaries "IndexBuilderMain"
-and "ServerMain" on your machine. As a first step, do the following somewhere on
-your machine. We recommend that you have a directory "qlever", with subfolders
-for the different components: "qlever-code", "qlever-control", "qlever-indices",
-etc.
+and "ServerMain" on your machine.
+
+For the prerequisites, see Quickstart on https://github.com/ad-freiburg/qlever .
+If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides an INSTALL script
+via "qlever help-install-ubuntu-18" or "qlever help-install-ubuntu-20".
+
+Afterwards, you can build the QLever binaries as follows. We recommend that you
+have a directory "qlever", with subfolders for the different components:
+"qlever-code", "qlever-control", "qlever-indices", etc.
 ${BLUE}
 git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
 cd qlever-code
 mkdir -p build && cd build
 ${NORMAL}
-If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides two Dockerfile under
-qlever-code/master/Dockerfiles . Pick the right one for your machine, consider
-all lines starting with RUN and run them from the command line, without the RUN
-and with a "sudo" before each "apt", "apt-get", "add-apt-repository", or "tee".
-Here is a command line to get the commands automatically from the respective
-Dockerfile:
-${BLUE}
-cat /path/to/qlever-code/Dockerfiles/Dockerfile.Ubuntu20.04 \\
-  | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q'
-${NORMAL}
-After this, you have the two binaries in your "build" folder. Put the path to
-it in your PATH. Then you can use the actions "index" and "start" also with
-USE_DOCKER=0 in your Qleverfile.
+After this, you have the two binaries "IndexBuilderMain" and "ServerMain" in
+your "build" folder. To use them, put the path to it in your PATH or in your
+Qleverfile and set USE_DOCKER=false in your Qleverfile.
 
 EOT
 }
 
 SHOW=
 NOSHOW=
+
+function action_help_install_ubuntu_18 {
+  echo "The following command sequence has been written to a file \"INSTALL\""
+  echo "If it looks OK to you, execute the sequence with \"source INSTALL\""
+  echo
+  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu18.04 \
+    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
+}
+
+function action_help_install_ubuntu_20 {
+  echo "The following command sequence has been written to a file \"INSTALL\""
+  echo "If it looks OK to you, execute the sequence with \"source INSTALL\""
+  echo
+  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu20.04 \
+    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
+}
 
 function action_remove_data {
   echo "Removing files specified in RDF_FILES in Qleverfile ..."
@@ -397,7 +419,7 @@ function action_docker_off {
   $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
 }
 
-QLEVER_BIN_DIR=/local/data/qlever/qlever-code/build
+
 
 ###
 ### CONFIGURATION (when called with . qlever or if we need to)
@@ -434,11 +456,21 @@ fi
 # autocompletion (unless user don't want it), the QLeverfile.
 if [ "${QLEVER_CMD}" != "$0" ]; then
 
-  # PATH: Check if QLEVER_CMD_DIR is in the path and if not add it to the path.
-  # ALso check if 
+  # PATH: Check if QLEVER_CMD_DIR (read from Qleverfile if it exists) is in the
+  # path and if not add it to the path.
+  #
+  # Note: The full processing of the QLeverfile comes *after* the code for the
+  # ". qlever" case because otherwise the shell from which ". qlever" was called
+  # would be full with variables from this script. The QLEVER_BIN_DIR is an
+  # exception because adding something to the path requires a call to ". qlever"
+  # and would not work with "qlever" (which runs in a subshell).
+  #
   echo
   echo "${BOLD}Checking your PATH ...${NORMAL}"
   echo
+  if [ -s "Qleverfile" ] && [ -z ${QLEVER_BIN_DIR+x} ]; then
+    export QLEVER_BIN_DIR="$(sed -En 's/^\s*QLEVER_BIN_DIR\s*=\s*(\S+)/\1/p' Qleverfile)"
+  fi
   for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do
     if [[ ":${PATH}:" == *":${DIR}:"* ]]; then
       echo "The directory \"${DIR}\" is already contained in your PATH"
@@ -462,7 +494,7 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   COMPLETIONS_FILE=no_longer_needed
   echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
   echo
-  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
+  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
   export QLEVER_COMPLETIONS="${COMPLETIONS}"
   complete -W "${COMPLETIONS}" qlever
   eval ${COMPLETIONS_CMD}
@@ -780,6 +812,7 @@ function execute_action {
 function show_action {
   QUOTE=\"
   DOLLAR=\$
+  BACKSLASH=\\
   ACTION_FUNCTION="$1"
   if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
     printf "${BLUE}"
@@ -798,7 +831,7 @@ function show_action {
     # under certain circumstances)
     declare -f ${ACTION_FUNCTION} \
       | sed -En 's/\s+\$NOSHOW.*$//; s/;$//; s/^.*\$SHOW //p' \
-      | sed -En 's/"/${QUOTE}/g; s/\$([^{])/${DOLLAR}\1/g; p' \
+      | sed -En 's/"/${QUOTE}/g; s/\$([^{])/${DOLLAR}\1/g; s/\\/${BACKSLASH}/g; p' \
       | while read LINE; do eval "echo \"${LINE}\""; done \
       | sed -E '/^\s*$/d'
     printf "${NORMAL}"

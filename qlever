@@ -737,6 +737,8 @@ QLEVER_DOCKER_CONTAINER=qlever.${DB}
 DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
+ULIMIT_CMD="ulimit -Sn 1048576; "
+if [ "$(du -bc ${RDF_FILES} | tail -1 | cut -f1)" -lt 10000000000 ]; then ULIMIT_CMD=""; fi
 INDEXER_OPTIONS="-F ttl -K ${DB} -f - -i ${DB} -s ${DB_BASE}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
@@ -751,9 +753,9 @@ if [[ :from_literals: == *:${WITH_TEXT}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.vocabulary"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
+  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
 else
-  INDEXER_CMD="${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
+  INDEXER_CMD="${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
 fi
 SERVER_BINARY=ServerMain
 SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"

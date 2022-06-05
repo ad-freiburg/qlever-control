@@ -565,13 +565,30 @@ EOT
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
 RDF_FILES         = "olympics-nt-nodup.zip"
-CAT_FILES         = "unzip -q -c olympics-nt-nodup.zip"
+CAT_FILES         = "unzip -q -c ${RDF_FILES}"
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 DOWNLOAD_URLS     = "https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7019
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+EOT
+    elif [ "$1" == "scientists" ]; then
+      DB=scientists
+      read -r -d "" INDEXER_SETTINGS << EOT
+DB                = ${DB}
+RDF_FILES         = "scientist-collection.zip"
+CAT_FILES         = "unzip -q -c \${RDF_FILES} scientist-collection-fixed/scientists.nt"
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+DOWNLOAD_URLS     = "https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip"
+EOT
+      read -r -d "" SERVER_SETTINGS << EOT
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7020
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1

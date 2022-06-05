@@ -26,58 +26,71 @@ MAGENTA=$(printf "\033[35m")
 BOLD=$(printf "\033[1m")
 NORMAL=$(printf "\033[0m")
 
+QLEVER_CMD="${BASH_SOURCE[0]}"   # Command of this script
+QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
+QLEVERFILE_NEEDED=true
+SIMPLE_ACTIONS=:update:status:help:help-install:help-install-ubuntu-18:help-install-ubuntu-20:show-configs:
+if [[ ${SIMPLE_ACTIONS} == *:$*:* ]]; then QLEVERFILE_NEEDED=false; fi
+CONFIGS_AVAILABLE="olympics scientists wikidata dblp"
+
+
 ###
 ### AVAILABLE ACTIONS (all available via autocompletion)
 ###
 
 function action_help {
   cat << EOT
-${BOLD}QLever help${NORMAL}
+${BOLD}QLEVER HELP${NORMAL}
 
 The "qlever" script controls ALL things concerning QLever. Before using it the
 first time in a particular shell and directory, type ". qlever". This will
-enable autocompletion for the command line and create a basic Qleverfile.
+enable autocompletion for the command line and create a basic Qleverfile. For a
+selection of pre-configured Qleverfiles, type "qlever show-configs".
 
-QLEVERFILE: You need a file named "QLeverfile" in the directory from which you
-are calling the "qlever" script. The initial call to ". qlever" will create one
-for you, which you can then modify as you see fit. The QLeverfile controls
-settings of the script, the dataset you want to process, the server, whether to
-use docker or not, and the QLever UI.
+${BOLD}Qleverfile${NORMAL}
+You need a file named "QLeverfile" in the directory from which you are calling
+the "qlever" script. The initial call to ". qlever" will create one for you,
+which you can then modify as you see fit. The QLeverfile controls settings of
+the script, the dataset you want to process, the server, whether to use docker
+or not, and the QLever UI.
 
-ACTIONS: On the command line, typing TAB after "qlever" gives you the available
-actions. You can also execute several actions with one command, for example
-"qlever index start log". If you just want to see what an action does, but not
-exeute it, append show.  That you can also do for multiple actions, for example
-"qlever index start log show".
+${BOLD}Actions${NORMAL}
+On the command line, typing TAB after "qlever" gives you the available actions.
+You can also execute several actions with one command, for example "qlever index
+start log". If you just want to see what an action does, but not exeute it,
+append show, for example "qlever index start show".
 
-BINARIES: For the actions "index" and "start", you need QLever's binaries. You
-can either use them via docker (USE_DOCKER=1, the default in the Qleverfile), or
-compile them on your machine (see "qlever help-install" for instructions). With
-docker, all you need is a docker installation. The "qlever" script will
-automatically download and run the right images for you.
+${BOLD}Binaries${NORMAL}
+For the actions "index" and "start", you need QLever's binaries. You can either
+use them via docker (set USE_DOCKER=true in the Qleverfile), or compile them on
+your machine (type "qlever help-install" for instructions). With docker, all you
+need is a docker installation. The "qlever" script will automatically download
+and run the right image for you.
 
 EOT
 }
 
 function action_help_install {
   cat << EOT
-${BOLD}QLever install${NORMAL}
+${BOLD}QLEVER INSTALL${NORMAL}
 
 If you don't want to use docker for the actions "index" (building an index) and
 "start" (starting a server), you have to compile the binaries "IndexBuilderMain"
-and "ServerMain" on your machine.
+and "ServerMain" on your machine. But first, you need some prerequisites.
 
-For the prerequisites, see Quickstart on https://github.com/ad-freiburg/qlever .
-If you are on Ubuntu 18.04 or Ubuntu 20.04, QLever provides an INSTALL script
-via "qlever help-install-ubuntu-18" or "qlever help-install-ubuntu-20".
+${BOLD}Prerequisites${NORMAL}
+If you are on Ubuntu 18.04 or Ubuntu 20.04, you get an INSTALL script via
+"qlever help-install-ubuntu-18" or "qlever help-install-ubuntu-20". For a
+textual description of what is needed to run QLever natively on your machine,
+see https://github.com/ad-freiburg/qlever/blob/master/docs/quickstart.md .
 
-Afterwards, you can build the QLever binaries as follows. We recommend that you
-have a directory "qlever", with subfolders for the different components:
-"qlever-code", "qlever-control", "qlever-indices", etc.
+${BOLD}Building the binaries${NORMAL}
+We recommend that you have a directory "qlever", with subfolders "qlever-code",
+"qlever-control", "qlever-indices", etc. But this structure is not necessary.
 ${BLUE}
 git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
-cd qlever-code
-mkdir -p build && cd build
+cd qlever-code && mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release .. && make -j
 ${NORMAL}
 After this, you have the two binaries "IndexBuilderMain" and "ServerMain" in
 your "build" folder. To use them, put the path to it in your PATH or in your
@@ -90,19 +103,34 @@ SHOW=
 NOSHOW=
 
 function action_help_install_ubuntu_18 {
-  echo "The following command sequence has been written to a file \"INSTALL\""
-  echo "If it looks OK to you, execute the sequence with \"source INSTALL\""
-  echo
+  cat << EOT
+The following command sequence has been written to a file "INSTALL". If it looks
+OK to you, execute the sequence with "source INSTALL". If there is a conflict
+with an existing libboost version, uninstall it and then run again.
+
+EOT
   $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu18.04 \
     | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
 }
 
 function action_help_install_ubuntu_20 {
-  echo "The following command sequence has been written to a file \"INSTALL\""
-  echo "If it looks OK to you, execute the sequence with \"source INSTALL\""
-  echo
+  cat << EOT
+The following command sequence has been written to a file "INSTALL". If it looks
+OK to you, execute the sequence with "source INSTALL". If there is a conflict
+with an existing libboost version, uninstall it and then run again.
+
+EOT
   $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu20.04 \
     | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
+}
+
+function action_show_configs {
+  cat << EOT
+The following pre-configured Qleverfiles are available. Just type ". qlever
+<config-name>" in an empty directory.
+
+EOT
+  echo ${BLUE}${CONFIGS_AVAILABLE}${NORMAL}
 }
 
 function action_remove_data {
@@ -433,9 +461,6 @@ function action_docker_off {
 ### CONFIGURATION (when called with . qlever or if we need to)
 ###
 
-QLEVER_CMD="${BASH_SOURCE[0]}"   # Command of this script
-QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
-
 # If not called with ". qlever" and completions or the Qleverfile are missing,
 # tell the user to run ". qlever" once for full functionality. Note that bash
 # autocompletion can only be activated by "sourcing" the respective commands
@@ -445,9 +470,8 @@ QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
 # Skip this when calling "qlever update" because it's not only not necessary
 # then, but even annoying.
 if [ ${BASH_SOURCE[0]} == $0 ] \
-  && ( [ ! "$*" == "update" ] ) \
   && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
-       [ ! -e Qleverfile ] ); then
+     ( [ ! -e Qleverfile ] && ${QLEVERFILE_NEEDED} ) ); then
     cat << EOT
 
 Bash completion not activated or no Qleverfile exists or both. Please run the
@@ -762,7 +786,7 @@ ADMIN_TOKEN=              # for actions requiring privilege
 # space around = allowed).
 # echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
 # echo
-if [ ! "$*" == "update" ]; then
+if ${QLEVERFILE_NEEDED}; then
   eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
 fi
 # echo "CAT_FILES = \"${CAT_FILES}\""
@@ -925,7 +949,7 @@ function exit_qlever { eval ${EXIT}; }
 
 
 ###
-### WHAT THE SCRIPT ACTUALLY DOES (it's basically a wrapper for "make")
+### WHAT THE SCRIPT ACTUALLY DOES
 ###
 
 # For selected actions: If USE_DOCKER=1 check if docker container is running
@@ -985,7 +1009,7 @@ for ARG in "$@"; do
   # If USE_DOCKER=1 and action requires docker, make sure it's running.
   USE_DOCKER_ACTIONS=:start:index:
   if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
-    if [ "${USE_DOCKER}" == "1" ]; then
+    if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
       if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
         execute_action action_docker_on
         echo

@@ -362,7 +362,7 @@ function action_text_input_from_nt_literals {
   fi
 }
 
-# Do we still need these actions?
+# Update the qlever script (simply git pull from the GitHub repo).
 function action_update {
   echo "Updating \"qlever\" script ..."
   echo
@@ -374,12 +374,14 @@ function action_update {
   fi
 }
 
+# Show the paths to "qlever", the QLever binaries, and the QLever UI.
 function action_where {
-  printf "${BLUE}"
   cat << EOT
+Show where everything is ...
+${BLUE}
 Directory with "qlever" script : ${QLEVER_CMD_DIR}
+Directory with QLever binaries : ${QLEVER_BIN_DIR}
 Directory with QLever UI repo  : ${QLEVERUI_DIR}
-Directory with Qlever binaries : ${QLEVER_BIN_DIR}
 ${NORMAL}
 EOT
 }
@@ -394,6 +396,13 @@ function action_cat_files {
   eval $SHOW ${CAT_FILES}
 }
 
+# Actions for turning docker on and off.
+#
+# TODO: Currently, there is one docker container, which is then used for for
+# *all* docker actions using "docker exec". This makes it easier to mix actions,
+# where some actions use docker and some don't. However, if the docker container
+# is running, it blocks the server port even when nothing is running inside the
+# container, so that when cannot do "qlever start" without docker then.
 function action_docker_on {
   if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
     echo "${MAGENTA}Docker container \"${QLEVER_DOCKER_CONTAINER}\" already running${NORMAL}"
@@ -420,7 +429,6 @@ function action_docker_off {
 }
 
 
-
 ###
 ### CONFIGURATION (when called with . qlever or if we need to)
 ###
@@ -433,7 +441,11 @@ QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
 # autocompletion can only be activated by "sourcing" the respective commands
 # (the ". qlever" is equivalent to "source qlever"). If the Qleverfile has
 # BASH_COMPLETION = 0, don't mind the autocompletion.
+# 
+# Skip this when calling "qlever update" because it's not only not necessary
+# then, but even annoying.
 if [ ${BASH_SOURCE[0]} == $0 ] \
+  && ( [ ! "$*" == "update" ] ) \
   && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
        [ ! -e Qleverfile ] ); then
     cat << EOT
@@ -746,7 +758,9 @@ ADMIN_TOKEN=              # for actions requiring privilege
 # space around = allowed).
 # echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
 # echo
-eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
+if [ ! "$*" == "update" ]; then
+  eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
+fi
 # echo "CAT_FILES = \"${CAT_FILES}\""
 
 # Derived variables. TODO: Only if if not explicitly defined in Qleverfile.

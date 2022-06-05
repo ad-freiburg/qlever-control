@@ -113,12 +113,12 @@ function action_remove_data {
 }
 
 function action_download_data {
-  if [ -z "${DOWNLOAD_URLS}" ]; then
-    echo "${RED}No DOWNLOAD_URLS specified in Qleverfile${NORMAL}"
+  if [ -z "${DOWNLOAD_CMD}" ]; then
+    echo "${RED}No DOWNLOAD_CMD specified in Qleverfile${NORMAL}"
   else
-    echo "Downloading URLs from DOWNLOAD_URLS in Qleverfile ..."
+    echo "Downloading data using DOWNLOAD_CMD from Qleverfile ..."
     echo
-    $SHOW wget ${DOWNLOAD_URLS}
+    eval $SHOW ${DOWNLOAD_CMD}
   fi
 }
 
@@ -579,7 +579,7 @@ DB                = ${DB}
 RDF_FILES         = "olympics-nt-nodup.zip"
 CAT_FILES         = "unzip -q -c ${RDF_FILES}"
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_URLS     = "https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
+DOWNLOAD_CMD      = "wget https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -593,10 +593,11 @@ EOT
       DB=scientists
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
-RDF_FILES         = "scientist-collection.zip"
-CAT_FILES         = "unzip -q -c \${RDF_FILES} scientist-collection-fixed/scientists.nt"
+RDF_FILES         = "\${DB}.nt"
+CAT_FILES         = "cat \${RDF_FILES}"
+WITH_TEXT         = true
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_URLS     = "https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip"
+DOWNLOAD_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -616,7 +617,7 @@ CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
 WITH_TEXT         = false
 STXXL_MEMORY_GB   = 40
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
-DOWNLOAD_URLS     = "https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
+DOWNLOAD_CMD      = "wget https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -633,8 +634,8 @@ DB                = ${DB}
 RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
 WITH_TEXT         = true
-SETTINGS_JSON    = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_URLS     = "https://dblp.org/rdf/dblp.nt.gz"
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+DOWNLOAD_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -647,8 +648,11 @@ EOT
     fi
     cat << EOT > Qleverfile
 # Qleverfile for folder $(pwd)
-# Automatically created on $(date).
-# Modify or expand as you see fit.
+# Automatically created by the "qlever" script on $(date)
+#
+# Modify as you see fit. Beware that some of the variables below are executed as
+# commands (using "eval"), so pay attention when you add own commands. When the
+# right-hand side of an assignment contains spaces, you must put it in quotes.
 
 # Indexer settings
 ${INDEXER_SETTINGS}

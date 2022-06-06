@@ -504,7 +504,7 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   echo
   echo "${BOLD}Checking your PATH ...${NORMAL}"
   echo
-  if [ -s "Qleverfile" ] && [ -z ${QLEVER_BIN_DIR+x} ]; then
+  if [ -s "Qleverfile" ] && [ -z "${QLEVER_BIN_DIR}" ]; then
     export QLEVER_BIN_DIR="$(sed -En 's/^\s*QLEVER_BIN_DIR\s*=\s*(\S+)/\1/p' Qleverfile)"
   fi
   for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do

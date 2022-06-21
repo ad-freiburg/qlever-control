@@ -368,28 +368,6 @@ function action_autocompletion_warmup {
     >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
 }
 
-# Create wordsfile and docsfile from all literals of the given NT file.
-# Using this as input for a SPARQL+Text index build will effectively enable
-# keyword search in literals. To understand how, look at the wordsfile and
-# docsfile produced. See git:ad-freiburg/qlever/docs/sparql_and_text.md .
-#
-function action_text_input_from_nt_literals {
-  if [ -f "${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py" ]; then
-    if [ -f "${DB}.nt.gz" ] && [ ! -f "${DB}.nt" ]; then
-      echo "Uncompressing NT file ..."
-      zcat "${DB}.nt.gz" > "${DB}.nt"
-    fi
-    if [ -f "${DB}.nt" ]; then
-      echo "Creating text input from ${DB}.nt (experimental), which can then be used for an index build by setting WITH_TEXT=1 ..." | fold -s
-      $SHOW python3 ${QLEVER_BIN_DIR}/../misc/words-and-docs-file-from-nt.py ${DB}
-    else
-      echo "${RED}This requires an NT file ${DB}.nt${NORMAL}"
-    fi
-  else
-    echo "${RED}This requires a working copy of the QLever repository${NORMAL}"
-  fi
-}
-
 # Update the qlever script (simply git pull from the GitHub repo).
 function action_update {
   echo "Updating \"qlever\" script ..."
@@ -584,7 +562,7 @@ EOT
 DB               = ${DB}
 RDF_FILES        = ${RDF_FILES}
 CAT_FILES        = "${CAT} \${RDF_FILES}"
-WITH_TEXT        = false
+TEXT_INDEX       = false
 SETTINGS_JSON    = '{ "num-triples-per-batch": 10000000 }'
 EOT
     read -r -d "" SERVER_SETTINGS << EOT
@@ -619,7 +597,7 @@ EOT
 DB                = ${DB}
 RDF_FILES         = "\${DB}.nt"
 CAT_FILES         = "cat \${RDF_FILES}"
-WITH_TEXT         = true
+TEXT_INDEX        = from_text_records_and_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 DOWNLOAD_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
 EOT
@@ -638,7 +616,7 @@ DB                = ${DB}
 RDF_FILES         = "latest-lexemes.ttl.bz2 latest-all.ttl.bz2"
 EXTRACT_PREFIXES  = "for F in \${RDF_FILES}; do bzcat \\\$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
 CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
-WITH_TEXT         = false
+TEXT_INDEX        = false
 STXXL_MEMORY_GB   = 40
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
 DOWNLOAD_CMD      = "wget https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
@@ -657,7 +635,7 @@ EOT
 DB                = ${DB}
 RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
-WITH_TEXT         = true
+TEXT_INDEX        = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 DOWNLOAD_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
 EOT
@@ -770,8 +748,8 @@ echo
 # Some default settings.
 APP_DIR=$(pwd)                   # Where the script was called from
 DB=must_specify
-USE_DOCKER=0
-WITH_TEXT=0
+USE_DOCKER=false
+TEXT_INDEX=false
 QLEVER_DOCKER_IMAGE=adfreiburg/qlever
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
@@ -806,11 +784,11 @@ fi
 if [ "${STXXL_MEMORY_GB}" ]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --stxxl-memory-gb ${STXXL_MEMORY_GB}"
 fi
-if [[ :1:yes:true: == *:${WITH_TEXT}:* ]]; then
+if [[ :from_text_records:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
-if [[ :from_literals: == *:${WITH_TEXT}:* ]]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.vocabulary"
+if [[ :from_literals:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} --words-from-literals"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
@@ -822,7 +800,8 @@ SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
-if [[ :1:yes:true:from_literals: == *:${WITH_TEXT}:* ]]; then
+if [[
+  :1:yes:true:from_text_records:from_literals:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then

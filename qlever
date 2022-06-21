@@ -137,7 +137,7 @@ function action_remove_data {
   echo "Removing files specified in RDF_FILES in Qleverfile ..."
   echo
   ls -l "${RDF_FILES}"
-  $SHOW rm -f "${RDF_FILES}"
+  $SHOW eval ${REMOVE_DATA_CMD}
 }
 
 function action_download_data {
@@ -217,6 +217,15 @@ function action_start {
       tail -f -n 10 ${DB}.server-log.txt & PID=$!
       while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
       kill ${PID}
+      if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
+      if [ ! -z "${INDEX_DESCRIPTION}" ]; then
+        echo "Setting index description to \"${INDEX_DESCRIPTION}\""
+        curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" > /dev/null
+      fi
+      if [ ! -z "${TEXT_DESCRIPTION}" ]; then
+        echo "Setting text description to \"${TEXT_DESCRIPTION}\""
+        curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" > /dev/null
+      fi
     else
       echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
     fi
@@ -237,7 +246,7 @@ function action_stop {
 
 function action_restart {
   $SHOW qlever stop $NOSHOW | sed '1,3d'
-  $SHOW qlever start $NOSHOW | sed '1,3d'
+  $SHOW qlever start $NOSHOW | sed '1,3d; $d'
 }
 
 function action_wait {
@@ -337,6 +346,25 @@ function action_server_settings {
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
 }
+
+function action_server_stats {
+  echo "Getting stats from \"${SERVER_API}\" ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=stats" $NOSHOW \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+}
+
+function action_index_description {
+  echo "Setting index description to \"${INDEX_DESCRIPTION}\" ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" $NOSHOW \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+}
+
+function action_text_description {
+  echo "Setting text description to \"${TEXT_DESCRIPTION}\" ..."
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" $NOSHOW \
+    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+}
+
 
 # QLever UI (work in progress).
 LOG_FILE=qleverui-log.tmp
@@ -795,6 +823,7 @@ if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
 else
   INDEXER_CMD="${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
 fi
+REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
 SERVER_BINARY=ServerMain
 SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then

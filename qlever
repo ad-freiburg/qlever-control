@@ -28,6 +28,7 @@ NORMAL=$(printf "\033[0m")
 
 QLEVER_CMD="${BASH_SOURCE[0]}"   # Command of this script
 QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
+QLEVER_BIN_DIR=$(which ServerMain | sed 's|/ServerMain$||')
 QLEVERFILE_NEEDED=true
 SIMPLE_ACTIONS=:update:status:help:help-install:help-install-ubuntu-18:help-install-ubuntu-20:show-configs:
 if [[ ${SIMPLE_ACTIONS} == *:$*:* ]]; then QLEVERFILE_NEEDED=false; fi
@@ -497,6 +498,9 @@ fi
 # If called with ". qlever", setup what is not already setup: the PATH, the bash
 # autocompletion (unless user don't want it), the QLeverfile.
 if [ "${QLEVER_CMD}" != "$0" ]; then
+  echo
+  echo "${BOLD}QLEVER CONFIG${NORMAL}"
+  echo
 
   # PATH: Check if QLEVER_CMD_DIR (read from Qleverfile if it exists) is in the
   # path and if not add it to the path.
@@ -507,9 +511,7 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # exception because adding something to the path requires a call to ". qlever"
   # and would not work with "qlever" (which runs in a subshell).
   #
-  echo
   echo "${BOLD}Checking your PATH ...${NORMAL}"
-  echo
   if [ -s "Qleverfile" ] && [ -z "${QLEVER_BIN_DIR}" ]; then
     export QLEVER_BIN_DIR="$(sed -En 's/^\s*QLEVER_BIN_DIR\s*=\s*(\S+)/\1/p' Qleverfile)"
   fi
@@ -535,15 +537,12 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # the completions are set (complete -p does not work in a subshell).
   COMPLETIONS_FILE=no_longer_needed
   echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-  echo
   COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
   export QLEVER_COMPLETIONS="${COMPLETIONS}"
   complete -W "${COMPLETIONS}" qlever
   eval ${COMPLETIONS_CMD}
-  echo "Done, the following completions are now available:"
-  echo
-  echo "${BLUE}$(echo ${QLEVER_COMPLETIONS} | fold -s)${NORMAL}"
-  echo
+  echo "Done, the following completions are now available: ${BLUE}${QLEVER_COMPLETIONS}" | fold -s
+  echo ${NORMAL}
 
   # If we called ". qlever init" (for use in .bashrc, where we only want to set
   # the PATH and activate the autocompletion), exit here.
@@ -558,15 +557,13 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # explicitly by the user.
   if [ -e Qleverfile ]; then
     echo "${BOLD}Checking Qleverfile ...${NORMAL}"
-    echo
     cat << EOT
-There is alreay a QLeverfile in this directory. If you want a freshly generated
+There is already a QLeverfile in this directory. If you want a freshly generated
 basic Qleverfile, remove or move the existing one and run ". qlever" again.
 
 EOT
   else
     echo "${BOLD}Creating new Qleverfile ...${NORMAL}"
-    echo
     # If a file with suffix .ttl or .nt exists, use the basename as the basename
     # for the index files (the DB variable in the configuration) and pick the
     # right "cat" command according to the suffix. If several such files exist,
@@ -590,7 +587,7 @@ EOT
 DB               = ${DB}
 RDF_FILES        = ${RDF_FILES}
 CAT_FILES        = "${CAT} \${RDF_FILES}"
-TEXT_INDEX       = false
+WITH_TEXT_INDEX  = false
 SETTINGS_JSON    = '{ "num-triples-per-batch": 10000000 }'
 EOT
     read -r -d "" SERVER_SETTINGS << EOT
@@ -625,7 +622,7 @@ EOT
 DB                = ${DB}
 RDF_FILES         = "\${DB}.nt"
 CAT_FILES         = "cat \${RDF_FILES}"
-TEXT_INDEX        = from_text_records_and_literals
+WITH_TEXT_INDEX   = from_text_records_and_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 DOWNLOAD_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
 EOT
@@ -639,31 +636,34 @@ CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     elif [ "$1" == "wikidata" ]; then
       DB=wikidata-latest
+      QLEVERUI_CONFIG=wikidata
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
 RDF_FILES         = "latest-lexemes.ttl.bz2 latest-all.ttl.bz2"
 EXTRACT_PREFIXES  = "for F in \${RDF_FILES}; do bzcat \\\$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
 CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
-TEXT_INDEX        = false
-STXXL_MEMORY_GB   = 40
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
-DOWNLOAD_CMD      = "wget https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
+WITH_TEXT_INDEX   = false
+STXXL_MEMORY_GB   = 10
+SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+DOWNLOAD_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
+INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 | cut -d" " -f6), latest-lexemes.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 | cut -d" " -f6))"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
-MEMORY_FOR_QUERIES             = 40
+MEMORY_FOR_QUERIES             = 50
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
 CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     elif [ "$1" == "dblp" ]; then
       DB=dblp
+      QLEVERUI_CONFIG=dblp
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
 RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
-TEXT_INDEX        = from_literals
+WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 DOWNLOAD_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
 EOT
@@ -676,6 +676,8 @@ CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 EOT
     fi
+
+    # Now write the Qleverfile.
     cat << EOT > Qleverfile
 # Qleverfile for folder $(pwd)
 # Automatically created by the "qlever" script on $(date)
@@ -710,27 +712,9 @@ EOT
 # ${BLUE}$(cat Qleverfile)${NORMAL}
   fi
 
-  # Settings file: If it's not there yet, create an empty one.
-  if [ ! -e ${DB}.settings.json ]; then
-    echo "${BOLD}Checking .settings.json file ...${NORMAL}"
-    echo
-    echo "{}" > ${DB}.settings.json
-    cat << EOT
-The index builder currently also requires a file "${DB}.settings.json", and I
-created an empty one for you. In this file, you can specify specialized settings
-for the indexer, for example: prefixes of IRIs for which the names are stored on
-disk (to save RAM), the locale by which literals are sorted, the batch size used
-by the indexer (default: 10M), and whether the input is well behaved in a
-certain way (which enables faster indexing). See the QLever Wiki for more
-information.
-
-EOT
-  fi
-
   # DONE: give the user a short heads up what they can do now.
   cat << EOT
 ${BOLD}Setup is complete${NORMAL}
-
 Type "qlever" and use autocompletion to see which actions are available. Add a
 "show" in the end to see what an action does without executing it (for example,
 "qlever index show"). Typing "qlever" without arguments gives some basic help
@@ -777,7 +761,7 @@ echo
 APP_DIR=$(pwd)                   # Where the script was called from
 DB=must_specify
 USE_DOCKER=false
-TEXT_INDEX=false
+WITH_TEXT_INDEX=false
 QLEVER_DOCKER_IMAGE=adfreiburg/qlever
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
@@ -812,10 +796,10 @@ fi
 if [ "${STXXL_MEMORY_GB}" ]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --stxxl-memory-gb ${STXXL_MEMORY_GB}"
 fi
-if [[ :from_text_records:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
+if [[ :from_text_records:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
-if [[ :from_literals:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
+if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --words-from-literals"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
@@ -830,7 +814,7 @@ if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
 if [[
-  :1:yes:true:from_text_records:from_literals:from_text_records_and_literals: == *:${TEXT_INDEX}:* ]]; then
+  :1:yes:true:from_text_records:from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then

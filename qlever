@@ -211,13 +211,14 @@ function action_start {
     printf "${NORMAL}"
   else
     if [ -f "${DB}.index.pso" ] && [ -f "${DB}.index.pos" ]; then
-      echo "Starting the QLever server in the background and waiting till it's ready (Ctrl+C will not kill it) ..."
+      echo "Starting the QLever server in the background and waiting until it's ready (Ctrl+C will not kill it) ..."
       echo
       rm -f ${DB}.server-log.txt && touch ${DB}.server-log.txt
       eval $SHOW ${SERVER_CMD}
       tail -f -n 10 ${DB}.server-log.txt & PID=$!
       while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
       kill ${PID}
+      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
       if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
       if [ ! -z "${INDEX_DESCRIPTION}" ]; then
         echo "Setting index description to \"${INDEX_DESCRIPTION}\""

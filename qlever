@@ -544,11 +544,11 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # the completions are set (complete -p does not work in a subshell).
   COMPLETIONS_FILE=no_longer_needed
   echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
-  export QLEVER_COMPLETIONS="${COMPLETIONS}"
-  complete -W "${COMPLETIONS}" qlever
+  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g')
+  export QLEVER_COMPLETIONS="$(echo "${COMPLETIONS}" | paste -sd" ")"
+  complete -W "${QLEVER_COMPLETIONS}" qlever
   eval ${COMPLETIONS_CMD}
-  echo "Done, the following completions are now available: ${BLUE}${QLEVER_COMPLETIONS}" | fold -s
+  echo "Done, number of completions: $(echo "${COMPLETIONS}" | wc -l)"
   echo ${NORMAL}
 
   # If we called ". qlever init" (for use in .bashrc, where we only want to set

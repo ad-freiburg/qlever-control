@@ -140,13 +140,13 @@ function action_remove_data {
   $SHOW eval ${REMOVE_DATA_CMD}
 }
 
-function action_download_data {
-  if [ -z "${DOWNLOAD_CMD}" ]; then
-    echo "${RED}No DOWNLOAD_CMD specified in Qleverfile${NORMAL}"
+function action_get_data {
+  if [ -z "${GET_DATA_CMD}" ]; then
+    echo "${RED}No GET_DATA_CMD specified in Qleverfile${NORMAL}"
   else
-    echo "Downloading data using DOWNLOAD_CMD from Qleverfile ..."
+    echo "Getting data using GET_DATA_CMD from Qleverfile ..."
     echo
-    eval $SHOW ${DOWNLOAD_CMD}
+    eval $SHOW ${GET_DATA_CMD}
   fi
 }
 
@@ -613,10 +613,11 @@ EOT
       DB=olympics
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
-RDF_FILES         = "olympics-nt-nodup.zip"
+RDF_FILES         = "olympics.nt"
 CAT_FILES         = "unzip -q -c ${RDF_FILES}"
+TEXT_INDEX        = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
+GET_DATA_CMD      = "wget -nc -O olympics.zip https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip; unzip olympics.zip"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -634,7 +635,7 @@ RDF_FILES         = "\${DB}.nt"
 CAT_FILES         = "cat \${RDF_FILES}"
 TEXT_INDEX        = from_text_records_and_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
+GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -654,7 +655,7 @@ CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
 TEXT_INDEX        = false
 STXXL_MEMORY_GB   = 40
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }'
-DOWNLOAD_CMD      = "wget https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
+GET_DATA_CMD      = "wget https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -672,7 +673,7 @@ RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
 TEXT_INDEX        = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
+GET_DATA_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)

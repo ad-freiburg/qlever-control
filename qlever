@@ -220,11 +220,15 @@ function action_start {
       if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
       if [ ! -z "${INDEX_DESCRIPTION}" ]; then
         echo "Setting index description to \"${INDEX_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" > /dev/null
+        curl -Gs ${SERVER_API} \
+          --data-urlencode "index-description=${INDEX_DESCRIPTION}" \
+          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
       if [ ! -z "${TEXT_DESCRIPTION}" ]; then
         echo "Setting text description to \"${TEXT_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" > /dev/null
+        curl -Gs ${SERVER_API} \
+          --data-urlencode "text-description=${TEXT_DESCRIPTION}"
+          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
     else
       echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
@@ -308,7 +312,9 @@ function action_clear_cache {
 
 function action_clear_cache_complete {
   echo "Clearing the cache completely (including pinned entries) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" $NOSHOW > /dev/null
+  $SHOW curl -Gs ${SERVER_API} \
+    --data-urlencode "cmd=clear-cache-complete" \
+    --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -596,6 +602,7 @@ EOT
     read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1

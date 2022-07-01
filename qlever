@@ -229,7 +229,7 @@ function action_start {
       if [ ! -z "${TEXT_DESCRIPTION}" ]; then
         echo "Setting text description to \"${TEXT_DESCRIPTION}\""
         curl -Gs ${SERVER_API} \
-          --data-urlencode "text-description=${TEXT_DESCRIPTION}"
+          --data-urlencode "text-description=${TEXT_DESCRIPTION}" \
           --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
     else
@@ -591,11 +591,12 @@ EOT
     fi
     # Default configuration parameters.
     read -r -d "" INDEXER_SETTINGS << EOT
-DB               = ${DB}
-RDF_FILES        = ${RDF_FILES}
-CAT_FILES        = "${CAT} \${RDF_FILES}"
-WITH_TEXT_INDEX  = false
-SETTINGS_JSON    = '{ "num-triples-per-batch": 10000000 }'
+DB                = ${DB}
+RDF_FILES         = ${RDF_FILES}
+CAT_FILES         = "${CAT} \${RDF_FILES}"
+WITH_TEXT_INDEX   = false
+SETTINGS_JSON     = '{ "num-triples-per-batch": 10000000 }'
+INDEX_DESCRIPTION = "${DB}"
 EOT
     read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
@@ -611,15 +612,18 @@ EOT
       DB=olympics
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
-RDF_FILES         = "olympics.nt"
-CAT_FILES         = "unzip -q -c ${RDF_FILES}"
-TEXT_INDEX        = from_literals
+RDF_FILES         = "\${DB}.nt"
+CAT_FILES         = "cat \${RDF_FILES}"
+WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-GET_DATA_CMD      = "wget -nc -O olympics.zip https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip; unzip olympics.zip"
+GET_DATA_CMD      = "wget -nc -O olympics.zip https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip && unzip olympics.zip && rm olympics.zip"
+INDEX_DESCRIPTION = "120 Years of Olympics, data from https://github.com/wallscope/olympics-rdf"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7019
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -634,10 +638,13 @@ CAT_FILES         = "cat \${RDF_FILES}"
 WITH_TEXT_INDEX   = from_text_records_and_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
+INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7020
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -660,6 +667,7 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 50
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
@@ -675,10 +683,13 @@ CAT_FILES         = "zcat \${RDF_FILES}"
 WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 GET_DATA_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
+INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version from \$(ls -l --time-style=+%d.%m.%Y \${RDF_FILES} | cut -d" " -f6)"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7015
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -792,13 +803,12 @@ fi
 
 # Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
 QLEVER_DOCKER_CONTAINER=qlever.${DB}
-DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
 ULIMIT_CMD="ulimit -Sn 1048576; "
 if [ ! -z "$(ls ${RDF_FILES} 2> /dev/null)" ] && \
    [ "$(du -bc ${RDF_FILES} | tail -1 | cut -f1)" -lt 10000000000 ]; then ULIMIT_CMD=""; fi
-INDEXER_OPTIONS="-F ttl -K ${DB} -f - -i ${DB} -s ${DB_BASE}.settings.json"
+INDEXER_OPTIONS="-F ttl -K \"${INDEX_DESCRIPTION}\" -f - -i ${DB} -s ${DB}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
@@ -818,7 +828,7 @@ else
 fi
 REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
 SERVER_BINARY=ServerMain
-SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
+SERVER_OPTIONS="-i ${DB} -j 8 -p ${SERVER_PORT} -a \"${ACCESS_TOKEN}\" -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES}"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi

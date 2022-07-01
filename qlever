@@ -91,7 +91,7 @@ We recommend that you have a directory "qlever", with subfolders "qlever-code",
 ${BLUE}
 git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
 cd qlever-code && mkdir -p build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release .. && make -j
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="g++-11" .. && make -j
 ${NORMAL}
 After this, you have the two binaries "IndexBuilderMain" and "ServerMain" in
 your "build" folder. To use them, put the path to it in your PATH or in your

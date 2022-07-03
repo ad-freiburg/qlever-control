@@ -141,13 +141,13 @@ function action_remove_data {
   $SHOW eval ${REMOVE_DATA_CMD}
 }
 
-function action_download_data {
-  if [ -z "${DOWNLOAD_CMD}" ]; then
-    echo "${RED}No DOWNLOAD_CMD specified in Qleverfile${NORMAL}"
+function action_get_data {
+  if [ -z "${GET_DATA_CMD}" ]; then
+    echo "${RED}No GET_DATA_CMD specified in Qleverfile${NORMAL}"
   else
-    echo "Downloading data using DOWNLOAD_CMD from Qleverfile ..."
+    echo "Getting data using GET_DATA_CMD from Qleverfile ..."
     echo
-    eval $SHOW ${DOWNLOAD_CMD}
+    eval $SHOW ${GET_DATA_CMD}
   fi
 }
 
@@ -216,18 +216,23 @@ function action_start {
       rm -f ${DB}.server-log.txt && touch ${DB}.server-log.txt
       eval $SHOW ${SERVER_CMD}
       tail -f -n 10 ${DB}.server-log.txt & PID=$!
-      while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
-      kill ${PID}
-      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
-      if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
+      ALIVE_CHECK_URL="http://localhost:${SERVER_PORT}/ping?msg=from%20the%20qlever%20script"
+      while [ $(curl -s "${ALIVE_CHECK_URL}" > /dev/null; echo $?) != 0 ]; do sleep 1; done
+      # if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
       if [ ! -z "${INDEX_DESCRIPTION}" ]; then
-        echo "Setting index description to \"${INDEX_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" > /dev/null
+        # echo "Setting index description to \"${INDEX_DESCRIPTION}\""
+        curl -Gs ${SERVER_API} \
+          --data-urlencode "index-description=${INDEX_DESCRIPTION}" \
+          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
       if [ ! -z "${TEXT_DESCRIPTION}" ]; then
-        echo "Setting text description to \"${TEXT_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" > /dev/null
+        # echo "Setting text description to \"${TEXT_DESCRIPTION}\""
+        curl -Gs ${SERVER_API} \
+          --data-urlencode "text-description=${TEXT_DESCRIPTION}" \
+          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
+      kill ${PID}
+      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
     else
       echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
     fi
@@ -310,7 +315,9 @@ function action_clear_cache {
 
 function action_clear_cache_complete {
   echo "Clearing the cache completely (including pinned entries) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache-complete" $NOSHOW > /dev/null
+  $SHOW curl -Gs ${SERVER_API} \
+    --data-urlencode "cmd=clear-cache-complete" \
+    --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
   curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
     | numfmt --field=2,5,8,11,14 --grouping
@@ -538,11 +545,11 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # the completions are set (complete -p does not work in a subshell).
   COMPLETIONS_FILE=no_longer_needed
   echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g' | paste -sd" ")
-  export QLEVER_COMPLETIONS="${COMPLETIONS}"
-  complete -W "${COMPLETIONS}" qlever
+  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g')
+  export QLEVER_COMPLETIONS="$(echo "${COMPLETIONS}" | paste -sd" ")"
+  complete -W "${QLEVER_COMPLETIONS}" qlever
   eval ${COMPLETIONS_CMD}
-  echo "Done, the following completions are now available: ${BLUE}${QLEVER_COMPLETIONS}" | fold -s
+  echo "Done, number of completions: $(echo "${COMPLETIONS}" | wc -l)"
   echo ${NORMAL}
 
   # If we called ". qlever init" (for use in .bashrc, where we only want to set
@@ -585,15 +592,17 @@ EOT
     fi
     # Default configuration parameters.
     read -r -d "" INDEXER_SETTINGS << EOT
-DB               = ${DB}
-RDF_FILES        = ${RDF_FILES}
-CAT_FILES        = "${CAT} \${RDF_FILES}"
-WITH_TEXT_INDEX  = false
-SETTINGS_JSON    = '{ "num-triples-per-batch": 10000000 }'
+DB                = ${DB}
+RDF_FILES         = ${RDF_FILES}
+CAT_FILES         = "${CAT} \${RDF_FILES}"
+WITH_TEXT_INDEX   = false
+SETTINGS_JSON     = '{ "num-triples-per-batch": 10000000 }'
+INDEX_DESCRIPTION = "${DB}"
 EOT
     read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -604,14 +613,18 @@ EOT
       DB=olympics
       read -r -d "" INDEXER_SETTINGS << EOT
 DB                = ${DB}
-RDF_FILES         = "olympics-nt-nodup.zip"
-CAT_FILES         = "unzip -q -c ${RDF_FILES}"
+RDF_FILES         = "\${DB}.nt"
+CAT_FILES         = "cat \${RDF_FILES}"
+WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip"
+GET_DATA_CMD      = "wget -nc -O olympics.zip https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip && unzip olympics.zip && rm olympics.zip"
+INDEX_DESCRIPTION = "120 Years of Olympics, data from https://github.com/wallscope/olympics-rdf"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7019
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -625,11 +638,14 @@ RDF_FILES         = "\${DB}.nt"
 CAT_FILES         = "cat \${RDF_FILES}"
 WITH_TEXT_INDEX   = from_text_records_and_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
+GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
+INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7020
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -646,12 +662,13 @@ CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
 WITH_TEXT_INDEX   = false
 STXXL_MEMORY_GB   = 10
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
+GET_DATA_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
 INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 | cut -d" " -f6), latest-lexemes.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 | cut -d" " -f6))"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 50
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
@@ -666,11 +683,14 @@ RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
 WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-DOWNLOAD_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
+GET_DATA_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
+INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version from \$(ls -l --time-style=+%d.%m.%Y \${RDF_FILES} | cut -d" " -f6)"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7015
+ACCESS_TOKEN                   = specify_for_full_access
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -784,13 +804,12 @@ fi
 
 # Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
 QLEVER_DOCKER_CONTAINER=qlever.${DB}
-DB_BASE=$(echo ${DB} | sed 's/\..*$//')
 SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
 ULIMIT_CMD="ulimit -Sn 1048576; "
 if [ ! -z "$(ls ${RDF_FILES} 2> /dev/null)" ] && \
    [ "$(du -bc ${RDF_FILES} | tail -1 | cut -f1)" -lt 10000000000 ]; then ULIMIT_CMD=""; fi
-INDEXER_OPTIONS="-F ttl -K ${DB} -f - -i ${DB} -s ${DB_BASE}.settings.json"
+INDEXER_OPTIONS="-F ttl -K \"${INDEX_DESCRIPTION}\" -f - -i ${DB} -s ${DB}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
@@ -810,7 +829,7 @@ else
 fi
 REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
 SERVER_BINARY=ServerMain
-SERVER_OPTIONS="-i ${DB} -j 8 -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES} -p ${SERVER_PORT}${TEXT_OPTIONS_START}"
+SERVER_OPTIONS="-i ${DB} -j 8 -p ${SERVER_PORT} -a \"${ACCESS_TOKEN}\" -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES}"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi

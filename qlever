@@ -216,22 +216,23 @@ function action_start {
       rm -f ${DB}.server-log.txt && touch ${DB}.server-log.txt
       eval $SHOW ${SERVER_CMD}
       tail -f -n 10 ${DB}.server-log.txt & PID=$!
-      while [ $(curl --silent http://localhost:${SERVER_PORT} > /dev/null; echo $?) != 0 ]; do sleep 1; done
-      kill ${PID}
-      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
-      if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
+      ALIVE_CHECK_URL="http://localhost:${SERVER_PORT}/ping?msg=from%20the%20qlever%20script"
+      while [ $(curl -s "${ALIVE_CHECK_URL}" > /dev/null; echo $?) != 0 ]; do sleep 1; done
+      # if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
       if [ ! -z "${INDEX_DESCRIPTION}" ]; then
-        echo "Setting index description to \"${INDEX_DESCRIPTION}\""
+        # echo "Setting index description to \"${INDEX_DESCRIPTION}\""
         curl -Gs ${SERVER_API} \
           --data-urlencode "index-description=${INDEX_DESCRIPTION}" \
           --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
       if [ ! -z "${TEXT_DESCRIPTION}" ]; then
-        echo "Setting text description to \"${TEXT_DESCRIPTION}\""
+        # echo "Setting text description to \"${TEXT_DESCRIPTION}\""
         curl -Gs ${SERVER_API} \
           --data-urlencode "text-description=${TEXT_DESCRIPTION}" \
           --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
       fi
+      kill ${PID}
+      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
     else
       echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
     fi

@@ -334,9 +334,11 @@ function action_disk_usage {
 }
 
 function action_cache_stats {
-  echo "Show cache statistics (in number of IDs, an ID has 8 bytes) ..."
+  echo "Show cache statistics (sizes are in bytes) ..."
+  echo
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" $NOSHOW \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
+    | sed -n 's/[",]//g; s/:/: /g; s/^\s\+//p' | tr -s " " \
+    | awk '{ $2 = 8 * $2; print }' \
     | numfmt --field=2,5,8,11,14 --grouping
 }
 
@@ -602,7 +604,7 @@ EOT
     read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = specify_for_full_access
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -624,7 +626,7 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7019
-ACCESS_TOKEN                   = specify_for_full_access
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -645,7 +647,7 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7020
-ACCESS_TOKEN                   = specify_for_full_access
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -668,7 +670,7 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = specify_for_full_access
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
 MEMORY_FOR_QUERIES             = 50
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
@@ -690,8 +692,8 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7015
-ACCESS_TOKEN                   = specify_for_full_access
-MEMORY_FOR_QUERIES             = 10
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
+MEMORY_FOR_QUERIES             = 20
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100

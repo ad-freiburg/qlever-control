@@ -155,6 +155,10 @@ function action_index {
   if ls ${DB}.index.* > /dev/null 2>&1; then
     echo "${RED}Index exists, delete it first with \"qlever remove-index\" (add \"show\" to find out what gets deleted)${NORMAL}"
   else
+    # # Prepend ulimit setting to INDEXER_CMD if input files are large.
+    # if [ "$(du -bc ${RDF_FILES} | tail -1 | cut -f1)" -gt 1000000000 ]; then
+    #   export INDEXER_CMD="ulimit -Sn 1048576; ${INDEXER_CMD}"
+    # fi
     # Create settings.json.
     if jq --version > /dev/null 2>&1; then
       echo ${SETTINGS_JSON} | jq -M '.' > ${DB}.settings.json
@@ -825,13 +829,14 @@ if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --words-from-literals"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt\""
+  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 else
   INDEXER_CMD="${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
 fi
 REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
 SERVER_BINARY=ServerMain
-SERVER_OPTIONS="-i ${DB} -j 8 -p ${SERVER_PORT} -a \"${ACCESS_TOKEN}\" -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES}"
+SERVER_OPTIONS="-i ${DB} -j 8 -p ${SERVER_PORT} -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES}"
+if [ ! -z "${ACCESS_TOKEN}" ]; then SERVER_OPTIONS="${SERVER_OPTIONS} -a \"${ACCESS_TOKEN}\""; fi
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi
@@ -840,8 +845,7 @@ if [[
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
-  # SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} \"${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt\""
+  SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\""
 else
   SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
 fi

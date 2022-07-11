@@ -651,7 +651,7 @@ EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7020
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_\${RANDOM}
 MEMORY_FOR_QUERIES             = 10
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
@@ -669,12 +669,14 @@ WITH_TEXT_INDEX   = false
 STXXL_MEMORY_GB   = 10
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
 GET_DATA_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
-INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 | cut -d" " -f6), latest-lexemes.ttl.bz2 from \$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 | cut -d" " -f6))"
+DATE_ALL       = "\$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
+DATE_LEXEMES   = "\$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
+INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from \${DATE_ALL}, latest-lexemes.ttl.bz2 from \${DATE_LEXEMES})"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_\${RANDOM}
 MEMORY_FOR_QUERIES             = 50
 CACHE_MAX_SIZE_GB              = 30
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
@@ -689,14 +691,15 @@ RDF_FILES         = dblp.nt.gz
 CAT_FILES         = "zcat \${RDF_FILES}"
 WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-GET_DATA_CMD      = "wget https://dblp.org/rdf/dblp.nt.gz"
-INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version from \$(ls -l --time-style=+%d.%m.%Y \${RDF_FILES} | cut -d" " -f6)"
+GET_DATA_CMD      = "wget -nc -O \${RDF_FILES} https://dblp.org/rdf/dblp.nt.gz"
+VERSION           = "from \$(ls -l --time-style=+%d.%m.%Y \${RDF_FILES} 2> /dev/null | cut -d' ' -f6)"
+INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version \${VERSION}"
 TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 EOT
       read -r -d "" SERVER_SETTINGS << EOT
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7015
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_\${RANDOM}
 MEMORY_FOR_QUERIES             = 20
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1

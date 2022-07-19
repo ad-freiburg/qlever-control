@@ -421,6 +421,14 @@ function action_update {
     echo "${RED}Did not find directory \".git\" in \"${QLEVER_CMD_DIR}\"${NORMAL}"
     echo
   fi
+  echo "Updating \"qlever-ui\""
+  echo
+  if [ -d "${QLEVERUI_DIR}/.git" ]; then
+    $SHOW cd ${QLEVERUI_DIR} && git pull
+  else
+    echo "${RED}Did not find directory \".git\" in \"${QLEVERUI_DIR}\"${NORMAL}"
+    echo
+  fi
 }
 
 # Show the paths to "qlever", the QLever binaries, and the QLever UI.

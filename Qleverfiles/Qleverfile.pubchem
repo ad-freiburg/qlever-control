@@ -1,0 +1,43 @@
+# Qleverfile for PubChem, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # downloads files of total size 81 GB (as of 31.07.2022)
+# qlever index     # takes ~20 hours on an AMD Ryzen 9 5900X with 128 GB RAM
+# qlever start     # starts the server (takes around 1 minute)
+#
+# When rebuilding the index and you already have pubchem.prefix-definitions, you
+# can comment out EXTRACT_PREFIXES. See the variable settings below for more
+# details. Type "qlever help" for help.
+
+# Indexer settings
+DB                = pubchem
+RDF_FILES         = "ttl/*.ttl.gz"
+EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do zcat -f \$F | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
+CAT_FILES         = "zcat -f ${DB}.prefix-definitions ${RDF_FILES}"
+WITH_TEXT_INDEX   = false
+STXXL_MEMORY_GB   = 10
+SETTINGS_JSON     = '{ "languages-internal": [""], "prefixes-external": [ "<http://rdf.ncbi.nlm.nih.gov/pubchem/"  ], "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }'
+FTP_BASE_URL      = "ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF"
+FTP_DIRS          = "bioassay compound/general concept conserveddomain descriptor/compound descriptor/substance disease endpoint gene inchikey measuregroup patent patent/cpc patent/ipc pathway protein reference source substance synonym taxonomy" 
+GET_DATA_CMD      = "for FTP_DIR in ${FTP_DIRS}; do wget -r -A .ttl.gz -nH -nc --cut-dirs=99 -P ttl ${FTP_BASE_URL}/\${FTP_DIR}; done"
+DATE              = "$(ls -ld --time-style=+%d.%m.%Y ttl/void.ttl 2> /dev/null | cut -d' ' -f6)"
+INDEX_DESCRIPTION = "PubChem RDF from ${FTP_BASE_URL}, version ${DATE} (all folders except nbr2d and nbr3d)"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7023
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
+MEMORY_FOR_QUERIES             = 70
+CACHE_MAX_SIZE_GB              = 50
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 40
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+USE_DOCKER              = false
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
+# QLever UI
+QLEVERUI_PORT   = 7023
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = pubchem

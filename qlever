@@ -278,7 +278,6 @@ function action_log_until_server_up {
   kill ${PID}
 }
 
-
 function action_status {
   echo "Showing all processes with command \"${SERVER_BINARY}\" or \"${INDEXER_BINARY}\" on this machine ..."
   echo "${BLUE}"
@@ -290,6 +289,18 @@ function action_status {
     $SHOW docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
     printf "${NORMAL}"
   fi
+}
+
+function action_select_query {
+  echo "Launching SELECT query for 10 random triples (in TSV format) ..."
+  echo
+  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } lIMIT 10"
+}
+
+function action_construct_query {
+  echo "Launching CONSTRUCT query for 10 random triples (in TSV format) ..."
+  echo
+  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } lIMIT 10"
 }
 
 # Warmup queries for the autocompletion.

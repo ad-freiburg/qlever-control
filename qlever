@@ -316,7 +316,7 @@ function action_construct_query {
 # even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".in.master:
 function action_pin_INTERNAL {
   echo "Launch warmup queries for the QLever UI autocompletion (via galera) ..." 
-  $SHOW ssh -tt galera docker exec -it qlever-ui bash -c \"python manage.py warmup ${SLUG} pin\"
+  $SHOW ssh -tt -o LogLevel=QUIET galera docker exec -it qlever-ui bash -c \"python manage.py warmup ${SLUG} pin\"
 }
 
 # Clear the cache.

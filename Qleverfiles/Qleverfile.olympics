@@ -1,0 +1,37 @@
+# Qleverfile for Olympics, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # download single file of size 13 MB, uncompress to 323 MB 
+# qlever index     # takes ~10 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (instant)
+
+# Indexer settings
+DB                = olympics
+RDF_FILES         = "${DB}.nt"
+CAT_FILES         = "cat ${RDF_FILES}"
+WITH_TEXT_INDEX   = from_literals
+STXXL_MEMORY_GB   = 1
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }'
+BASE_URL          = "https://github.com/wallscope/olympics-rdf"
+GET_DATA_CMD      = "wget -nc -O olympics.zip ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip olympics.zip && rm olympics.zip"
+INDEX_DESCRIPTION = "120 Years of Olympics, data from ${BASE_URL}"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7019
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
+MEMORY_FOR_QUERIES             = 5
+CACHE_MAX_SIZE_GB              = 2
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+USE_DOCKER              = false
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.olympics
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = default

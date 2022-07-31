@@ -1,6 +1,6 @@
 # Qleverfile for Olympics, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # download single file of size 13 MB, uncompress to 323 MB 
+# qlever get-data  # downloads .zip file of size 13 MB, uncompressed to 323 MB 
 # qlever index     # takes ~10 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
 # qlever start     # starts the server (instant)
 

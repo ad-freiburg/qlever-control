@@ -1,10 +1,10 @@
 # Qleverfile for DBLP, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads single file of size ~3 GB (as of 31.07.2022)
+# qlever get-data  # downloads .gz file of size ~3 GB (as of 31.07.2022)
 # qlever index     # takes ~30 minutes and ~20 GB RAM (on an AMD Ryzen 9 5900X)
 # qlever start     # starts the server (takes around 2 minutes)
 #
-# Also build a text index for fast kewyword search in literals. Without that
+# Also builds a text index for fast kewyword search in literals. Without that
 # (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
 
 # Indexer settings

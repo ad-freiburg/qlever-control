@@ -32,7 +32,6 @@ QLEVER_BIN_DIR=$(which ServerMain | sed 's|/ServerMain$||')
 QLEVERFILE_NEEDED=true
 SIMPLE_ACTIONS=:update:status:help:help-install:help-install-ubuntu-18:help-install-ubuntu-20:show-configs:
 if [[ ${SIMPLE_ACTIONS} == *:$*:* ]]; then QLEVERFILE_NEEDED=false; fi
-CONFIGS_AVAILABLE="olympics scientists wikidata dblp"
 
 
 ###
@@ -127,10 +126,11 @@ EOT
 
 function action_show_configs {
   cat << EOT
-The following pre-configured Qleverfiles are available. Just type ". qlever
-<config-name>" in an empty directory.
+The following pre-configured Qleverfiles are available. To get one of these in
+the current directory (without Qleverfile yet), type ". qlever <config-name>"
 
 EOT
+  CONFIGS_AVAILABLE=$($SHOW ls ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.* | sed 's/^.*\/Qleverfile\.//' $NOSHOW)
   echo ${BLUE}${CONFIGS_AVAILABLE}${NORMAL}
 }
 
@@ -578,168 +578,51 @@ basic Qleverfile, remove or move the existing one and run ". qlever" again.
 EOT
   else
     echo "${BOLD}Creating new Qleverfile ...${NORMAL}"
-    # If a file with suffix .ttl or .nt exists, use the basename as the basename
-    # for the index files (the DB variable in the configuration) and pick the
-    # right "cat" command according to the suffix. If several such files exist,
-    # take the largest one. If no such file exists, leave the basename empty and
-    # for the user to set.
-    RDF_FILES=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
-    CAT=cat
-    if [ ! -z ${RDF_FILES} ]; then
-      DB=${RDF_FILES/.*/}
-      if [[ ${RDF_FILES} =~ .gz$ ]]; then CAT=zcat; fi
-      if [[ ${RDF_FILES} =~ .bz2?$ ]]; then CAT=bzcat; fi
-      if [[ ${RDF_FILES} =~ .xz$ ]]; then CAT=xzcat; fi
-      QLEVERUI_CONFIG=${DB}
+    # If Qleverfiles/Qleverfile.<first arg> exists, just copy that. Otherwise copy
+    # Qleverfiles/Qleverfile.default and fill out the %...% templates.
+    QLEVERFILE_NAME="${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.$1"
+    if [ "$1" != "default" ] && [ -f "${QLEVERFILE_NAME}" ]; then
+      cat ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.$1 \
+        | sed -E "s/^(QLEVER_BIN_DIR\s+=).*/\1 \"${QLEVER_BIN_DIR//\//\\\/}\"/" \
+        > Qleverfile
+      echo "Copied pre-configured Qleverfile for \"$1\" into current directory."
+      echo
     else
+      # Default values for the %...% templates in Qleverfiles/Qleverfile.default.
+      FOLDER_NAME=$(pwd)
+      DATE=$(date +"%d.%m.%Y %H:%M")
       DB=must_specify
-      INPUT_FILE=must_specifiy
-      QLEVERUI_CONFIG=default
-    fi
-    # Default configuration parameters.
-    read -r -d "" INDEXER_SETTINGS << EOT
-DB                = ${DB}
-RDF_FILES         = ${RDF_FILES}
-CAT_FILES         = "${CAT} \${RDF_FILES}"
-WITH_TEXT_INDEX   = false
-SETTINGS_JSON     = '{ "num-triples-per-batch": 10000000 }'
-INDEX_DESCRIPTION = "${DB}"
-EOT
-    read -r -d "" SERVER_SETTINGS << EOT
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
-MEMORY_FOR_QUERIES             = 10
-CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
-EOT
-    # Pre-configure according to first argument (if known).
-    if [ "$1" == "olympics" ]; then
-      DB=olympics
-      read -r -d "" INDEXER_SETTINGS << EOT
-DB                = ${DB}
-RDF_FILES         = "\${DB}.nt"
-CAT_FILES         = "cat \${RDF_FILES}"
-WITH_TEXT_INDEX   = from_literals
-SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-GET_DATA_CMD      = "wget -nc -O olympics.zip https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip && unzip olympics.zip && rm olympics.zip"
-INDEX_DESCRIPTION = "120 Years of Olympics, data from https://github.com/wallscope/olympics-rdf"
-TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
-EOT
-      read -r -d "" SERVER_SETTINGS << EOT
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7019
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
-MEMORY_FOR_QUERIES             = 10
-CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
-EOT
-    elif [ "$1" == "scientists" ]; then
-      DB=scientists
-      read -r -d "" INDEXER_SETTINGS << EOT
-DB                = ${DB}
-RDF_FILES         = "\${DB}.nt"
-CAT_FILES         = "cat \${RDF_FILES}"
-WITH_TEXT_INDEX   = from_text_records_and_literals
-SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
-INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
-TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
-EOT
-      read -r -d "" SERVER_SETTINGS << EOT
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7020
-ACCESS_TOKEN                   = ${DB}_\${RANDOM}
-MEMORY_FOR_QUERIES             = 10
-CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
-EOT
-    elif [ "$1" == "wikidata" ]; then
-      DB=wikidata-latest
-      QLEVERUI_CONFIG=wikidata
-      read -r -d "" INDEXER_SETTINGS << EOT
-DB                = ${DB}
-RDF_FILES         = "latest-lexemes.ttl.bz2 latest-all.ttl.bz2"
-EXTRACT_PREFIXES  = "for F in \${RDF_FILES}; do bzcat \\\$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
-CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
-WITH_TEXT_INDEX   = false
-STXXL_MEMORY_GB   = 10
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
-GET_DATA_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
-DATE_ALL       = "\$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
-DATE_LEXEMES   = "\$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
-INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from \${DATE_ALL}, latest-lexemes.ttl.bz2 from \${DATE_LEXEMES})"
-EOT
-      read -r -d "" SERVER_SETTINGS << EOT
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = ${DB}_\${RANDOM}
-MEMORY_FOR_QUERIES             = 50
-CACHE_MAX_SIZE_GB              = 30
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
-CACHE_MAX_NUM_ENTRIES          = 100
-EOT
-    elif [ "$1" == "dblp" ]; then
-      DB=dblp
-      QLEVERUI_CONFIG=dblp
-      read -r -d "" INDEXER_SETTINGS << EOT
-DB                = ${DB}
-RDF_FILES         = dblp.nt.gz
-CAT_FILES         = "zcat \${RDF_FILES}"
-WITH_TEXT_INDEX   = from_literals
-SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
-GET_DATA_CMD      = "wget -nc -O \${RDF_FILES} https://dblp.org/rdf/dblp.nt.gz"
-VERSION           = "from \$(ls -l --time-style=+%d.%m.%Y \${RDF_FILES} 2> /dev/null | cut -d' ' -f6)"
-INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version \${VERSION}"
-TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
-EOT
-      read -r -d "" SERVER_SETTINGS << EOT
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7015
-ACCESS_TOKEN                   = ${DB}_\${RANDOM}
-MEMORY_FOR_QUERIES             = 20
-CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
+      RDF_FILES="\${DB}.ttl"
+      CAT_FILES="cat \${RDF_FILES}"
+      # If a file with suffix .ttl or .nt exists, use the basename as the basename
+      # for the index files (the DB variable in the configuration) and pick the
+      # right "cat" command according to the suffix. If several such files exist,
+      # take the largest one. If no such file exists, leave the basename empty and
+      # for the user to set.
+      FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
+      if [ ! -z "$FILE" ]; then
+        DB="${FILE/.*/}"
+        RDF_FILES="$FILE"
+        if [[ ${RDF_FILES} =~ .gz$ ]]; then CAT_FILES="zcat \${RDF_FILES}"; fi
+        if [[ ${RDF_FILES} =~ .bz2?$ ]]; then CAT_FILES="bzcat \${RDF_FILES}"; fi
+        if [[ ${RDF_FILES} =~ .xz$ ]]; then CAT_FILES="xzcat \${RDF_FILES}"; fi
+      fi
+      # Copy QLeverfiles/Qleverfile.default and replace the %...% templates.
+      cat ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.default \
+        | sed -E "s/%FOLDER_NAME%/${FOLDER_NAME//\//\\\/}/" \
+        | sed -E "s/%DATE%/${DATE}/" \
+        | sed -E "s/%DB%/\"${DB}\"/" \
+        | sed -E "s/%RDF_FILES%/\"${RDF_FILES}\"/" \
+        | sed -E "s/%CAT_FILES%/\"${CAT_FILES}\"/" \
+        | sed -E "s/%QLEVER_BIN_DIR%/\"${QLEVER_BIN_DIR//\//\\\/}\"/" \
+        > Qleverfile
+        # | sed -E "s/%FOLDER_NAME%/${FOLDER_NAME}/; s/%DATE%/${DATE}/" \
+        cat << EOT
+No pre-configuration name specified (as argument of ". qlever"). Copied default
+Qleverfile to current directory, please edit and check.
+
 EOT
     fi
-
-    # Now write the Qleverfile.
-    cat << EOT > Qleverfile
-# Qleverfile for folder $(pwd)
-# Automatically created by the "qlever" script on $(date)
-#
-# Modify as you see fit. Beware that some of the variables below are executed as
-# commands (using "eval"), so pay attention when you add own commands. When the
-# right-hand side of an assignment contains spaces, you must put it in quotes.
-
-# Indexer settings
-${INDEXER_SETTINGS}
-
-# Server settings
-${SERVER_SETTINGS}
-
-# QLever binaries
-QLEVER_BIN_DIR          = ${QLEVER_BIN_DIR}
-USE_DOCKER              = false
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
-
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = ${QLEVERUI_DIR}
-QLEVERUI_CONFIG = ${QLEVERUI_CONFIG}
-EOT
-    cat << EOT
-There was no "Qleverfile" in this directory yet, so I created one for you. A
-Qleverfile contains basic configuration telling the "qlever" command how to do
-certain things. Please check and modify as you see fit.
-
-EOT
-# ${BLUE}$(cat Qleverfile)${NORMAL}
   fi
 
   # DONE: give the user a short heads up what they can do now.

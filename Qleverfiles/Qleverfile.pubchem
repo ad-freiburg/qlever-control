@@ -1,12 +1,12 @@
 # Qleverfile for PubChem, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads files of total size 81 GB (as of 31.07.2022)
-# qlever index     # takes ~20 hours on an AMD Ryzen 9 5900X with 128 GB RAM
-# qlever start     # starts the server (takes around 1 minute)
+# qlever get-data  # downloads .gz files of total size 81 GB (as of 31.07.2022)
+# qlever index     # takes ~20 hours and ~40 GB RAM on an AMD Ryzen 9 5900X
+# qlever start     # starts the server (takes around 2 minutes)
 #
 # When rebuilding the index and you already have pubchem.prefix-definitions, you
 # can comment out EXTRACT_PREFIXES. See the variable settings below for more
-# details. Type "qlever help" for help.
+# details.
 
 # Indexer settings
 DB                = pubchem

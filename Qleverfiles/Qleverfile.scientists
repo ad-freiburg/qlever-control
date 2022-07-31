@@ -1,0 +1,39 @@
+# Qleverfile for Scientists, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # download ZIP file of size 79 MB, uncompress to 318 MB 
+# qlever index     # takes ~20 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (instant)
+#
+# Includes keyword search on the literals AND keyword search in an additional
+# text corpus linked to the RDF data; see TEXT_DESCRIPTION below.
+
+# Indexer settings
+DB                = scientists
+RDF_FILES         = "${DB}.nt"
+CAT_FILES         = "cat ${RDF_FILES}"
+WITH_TEXT_INDEX   = from_text_records_and_literals
+STXXL_MEMORY_GB   = 1
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }'
+GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
+INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
+TEXT_DESCRIPTION  = "Literals (use FILTER CONTAINS) and Wikipedia articles (use ql:contains-entity and ql:contains-word)"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7020
+ACCESS_TOKEN                   = ${DB}_${RANDOM}
+MEMORY_FOR_QUERIES             = 5
+CACHE_MAX_SIZE_GB              = 2
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+USE_DOCKER              = false
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.scientists
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = default

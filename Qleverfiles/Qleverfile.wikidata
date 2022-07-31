@@ -1,7 +1,7 @@
 # Qleverfile for Wikidata, use with https://github.com/ad-freiburg/qlever-control
 #
 # qlever get-data  # downloads two files of total size 90 GB (as of 31.07.2022)
-# qlever index     # takes ~14 hours on an AMD Ryzen 9 5900X with 128 GB RAM
+# qlever index     # takes ~14 hours and ~60 Gb RAM (on an AMD Ryzen 9 5900X)
 # qlever start     # starts the server (takes around 2 minutes)
 
 # Indexer settings

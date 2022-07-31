@@ -1,0 +1,39 @@
+# Qleverfile for DBLP, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # downloads single file of size ~3 GB (as of 31.07.2022)
+# qlever index     # takes ~30 minutes and ~20 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (takes around 2 minutes)
+#
+# Also build a text index for fast kewyword search in literals. Without that
+# (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
+
+# Indexer settings
+DB                = dblp
+RDF_FILES         = dblp.nt.gz
+CAT_FILES         = "zcat ${RDF_FILES}"
+WITH_TEXT_INDEX   = from_literals
+SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
+GET_DATA_CMD      = "wget -nc -O ${RDF_FILES} https://dblp.org/rdf/dblp.nt.gz"
+VERSION           = "from $(ls -l --time-style=+%d.%m.%Y ${RDF_FILES} 2> /dev/null | cut -d' ' -f6)"
+INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version ${VERSION}"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
+
+# Server settings
+HOSTNAME                       = tura.informatik.privat
+SERVER_PORT                    = 7015
+ACCESS_TOKEN                   = dblp_${RANDOM}
+MEMORY_FOR_QUERIES             = 20
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+USE_DOCKER              = false
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.dblp
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = dblp

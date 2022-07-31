@@ -168,7 +168,7 @@ function action_index {
     # Create prefix definitions
     if [ ! -z "${EXTRACT_PREFIXES}" ]; then eval $SHOW ${EXTRACT_PREFIXES} $NOSHOW; fi
     # Build index.
-    eval $SHOW ${INDEXER_CMD}
+    eval /bin/time -o >(xargs printf "%d/1000000\n" | bc -l | xargs printf "\nMax RAM usage: %'.1f GB\n\n" | tee -a ${DB}.index-log.txt) -f "%M" $SHOW ${INDEXER_CMD}
   fi
 }
 
@@ -667,7 +667,7 @@ EXTRACT_PREFIXES  = "for F in \${RDF_FILES}; do bzcat \\\$F | head -1000 | \grep
 CAT_FILES         = "bzcat -f ${DB}.prefix-definitions \${RDF_FILES}"
 WITH_TEXT_INDEX   = false
 STXXL_MEMORY_GB   = 10
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }'
+SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
 GET_DATA_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
 DATE_ALL       = "\$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
 DATE_LEXEMES   = "\$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
@@ -834,7 +834,7 @@ fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 else
-  INDEXER_CMD="${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS} | tee ${DB}.index-log.txt"
+  INDEXER_CMD="bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 fi
 REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
 SERVER_BINARY=ServerMain

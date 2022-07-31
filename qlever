@@ -818,7 +818,7 @@ INDEXER_BINARY=IndexBuilderMain
 ULIMIT_CMD="ulimit -Sn 1048576; "
 if [ ! -z "$(ls ${RDF_FILES} 2> /dev/null)" ] && \
    [ "$(du -bc $(eval ls ${RDF_FILES}) | tail -1 | cut -f1)" -lt 10000000000 ]; then ULIMIT_CMD=""; fi
-INDEXER_OPTIONS="-F ttl -K \"${INDEX_DESCRIPTION}\" -f - -i ${DB} -s ${DB}.settings.json"
+INDEXER_OPTIONS="-F ttl -f - -i ${DB} -s ${DB}.settings.json"
 if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
 fi

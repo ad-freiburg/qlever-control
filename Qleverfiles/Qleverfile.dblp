@@ -14,7 +14,7 @@ CAT_FILES         = "zcat ${RDF_FILES}"
 WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
 GET_DATA_CMD      = "wget -nc -O ${RDF_FILES} https://dblp.org/rdf/dblp.nt.gz"
-VERSION           = "from $(ls -l --time-style=+%d.%m.%Y ${RDF_FILES} 2> /dev/null | cut -d' ' -f6)"
+VERSION           = "from $(ls -l --time-style=+%d.%m.%Y\ %H:%M ${RDF_FILES} 2> /dev/null | cut -d' ' -f6,7)"
 INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version ${VERSION}"
 TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 

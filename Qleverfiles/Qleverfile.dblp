@@ -9,7 +9,7 @@
 
 # Indexer settings
 DB                = dblp
-RDF_FILES         = dblp.nt.gz
+RDF_FILES         = ${DB}.nt.gz
 CAT_FILES         = "zcat ${RDF_FILES}"
 WITH_TEXT_INDEX   = from_literals
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
@@ -19,19 +19,19 @@ INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/dblp.nt.gz, version ${VERSION
 TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
 
 # Server settings
-HOSTNAME                       = tura.informatik.privat
+HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7015
-ACCESS_TOKEN                   = dblp_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
 MEMORY_FOR_QUERIES             = 20
 CACHE_MAX_SIZE_GB              = 5
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
 CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries
-QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
 USE_DOCKER              = false
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.dblp
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
 
 # QLever UI
 QLEVERUI_PORT   = 7000

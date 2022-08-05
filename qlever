@@ -595,6 +595,7 @@ EOT
     if [ "$1" != "default" ] && [ -f "${QLEVERFILE_NAME}" ]; then
       cat ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.$1 \
         | sed -E "s/^(QLEVER_BIN_DIR\s+=).*/\1 \"${QLEVER_BIN_DIR//\//\\\/}\"/" \
+        | sed -E "s/%RANDOM%/${RANDOM}${RANDOM}/" \
         > Qleverfile
       echo "Copied pre-configured Qleverfile for \"$1\" into current directory."
       echo
@@ -626,6 +627,7 @@ EOT
         | sed -E "s/%RDF_FILES%/\"${RDF_FILES}\"/" \
         | sed -E "s/%CAT_FILES%/\"${CAT_FILES}\"/" \
         | sed -E "s/%QLEVER_BIN_DIR%/\"${QLEVER_BIN_DIR//\//\\\/}\"/" \
+        | sed -E "s/%RANDOM%/${RANDOM}${RANDOM}/" \
         > Qleverfile
         # | sed -E "s/%FOLDER_NAME%/${FOLDER_NAME}/; s/%DATE%/${DATE}/" \
         cat << EOT

@@ -24,14 +24,14 @@ INDEX_DESCRIPTION = "OSM ${COUNTRY^}, dump from $(ls -l --time-style=+%d.%m.%Y $
 # Server settings
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7025
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
 MEMORY_FOR_QUERIES             = 20
 CACHE_MAX_SIZE_GB              = 10
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
 CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries
-QLEVER_BIN_DIR          =
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
 USE_DOCKER              = false
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
 QLEVER_DOCKER_CONTAINER = qlever.${DB}

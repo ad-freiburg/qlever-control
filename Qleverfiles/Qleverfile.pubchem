@@ -25,14 +25,14 @@ INDEX_DESCRIPTION = "PubChem RDF from ${FTP_BASE_URL}, version ${DATE} (all fold
 # Server settings
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7023
-ACCESS_TOKEN                   = ${DB}_${RANDOM}
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
 MEMORY_FOR_QUERIES             = 70
 CACHE_MAX_SIZE_GB              = 50
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 40
 CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries
-QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
 USE_DOCKER              = false
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
 QLEVER_DOCKER_CONTAINER = qlever.${DB}

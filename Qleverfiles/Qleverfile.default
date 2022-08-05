@@ -1,0 +1,35 @@
+# Qleverfile for folder %FOLDER_NAME%
+# Automatically created by the "qlever" script on %DATE%
+#
+# Modify as you see fit. Beware that some of the variables below are executed as
+# commands (using "eval"), so pay attention when you add own commands. When the
+# right-hand side of an assignment contains spaces, you must put it in quotes.
+
+# Indexer settings
+DB                = %DB%
+RDF_FILES         = %RDF_FILES%
+CAT_FILES         = %CAT_FILES%
+WITH_TEXT_INDEX   = false
+SETTINGS_JSON     = '{ "num-triples-per-batch": 1000000 }'
+GET_DATA_CMD      = "Write a one-liner here for how obtain your data (or comment this line out)"
+INDEX_DESCRIPTION = "RDF data for ${DB}"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7001
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
+MEMORY_FOR_QUERIES             = 10
+CACHE_MAX_SIZE_GB              = 5
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
+USE_DOCKER              = false
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = default

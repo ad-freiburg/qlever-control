@@ -168,7 +168,7 @@ function action_index {
     # Create prefix definitions
     if [ ! -z "${EXTRACT_PREFIXES}" ]; then eval $SHOW ${EXTRACT_PREFIXES} $NOSHOW; fi
     # Build index.
-    eval /bin/time -o >(xargs printf "%d/1000000\n" | bc -l | xargs printf "\nMax RAM usage: %'.1f GB\n\n" | tee -a ${DB}.index-log.txt) -f "%M" $SHOW ${INDEXER_CMD}
+    eval ${INDEXER_CMD_PREFIX} $SHOW ${INDEXER_CMD}
   fi
 }
 
@@ -248,16 +248,15 @@ function action_stop {
   echo
   if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
     echo
-    $SHOW pkill -f "${SERVER_BINARY} -i [^ ]*${DB}" && rm -f ${DB}.server-log.txt $NOSHOW \
-      && echo "Killed processes and removed \"${DB}.server-log.txt\""
+    eval $SHOW ${STOP_CMD} $NOSHOW && echo "Killed processes and removed \"${DB}.server-log.txt\""
   else
     echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
   fi
 }
 
 function action_restart {
-  $SHOW qlever stop $NOSHOW | sed '1,3d'
-  $SHOW qlever start $NOSHOW | sed '1,3d; $d'
+  $SHOW ${QLEVER_CMD_WITH_VARS} stop $NOSHOW | sed '1,3d'
+  $SHOW ${QLEVER_CMD_WITH_VARS} start $NOSHOW | sed '1,3d; $d'
 }
 
 function action_wait {
@@ -279,14 +278,14 @@ function action_log_until_server_up {
 }
 
 function action_status {
-  echo "Showing all processes with command \"${SERVER_BINARY}\" or \"${INDEXER_BINARY}\" on this machine ..."
+  echo "Showing all QLever-related processes and docker containers on this machine ..."
   echo "${BLUE}"
   $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -E '1p; /\b('${SERVER_BINARY}'|'${INDEXER_BINARY}')/!d; /bash -c/d' $NOSHOW \
     | awk 'NR==1 {o=$0; a=match($0, $5)} NR > 1 {o=$0; $4=int($4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $1, $2, $3, $4, substr(o, a)}'
   printf "${NORMAL}"
-  if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+  if [ $(docker ps --filter "name=qlever" | wc -l) -gt 1 ]; then \
     echo "${BLUE}"
-    $SHOW docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
+    $SHOW docker ps --filter "name=qlever" --format "table {{.Names}}\t{{.State}}\t{{.RunningFor}}\t{{.Ports}}"
     printf "${NORMAL}"
   fi
 }
@@ -294,13 +293,13 @@ function action_status {
 function action_select_query {
   echo "Launching SELECT query for 10 random triples (in TSV format) ..."
   echo
-  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } lIMIT 10"
+  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
 }
 
 function action_construct_query {
   echo "Launching CONSTRUCT query for 10 random triples (in TSV format) ..."
   echo
-  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } lIMIT 10"
+  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } LIMIT 10"
 }
 
 # Warmup queries for the autocompletion.
@@ -463,7 +462,7 @@ function action_cat_files {
 # where some actions use docker and some don't. However, if the docker container
 # is running, it blocks the server port even when nothing is running inside the
 # container, so that when cannot do "qlever start" without docker then.
-function action_docker_on {
+function action_docker_on_DEPRECATED {
   if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
     echo "${MAGENTA}Docker container \"${QLEVER_DOCKER_CONTAINER}\" already running${NORMAL}"
   else
@@ -484,7 +483,7 @@ function action_docker_on {
   printf "${NORMAL}"
 }
 
-function action_docker_off {
+function action_docker_off_DEPRECATED {
   $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
 }
 
@@ -560,12 +559,13 @@ if [ "${QLEVER_CMD}" != "$0" ]; then
   # Bash autocompletion: Set completions with "complete -W" and store the
   # completions in "QLEVER_COMPLETIONS". We need the latter so that we know that
   # the completions are set (complete -p does not work in a subshell).
+  COMP_WORDBREAKS=${COMP_WORDBREAKS/=/}
   COMPLETIONS_FILE=no_longer_needed
   echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-  COMPLETIONS=$(declare -F | sed -En 's/^declare -f action_([a-zA-Z0-9_.-]+)$/\1/p' | sed 's/_/-/g')
+  COMPLETIONS=$(cat ${QLEVER_CMD} | sed -En '/DEPRECATED/d; s/^function action_([a-zA-Z0-9_.-]+).*/\1/p' | sed 's/_/-/g')
+  COMPLETIONS+=" \"USE_DOCKER=true\" \"USE_DOCKER=false\""
   export QLEVER_COMPLETIONS="$(echo "${COMPLETIONS}" | paste -sd" ")"
   complete -W "${QLEVER_COMPLETIONS}" qlever
-  eval ${COMPLETIONS_CMD}
   echo "Done, number of completions: $(echo "${COMPLETIONS}" | wc -l)"
   echo ${NORMAL}
 
@@ -707,7 +707,27 @@ if ${QLEVERFILE_NEEDED}; then
 fi
 # echo "CAT_FILES = \"${CAT_FILES}\""
 
+# Check for variable assignments (of the form VARIABLE=value) in the command
+# line. They override the setting from the Qleverfile. The remaining arguments
+# stay in "$@".
+VARS=()
+for ARG do
+  shift
+  # [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
+  [[ "${ARG}" =~ ^[A-Z_]+=[^[:space:]] ]] && VARS+=( "${ARG}" ) && continue
+  set -- "$@" "${ARG}"
+done
+if (( ${#VARS[@]} )); then
+  echo -e "\033[1mVariable settings specified (will override those from Qleverfile):\033[0m"
+  echo "${BLUE}"
+  for VAR in "${VARS[@]}"; do echo "${BLUE}${VAR}${NORMAL}"; eval ${VAR}; done
+  echo "${NORMAL}"
+fi
+# for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
+
 # Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
+QLEVER_CMD_WITH_VARS=qlever
+if (( ${#VARS[@]} )); then QLEVER_CMD_WITH_VARS+=" ${VARS[*]}"; fi
 QLEVER_DOCKER_CONTAINER=qlever.${DB}
 SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
 INDEXER_BINARY=IndexBuilderMain
@@ -728,8 +748,10 @@ if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]
   INDEXER_OPTIONS="${INDEXER_OPTIONS} --words-from-literals"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  INDEXER_CMD="docker exec -it -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
+  INDEXER_CMD_PREFIX=""
+  INDEXER_CMD="docker run -it --rm -u $(id -u):$(id -g) -v $(pwd):/index -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER}.index-build ${QLEVER_DOCKER_IMAGE} -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 else
+  INDEXER_CMD_PREFIX="/bin/time -o >(xargs printf \"%d/1000000\n\" | bc -l | xargs printf \"\nMax RAM usage: %'.1f GB\n\n\" | tee -a ${DB}.index-log.txt) -f \"%M\""
   INDEXER_CMD="bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 fi
 REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
@@ -743,11 +765,21 @@ if [[
   :1:yes:true:from_text_records:from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
   SERVER_OPTIONS="${SERVER_OPTIONS} -t"
 fi
+
+# Command for action "start"
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker exec -d -w /index ${QLEVER_DOCKER_CONTAINER} bash -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\""
+  SERVER_CMD="docker run -d --restart unless-stopped -u $(id -u):$(id -g) -it -v $(pwd):/index -p ${SERVER_PORT}:${SERVER_PORT} -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\" > /dev/null"
 else
   SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
 fi
+
+# Command for action "stop"
+if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
+  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} >/dev/null && rm -f ${DB}.server.log.txt"
+else
+  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\" && rm -f ${DB}.server-log.txt"
+fi
+
 SERVER_API=http://${HOSTNAME}:${SERVER_PORT}
 
 
@@ -827,21 +859,6 @@ function exit_qlever { eval ${EXIT}; }
 
 
 
-# First separate the variable assignment arguments from the others. The
-# assignment will go in VARS, the rest will stay in $@ (both arrays).
-# VARS=( "QLEVER_CMD=${QLEVER_CMD}" "QLEVER_CMD_DIR=${QLEVER_CMD_DIR}" )
-# VARS=()
-# # OPT=""
-# for ARG do
-#   shift
-#   # [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
-#   [[ "${ARG}" =~ ^[A-Z_]+= ]] && VARS+=( "${ARG}" ) && continue
-#   set -- "$@" "${ARG}"
-# done
-# # for VAR in "${VARS[@]}"; do echo "VAR = \"${VAR}\""; done
-# # for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
-# # echo
-# 
 # # Special command "show-config" (for debugging, not one of the completions).
 # if [ "$*" == "show-config" ]; then
 #   echo "${BOLD}${MAGENTA}Secret action \"show-config\":${NORMAL}"
@@ -871,7 +888,8 @@ function exit_qlever { eval ${EXIT}; }
 
 # For selected actions: If USE_DOCKER=1 check if docker container is running
 # and if not run it.
-USE_DOCKER_ACTIONS=:start:index:
+USE_DOCKER_ACTIONS=none
+# USE_DOCKER_ACTIONS=:start:index:
 if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
   if [ "${USE_DOCKER}" == "1" ]; then
     if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
@@ -924,7 +942,8 @@ fi
 # if yes, show the command and then execute it.
 for ARG in "$@"; do
   # If USE_DOCKER=1 and action requires docker, make sure it's running.
-  USE_DOCKER_ACTIONS=:start:index:
+  USE_DOCKER_ACTIONS=none
+  # USE_DOCKER_ACTIONS=:start:index:
   if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
     if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
       if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then

@@ -268,7 +268,7 @@ function action_wait {
 function action_log {
   echo "Showing the log (abort with Ctrl+C) ..."
   echo
-  $SHOW tail -f -n 10 ${DB}.server-log.txt
+  $SHOW tail -f -n 50 ${DB}.server-log.txt
 }
 
 function action_log_until_server_up {
@@ -290,17 +290,28 @@ function action_status {
   fi
 }
 
-function action_select_query {
+function action_example_query_select {
   echo "Launching SELECT query for 10 random triples (in TSV format) ..."
   echo
-  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
+  $SHOW curl ${SERVER_API} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
 }
 
-function action_construct_query {
+function action_example_query_construct {
   echo "Launching CONSTRUCT query for 10 random triples (in TSV format) ..."
   echo
-  $SHOW curl ${HOSTNAME}:${SERVER_PORT} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } LIMIT 10"
+  $SHOW curl ${SERVER_API} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } LIMIT 10"
 }
+
+function action_query {
+  echo "Launching GET query (results in TSV format) ..."
+  echo
+  if [ -z "${QUERY}" ]; then
+    echo "${RED}Empty query, specify one via the command line like this: qlever QUERY=\"...\" query${NORMAL}"
+  else
+    $SHOW "${QUERY_CMD[@]}"
+  fi
+}
+
 
 # Warmup queries for the autocompletion.
 # 
@@ -347,35 +358,26 @@ function action_disk_usage {
   du -hc ${RDF_FILES}
 }
 
-function action_cache_stats {
-  echo "Show cache statistics (sizes are in bytes) ..."
-  echo
+function action_cache_stats_and_settings {
+  echo "Show cache statistics (sizes are in bytes) and cache settings (sizes are in GB) ..."
+  echo ${BLUE}
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" $NOSHOW \
     | sed -n 's/[",]//g; s/:/: /g; s/^\s\+//p' | tr -s " " \
-    | awk '{ $2 = 8 * $2; print }' \
-    | numfmt --field=2,5,8,11,14 --grouping
-}
-
-function action_memory_usage {
-  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
-    $SHOW docker stats --no-stream \
-      --format "Memory usage of docker container ${QLEVER_DOCKER_CONTAINER}: {{.MemUsage}}" \
-      ${QLEVER_DOCKER_CONTAINER}
-  else
-    echo "${RED}Docker container \"${QLEVER_DOCKER_CONTAINER}\" not running${NORMAL}"
-  fi
-}
-
-function action_server_settings {
-  echo "Getting settings from \"${SERVER_API}\" ..."
+    | awk '{ if ($1 ~ "pinned-size:") { $2 = 8 * $2 } print }' \
+    | numfmt --field=2 --grouping
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" $NOSHOW \
     | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+  printf ${NORMAL}
 }
 
 function action_server_stats {
   echo "Getting stats from \"${SERVER_API}\" ..."
+  echo ${BLUE}
   $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=stats" $NOSHOW \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+    | sed -n 's/[",]//g; s/:/: /g; s/^\s\+//p' | tr -s " " \
+    | sed -E 's/^((kb|text)index:\s*)(.*)$/\1"\3"/' \
+    | numfmt --field=2 --grouping --invalid=ignore
+  printf ${NORMAL}
 }
 
 function action_index_description {
@@ -697,6 +699,7 @@ CACHE_MAX_SIZE_GB=30              # in GB
 CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5  # in GB
 CACHE_MAX_NUM_ENTRIES=1000
 ADMIN_TOKEN=              # for actions requiring privilege
+QUERY=
 
 # Read from Qleverfile (only lines that look like an assignment are considered,
 # space around = allowed).
@@ -720,7 +723,7 @@ done
 if (( ${#VARS[@]} )); then
   echo -e "\033[1mVariable settings specified (will override those from Qleverfile):\033[0m"
   echo "${BLUE}"
-  for VAR in "${VARS[@]}"; do echo "${BLUE}${VAR}${NORMAL}"; eval ${VAR}; done
+  for VAR in "${VARS[@]}"; do VAR="${VAR/=/=\"}\""; echo "${BLUE}${VAR}${NORMAL}"; eval "${VAR}"; done
   echo "${NORMAL}"
 fi
 # for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
@@ -782,6 +785,9 @@ fi
 
 SERVER_API=http://${HOSTNAME}:${SERVER_PORT}
 
+# Command for action "query"
+QUERY=${QUERY//\"/\\\"}
+QUERY_CMD=(curl -Gs ${SERVER_API} -H "Accept: text/tab-separated-values" --data-urlencode "query=${QUERY}")
 
 
 # Variant of make that reads the master Qleverfile (using GET_MASTER_QLEVERFILE)

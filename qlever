@@ -748,7 +748,7 @@ if [[ :from_text_records:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}
   INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
 fi
 if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} --words-from-literals"
+  INDEXER_OPTIONS="${INDEXER_OPTIONS} --text-words-from-literals"
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   INDEXER_CMD_PREFIX=""

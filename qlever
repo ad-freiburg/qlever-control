@@ -396,7 +396,7 @@ function action_text_description {
 # QLever UI (work in progress).
 LOG_FILE=qleverui-log.tmp
 ERROR_CMD="(echo && echo \"${BLUE}An error occured, check ${LOG_FILE} for details, the last 10 lines are:${NORMAL}\" && tail ${LOG_FILE} && false)"
-QLEVERUI_GIT=git@github.com:ad-freiburg/qlever-ui.git
+QLEVERUI_GIT=https://github.com/ad-freiburg/qlever-ui.git
 QLEVERUI_DIR="qlever-ui"
 function action_ui {
   > ${LOG_FILE}

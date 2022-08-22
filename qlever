@@ -90,7 +90,7 @@ We recommend that you have a directory "qlever", with subfolders "qlever-code",
 ${BLUE}
 git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
 cd qlever-code && mkdir -p build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="g++-11" .. && make -j
+cmake -DCMAKE_BUILD_TYPE=Release -DLOGLEVEL=INFO -DUSE_PARALLEL=true -GNinja .. && ninja
 ${NORMAL}
 After this, you have the two binaries "IndexBuilderMain" and "ServerMain" in
 your "build" folder. To use them, put the path to it in your PATH or in your
@@ -121,6 +121,17 @@ with an existing libboost version, uninstall it and then run again.
 
 EOT
   $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu20.04 \
+    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
+}
+
+function action_help_install_ubuntu_22 {
+  cat << EOT
+The following command sequence has been written to a file "INSTALL". If it looks
+OK to you, execute the sequence with "source INSTALL". If there is a conflict
+with an existing libboost version, uninstall it and then run again.
+
+EOT
+  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile \
     | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/Q' | tee INSTALL
 }
 

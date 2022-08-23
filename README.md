@@ -6,32 +6,48 @@ easy to use and pretty much self-explanatory as you use it. If you use docker, y
 don't even have to download any QLever code (docker will pull anything it needs)
 and the script is all you need.
 
+# Directory structure
+
+We recommend that you have a directory "qlever" for all things QLever on your machine,
+with subdirectories for the different components, in particular: "qlever-control" (this
+repository), "qlever-indices" (with a subfolder for each of your datasets), and "qlever-code"
+(only needed if you don't want to use docker, but compile the binaries on your machine).
+
 # Quickstart
 
-Create a directory and put the RDF file you want to work with in there, for
-example this small and neat dataset about [120 Years of Olympics](https://github.com/wallscope/olympics-rdf):
+Create an empty directory (preferably as a subdirectory of "qlever-indices", go there,
+and call the `qlever` script once with its full path and a dot and a space preceding it,
+and the name of a preconfiguration as only argument. For example:
+
+```. /path/to/qlever olympics```
+
+This will create a `Qleverfile` preconfigured for the
+[120 Years of Olympics](https://github.com/wallscope/olympics-rdf) dataset, which is
+a great dataset to get started because it's small. Other options are:
+`scientists` (another small test collection), `dblp` (larger), `wikidata` (very large),
+and more. If you leave out the argument, you get a default `Qleverfile`, which you need
+to edit first to use for your own dataset (it should be self-explanatory, after you have
+played around with and looked at one of the preconfigured Qleverfiles).
+
+Now you can call `qlever` without path and without a dot and a space preceding it and
+with one or more actions as argument. To see the set of avaiable actions, just use the
+autocompletion. When you are a first-timer, execute these commands one after the other
+(without the comments):
 
 ```
-wget https://github.com/wallscope/olympics-rdf/raw/master/data/olympics-nt-nodup.zip
-unzip olympics-nt-nodup.zip
-````
-
-Download the `qlever` script anywhere you like and call it once with the full path.
-The script will then tell you what else to do. We recommend that you have a directory
-"qlever" for all things QLever on your machine, with subdirectories for the different
-components, for example: "qlever-control" (this repository), "qlever-code" (if you want
-to download the code), "qlever-indices" (with a subfolder for each of your datasets and
-indices), etc. But it's not a must, you can organize your files any way you like.
-
-Once you have the script set up, you can perform "actions" in the directory with your
-dataset:
-
-```
-qlever index          # Build a QLever index for your RDF data
+qlever get-data       # Download the dataset
+qlever index          # Build a QLever index for your data
 qlever start          # Start a QLever server using that index
-qlever status         # Show the current status
-qlever stop           # Stop the current server
-qlever ...            # There are many more actions, see below.
+qlever example-query  # Launch an example query 
+```
+
+Each command will not only execute the respective action, but it will also show you
+the exact command line it uses. That way you can learn, on the side, how QLever works
+internally. If you just want to know the command used for a particular action, but
+not execute it, you can append "show" like this:
+
+```
+qlever index show
 ```
 
 You can also perform a sequence of actions with a single call, for example:
@@ -40,15 +56,5 @@ You can also perform a sequence of actions with a single call, for example:
 qlever stop remove-index index start
 ```
 
-If you just want to know what an action or sequence of actions is doing, but not (yet)
-execute it, append "show":
-
-```
-qlever index start show
-```
-
 There are many more actions. The script supports autocompletion. Just type "qlever "
-and then TAB and you will get a list of all the available actions. The script is not
-perfect yet, but already works quite well and is a great help for all the things one
-typically wants to do with Qlever. By showing the commands it executes for each action,
-it's also a great way to learn how QLever works internally.
+and then TAB and you will get a list of all the available actions.

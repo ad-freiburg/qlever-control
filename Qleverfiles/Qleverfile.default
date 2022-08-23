@@ -25,7 +25,7 @@ CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries
 QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = false
+USE_DOCKER              = true
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
 QLEVER_DOCKER_CONTAINER = qlever.${DB}
 

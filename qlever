@@ -301,7 +301,7 @@ function action_status {
   fi
 }
 
-function action_example_query_select {
+function action_example_query {
   echo "Launching SELECT query for 10 random triples (in TSV format) ..."
   echo
   $SHOW curl ${SERVER_API} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } LIMIT 10"

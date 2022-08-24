@@ -687,11 +687,9 @@ if [ "$*" == "install-binaries" ]; then
   exit
 fi
 
-# Welcome message. TODO: remove this eventually.
+# Leave a blank line at the beginning (the welcome message used to be here, but
+# we found it redundant).
 echo
-echo "${GRAY}This is the \"qlever\" script, call without argument for help${NORMAL}"
-echo
-
 
 ###
 ### VARIABLE ASSIGNMENTS

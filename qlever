@@ -420,28 +420,20 @@ ERROR_CMD="(echo && echo \"${BLUE}An error occured, check ${LOG_FILE} for detail
 QLEVERUI_GIT=https://github.com/ad-freiburg/qlever-ui.git
 QLEVERUI_DIR="qlever-ui"
 function action_ui {
-  > ${LOG_FILE}
-  # We need the QLever UI repository.
-  if [ ! -d "${QLEVERUI_DIR}" ]; then
-    echo "Downloading QLever UI from GitHub ..."
-    git clone "${QLEVERUI_GIT}" "${QLEVERUI_DIR}"
-  fi
-  # Configure using Makefile from QLever UI repo.
-  echo "Creating configuration for the QLever UI ..."
-  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} CONFIG_SLUG=${QLEVERUI_CONFIG} BACKEND_PORT=${SERVER_PORT} overwrite_config $NOSHOW \
-    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
-  # Launching the web app.
-  echo "Launching QLever UI web application ..."
-  $SHOW make -s -C "${QLEVERUI_DIR}" HOSTNAME=${HOSTNAME} FRONTEND_PORT=${QLEVERUI_PORT} qlever-ui $NOSHOW \
-    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  echo "Starting the QLever UI on ${HOSTNAME}:${QLEVERUI_PORT} ..."
   echo
-  echo "Looks like it worked, go to http://${HOSTNAME}:${QLEVERUI_PORT} and try out some queries. If it doesn't work, check \"${LOG_FILE}\" for suspicious messages or \"${QLEVERUI_DIR}/Makefile\" for troubleshooting help" | fold -s
+  $SHOW docker rm -f ${QLEVERUI_DOCKER_CONTAINER} 2>&1 > /dev/null
+  $SHOW docker run -d -p ${QLEVERUI_PORT}:7000 --name ${QLEVERUI_DOCKER_CONTAINER} ${QLEVERUI_DOCKER_IMAGE} > /dev/null $NOSHOW || return
+  $SHOW docker exec -it ${QLEVERUI_DOCKER_CONTAINER} bash -c "python manage.py configure ${QLEVERUI_CONFIG} ${SERVER_API}" $NOSHOW || return
+  echo
+  echo "The QLever UI should now be up at http://${HOSTNAME}:${QLEVERUI_PORT} ."
+  echo "You can log in as QLever UI admin with username and passwort \"demo\""
 }
 
 function action_autocompletion_warmup {
   echo "Launch warmup queries for the QLever UI autocompletion ..."
-  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" $NOSHOW \
-    >> ${LOG_FILE} 2>&1 || eval ${ERROR_CMD}
+  echo
+  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" | sed -En 's/^\x1b\[[0-9]+/\x1b\[34/p'
 }
 
 # Update the qlever script (simply git pull from the GitHub repo).
@@ -705,6 +697,8 @@ DB=must_specify
 USE_DOCKER=false
 WITH_TEXT_INDEX=false
 QLEVER_DOCKER_IMAGE=adfreiburg/qlever
+QLEVERUI_DOCKER_IMAGE=adfreiburg/qlever-ui
+QLEVERUI_DOCKER_CONTAINER=qlever-ui
 HOSTNAME=must_specify     # backend host
 SERVER_PORT=must_specify  # backend port
 QLEVERUI_PORT=7000        # frontend port

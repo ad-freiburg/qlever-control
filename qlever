@@ -433,7 +433,11 @@ function action_ui {
 function action_autocompletion_warmup {
   echo "Launch warmup queries for the QLever UI autocompletion ..."
   echo
-  $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" | sed -En 's/^\x1b\[[0-9]+/\x1b\[34/p'
+  if docker container inspect -f '{{.State.Running}}' ${QLEVERUI_DOCKER_CONTAINER} > /dev/null 2>&1; then
+    $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" | sed -En 's/^\x1b\[[0-9]+/\x1b\[34/p'
+  else
+    echo "${RED}The autocompletion queries are defined by the UI, run \"qlever ui\" first${NORMAL}"
+  fi
 }
 
 # Update the qlever script (simply git pull from the GitHub repo).

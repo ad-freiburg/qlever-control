@@ -34,4 +34,4 @@ QLEVER_DOCKER_CONTAINER = qlever.${DB}
 # QLever UI
 QLEVERUI_PORT   = 7000
 QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = default
+QLEVERUI_CONFIG = olympics

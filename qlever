@@ -789,10 +789,14 @@ else
 fi
 
 # Command for action "stop"
-if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} >/dev/null && rm -f ${DB}.server.log.txt"
+if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
+  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} > /dev/null"
+elif [ ! -z "$(pgrep -af "${SERVER_BINARY} -i ${DB} ")" ]; then
+  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\""
+elif [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
+  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} > /dev/null"
 else
-  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\" && rm -f ${DB}.server-log.txt"
+  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\""
 fi
 
 SERVER_API=http://${HOSTNAME}:${SERVER_PORT}

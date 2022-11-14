@@ -1,0 +1,38 @@
+# Qleverfile for UniProt, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # See https://github.com/ad-freiburg/qlever/wiki/Using-QLever-for-UniProt
+# qlever index     # takes ~85 hours and ~100 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (takes around 2 minutes)
+
+# Indexer settings
+DB                = uniprot
+DATE              = "2022-10-12"
+RDF_FILES         = "ttl.${DATE}/*.ttl.xz"
+EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do xzcat \$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
+CAT_FILES         = "xzcat -f ${DB}.prefix-definitions ${RDF_FILES}"
+WITH_TEXT_INDEX   = false
+PSO_AND_POS_ONLY  = true
+STXXL_MEMORY_GB   = 80
+SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://purl.uniprot.org/uniprot/", "<http://purl.uniprot.org/uniparc/", "<http://purl.uniprot.org/uniref/", "<http://purl.uniprot.org/isoforms/", "<http://purl.uniprot.org/range/", "<http://purl.uniprot.org/position/", "<http://purl.uniprot.org/refseq/", "<http://purl.uniprot.org/embl-cds/", "<http://purl.uniprot.org/EMBL", "<http://purl.uniprot.org/PATRIC", "<http://purl.uniprot.org/SEED", "<http://purl.uniprot.org/gi", "<http://rdf.ebi.ac.uk/resource", "<http://purl.uniprot.org/SHA-384" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-partial-vocab": 20000000 }'
+GET_DATA_CMD      = 'echo "Please read https://github.com/ad-freiburg/qlever/wiki/Using-QLever-for-UniProt"'
+INDEX_DESCRIPTION = "Complete UniProt data from https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf, version ${DATE}"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7018
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
+MEMORY_FOR_QUERIES             = 80
+CACHE_MAX_SIZE_GB              = 50
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 10
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
+USE_DOCKER              = true
+QLEVER_DOCKER_IMAGE     = qlever.uniprot
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = uniprot

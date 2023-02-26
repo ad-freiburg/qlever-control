@@ -403,14 +403,12 @@ function action_server_stats {
 
 function action_index_description {
   echo "Setting index description to \"${INDEX_DESCRIPTION}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" $NOSHOW \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
 }
 
 function action_text_description {
   echo "Setting text description to \"${TEXT_DESCRIPTION}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" $NOSHOW \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
+  $SHOW curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
 }
 
 

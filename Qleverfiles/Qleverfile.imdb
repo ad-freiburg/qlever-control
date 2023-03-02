@@ -1,0 +1,45 @@
+# Qleverfile for IMDB, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # downloads "basics" and "ratings" of size ~1 GB
+# qlever index     # takes ~5 minutes and ~5 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (takes a few seconds)
+#
+# Supports fast kewyword search in literals (WITH_TEXT_INDEX = from_literals).
+
+# Indexer settings
+DB                = "imdb"
+RDF_FILES         = "${DB}.ttl"
+CAT_FILES         = "cat ${RDF_FILES}" 
+WITH_TEXT_INDEX   = from_literals
+SETTINGS_JSON     = '{ "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }'
+DATE              = "$(ls -l --time-style=+%d.%m.%Y\ %H:%M ${RDF_FILES} 2> /dev/null | cut -d' ' -f6,7)"
+
+# Get the data
+IMDB_DATA_URL     = "https://datasets.imdbws.com"
+GET_PREFIXES      = "echo -e '@prefix imdb: <https://www.imdb.com/> .\n'"
+GET_IMDB_BASICS   = "FILE=title.basics.tsv.gz; wget -nc ${IMDB_DATA_URL}/\${FILE}; zcat \${FILE} | sed 1d | awk -F'\t' '{ gsub(\"\\\"\", \"\\\\\\\"\", \$3); printf \"imdb:%s imdb:id \\\"%s\\\" ; imdb:type \\\"%s\\\" ; imdb:title \\\"%s\\\" .\n\", \$1, \$1, \$2, \$3 }'; rm -f \${FILE}"
+GET_IMDB_RATINGS  = "FILE=title.ratings.tsv.gz; wget -nc ${IMDB_DATA_URL}/\${FILE}; zcat \${FILE} | sed 1d | awk -F'\t' '{ printf \"imdb:%s imdb:averageRating %s ; imdb:numVotes %s .\n\", \$1, \$2, \$3 }'; rm -f \${FILE}"
+INDEX_DESCRIPTION = "RDF data derived from ${IMDB_DATA_URL}, downloaded on ${DATE}"
+TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
+
+GET_DATA_CMD      = "(${GET_PREFIXES}; ${GET_IMDB_BASICS}; ${GET_IMDB_RATINGS}) > ${DB}.ttl"
+
+# Server settings
+HOSTNAME                       = $(hostname -f)
+SERVER_PORT                    = 7029
+ACCESS_TOKEN                   = ${DB}_%RANDOM%
+MEMORY_FOR_QUERIES             = 5
+CACHE_MAX_SIZE_GB              = 3
+CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+CACHE_MAX_NUM_ENTRIES          = 100
+
+# QLever binaries
+QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
+USE_DOCKER              = true
+QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+QLEVER_DOCKER_CONTAINER = qlever.${DB}
+
+# QLever UI
+QLEVERUI_PORT   = 7000
+QLEVERUI_DIR    = qlever-ui
+QLEVERUI_CONFIG = imdb

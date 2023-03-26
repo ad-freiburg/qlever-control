@@ -762,7 +762,7 @@ if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]
 fi
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
   INDEXER_CMD_PREFIX=""
-  INDEXER_CMD="docker run -it --rm -u $(id -u):$(id -g) -v $(pwd):/index -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER}.index-build ${QLEVER_DOCKER_IMAGE} -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
+  INDEXER_CMD="docker run -it --rm -u $(id -u):$(id -g) -v /etc/localtime:/etc/localtime:ro -v $(pwd):/index -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER}.index-build ${QLEVER_DOCKER_IMAGE} -c \"${PIPEFAIL_CMD}${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
 else
   INDEXER_CMD_PREFIX="/bin/time -o >(xargs printf \"%d/1000000\n\" | bc -l | xargs printf \"\nMax RAM usage: %'.1f GB\n\n\" | tee -a ${DB}.index-log.txt) -f \"%M\""
   INDEXER_CMD="bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
@@ -784,7 +784,7 @@ fi
 
 # Command for action "start"
 if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker run -d --restart unless-stopped -u $(id -u):$(id -g) -it -v $(pwd):/index -p ${SERVER_PORT}:${SERVER_PORT} -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\" > /dev/null"
+  SERVER_CMD="docker run -d --restart unless-stopped -u $(id -u):$(id -g) -it -v /etc/localtime:/etc/localtime:ro -v $(pwd):/index -p ${SERVER_PORT}:${SERVER_PORT} -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\" > /dev/null"
 else
   SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
 fi

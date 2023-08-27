@@ -11,9 +11,9 @@ jobs:
   end-to-end-test:
     strategy:
       fail-fast: true
-      matrix:
-        os: [ubuntu-22.04, macos-12]
-    runs-on: matrix.os
+      # matrix:
+      #   os: [ubuntu-22.04, macos-12]
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v3

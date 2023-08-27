@@ -73,6 +73,8 @@ class Actions:
             self.net_connections_allowed = True
         except psutil.AccessDenied:
             self.net_connections_allowed = False
+            print("Note: psutil.net_connections() is not allowed"
+                  " on this system")
 
         # Check whether docker is installed by running `docker info`. If the
         # program does not return after 100ms, we assume that docker is not
@@ -80,10 +82,11 @@ class Actions:
         try:
             subprocess.run("docker info", shell=True,
                            stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL, timeout=0.1)
+                           stderr=subprocess.DEVNULL, timeout=0.5)
             self.docker_installed = True
         except subprocess.TimeoutExpired:
             self.docker_installed = False
+            print("Note: docker is not installed on this system")
 
     def set_config(self, section, option, value):
         """

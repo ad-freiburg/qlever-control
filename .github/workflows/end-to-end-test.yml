@@ -2,9 +2,9 @@ name: End-to-end test
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   merge_group:
 
 jobs:

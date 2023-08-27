@@ -37,8 +37,9 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-          ServerMain --help | head -1
-          IndexBuilderMain --help | head -1
+          echo $PATH
+          ./ServerMain --help | head -1
+          ./IndexBuilderMain --help | head -1
 
       - name: Format and compile check
         run: |

@@ -17,10 +17,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Install Python packages
+      - name: Install required tools and Python packages
         run: |
           sudo apt update
           sudo apt install wget unzip flake8
+          pip3 install psutil
 
       - name: Format and compile check
         run: |

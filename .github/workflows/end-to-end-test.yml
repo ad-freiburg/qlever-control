@@ -28,7 +28,7 @@ jobs:
           python3 -m py_compile qlever.py
 
       - name: Test script actions for olympics dataset
-        working-directory: ${{github.workspace}}/main
+        working-directory: ${{github.workspace}}
         run: |
           mkdir olympics
           cp -a Qleverfile.ini olympics

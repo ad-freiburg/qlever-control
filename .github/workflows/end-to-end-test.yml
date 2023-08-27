@@ -30,7 +30,7 @@ jobs:
           docker pull adfreiburg/qlever
           git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
           cd qlever-code
-          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed '/^sudo/' > INSTALL
+          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
           cat INSTALL
           source ./INSTALL
           mkdir qlever-binaries

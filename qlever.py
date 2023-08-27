@@ -67,6 +67,24 @@ class Actions:
         print(f"Name of dataset: {self.config['DEFAULT']['name']}")
         # print(f"Get the data: {self.config['data']['get_data_cmd']}")
 
+        # Check whether we are allowed to get the list of network connections.
+        try:
+            psutil.net_connections()
+            self.net_connections_allowed = True
+        except psutil.AccessDenied:
+            self.net_connections_allowed = False
+
+        # Check whether docker is installed by running `docker info`. If the
+        # program does not return after 100ms, we assume that docker is not
+        # installed.
+        try:
+            subprocess.run("docker info", shell=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=0.1)
+            self.docker_installed = True
+        except subprocess.TimeoutExpired:
+            self.docker_installed = False
+
     def set_config(self, section, option, value):
         """
         Set a value in the config file (throws an exception if the
@@ -230,9 +248,11 @@ class Actions:
                     f"QLever server already running on port {port}")
 
         # Check if another process is already listening.
-        if port in [conn.laddr.port for conn in psutil.net_connections()]:
-            raise ActionException(
-                    f"Port {port} is already in use by another process")
+        if self.net_connections_allowed:
+            if port in [conn.laddr.port for conn
+                        in psutil.net_connections()]:
+                raise ActionException(
+                        f"Port {port} is already in use by another process")
 
         # Execute the command line.
         os.system(cmdline)
@@ -281,35 +301,44 @@ class Actions:
         print()
 
         # First check if there is docker container running.
-        docker_cmd = (f"docker stop {docker_container_name} && "
-                      f"docker rm {docker_container_name}")
-        try:
-            subprocess.run(docker_cmd, shell=True, check=True,
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-            print(f"Docker container with name \"{docker_container_name}\" "
-                  f"stopped and removed")
-            return
-        except Exception:
-            pass
+        if self.docker_installed:
+            docker_cmd = (f"docker stop {docker_container_name} && "
+                          f"docker rm {docker_container_name}")
+            try:
+                subprocess.run(docker_cmd, shell=True, check=True,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+                print(f"Docker container with name "
+                      f"\"{docker_container_name}\" "
+                      f"stopped and removed")
+                return
+            except Exception:
+                pass
 
         # Check if there is a process running on the server port using psutil.
+        #
+        # NOTE: On MacOS, some of the proc's returned by psutil.process_iter()
+        # no longer exist when we try to access them, so we just skip them.
         for proc in psutil.process_iter():
-            pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
-                                        'memory_info', 'cmdline'])
-            cmdline = " ".join(pinfo['cmdline'])
-            if re.match(cmdline_regex, cmdline):
-                print(f"Found process {pinfo['pid']} from user "
-                      f"{pinfo['username']} with command line: {cmdline}")
-                print()
-                try:
-                    proc.kill()
-                    print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
-                except Exception as e:
-                    raise ActionException(
-                            f"Could not kill process with PID "
-                            f"{pinfo['pid']}: {e}")
-                return
+            try:
+                pinfo = proc.as_dict(
+                        attrs=['pid', 'username', 'create_time',
+                               'memory_info', 'cmdline'])
+                cmdline = " ".join(pinfo['cmdline'])
+                if re.match(cmdline_regex, cmdline):
+                    print(f"Found process {pinfo['pid']} from user "
+                          f"{pinfo['username']} with command line: {cmdline}")
+                    print()
+                    try:
+                        proc.kill()
+                        print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
+                    except Exception as e:
+                        raise ActionException(
+                                f"Could not kill process with PID "
+                                f"{pinfo['pid']}: {e}")
+                    return
+            except psutil.NoSuchProcess:
+                pass
 
         # No matching process found.
         raise ActionException("No matching Docker container or process found")

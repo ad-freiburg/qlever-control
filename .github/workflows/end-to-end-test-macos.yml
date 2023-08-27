@@ -20,14 +20,18 @@ jobs:
           brew update
           brew install wget unzip
           pip3 install flake8 psutil
-          brew install --cask docker
+          # brew install --cask docker
 
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}
         run: |
-          open -a docker
-          docker pull adfreiburg/qlever
-          docker run adfreiburg/qlever --help > /dev/null
+          # open -a docker
+          # docker pull adfreiburg/qlever
+          # docker run adfreiburg/qlever --help > /dev/null
+          mkdir qlever-binaries && cd $_
+          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
+          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
+          chmod 755 ServerMain IndexBuilderMain
 
       - name: Format and compile check
         run: |
@@ -39,5 +43,5 @@ jobs:
         run: |
           mkdir olympics.with-docker && cd $_
           cp -a ../Qleverfile.ini .
-          ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
+          ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh

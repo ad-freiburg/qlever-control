@@ -1,0 +1,32 @@
+name: End-to-end test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  merge_group:
+
+jobs:
+  end-to-end-test:
+    strategy: fail-fast
+    matrix:
+      runs-on: [ubuntu-22.04, macos-12]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Python packages
+        run: |
+          sudo apt update
+          sudo apt install wget unzip flake8
+
+      - name: Format and compile check
+        run: |
+          flake8 qlever.py
+          python3 -m py_compile qlever.py
+
+      - name: Test script actions for olympics dataset
+        working-directory: ${{github.workspace}/main/olympics
+        run: |
+          cp -a ../Qleverfile.ini .
+          ../qlever.py get-data index start stop status

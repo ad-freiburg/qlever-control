@@ -6,6 +6,7 @@ from configparser import ConfigParser, ExtendedInterpolation
 from datetime import datetime, date
 import os
 import glob
+import platform
 import psutil
 import re
 import shlex
@@ -80,13 +81,16 @@ class Actions:
         # program does not return after 100ms, we assume that docker is not
         # installed.
         try:
+            if platform.system() == "Darwin":
+                raise Exception("Docker does not work properly on macOS")
             subprocess.run("docker info", shell=True,
                            stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, timeout=0.5)
             self.docker_installed = True
-        except subprocess.TimeoutExpired:
+        except Exception:
             self.docker_installed = False
-            print("Note: docker is not installed on this system")
+            print("Note: docker is not installed or does not work"
+                  " properly on this system")
 
     def set_config(self, section, option, value):
         """

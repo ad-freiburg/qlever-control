@@ -1,4 +1,4 @@
-name: End-to-end test
+name: End-to-end test on Ubuntu 22.04
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   merge_group:
 
 jobs:
-  end-to-end-test:
+  end-to-end-test-ubuntu-22.04:
     strategy:
       fail-fast: true
       # matrix:
@@ -71,9 +71,9 @@ jobs:
           mkdir olympics.with-and-without-docker && cd $_
           cp -a ../Qleverfile.ini .
           unbuffer python3 ../qlever.py get-data index
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false start
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true stop
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true start
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false stop
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false start
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=true stop
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=true start
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false stop
           unbuffer python3 ../qlever.py status
           ls -lh

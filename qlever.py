@@ -49,7 +49,6 @@ class Actions:
                 "with_text_index": "no",
                 "only_pso_and_pos_permutations": "no",
                 "no_patterns": "no",
-                "stxxl_memory_gb": "10",
             },
             "docker": {
                 "image": f"qlever/qlever:{self.name}",
@@ -138,7 +137,7 @@ class Actions:
         if index_config['with_text_index'] in \
                 ["from_literals", "from_text_records_and_literals"]:
             cmdline += " --text-words-from-literals"
-        if index_config['stxxl_memory_gb']:
+        if 'stxxl_memory_gb' in index_config:
             cmdline += f" --stxxl-memory-gb {index_config['stxxl_memory_gb']}"
         cmdline += f" | tee {self.name}.index-log.txt"
 

@@ -9,9 +9,10 @@ on:
 
 jobs:
   end-to-end-test:
-    strategy: fail-fast
-    matrix:
-      runs-on: [ubuntu-22.04, macos-12]
+    strategy:
+      fail-fast: true
+      matrix:
+        runs-on: [ubuntu-22.04, macos-12]
 
     steps:
       - uses: actions/checkout@v3

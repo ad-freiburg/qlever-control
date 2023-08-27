@@ -34,12 +34,14 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-          ./ServerMain --help | head -1
-          ./IndexBuilderMain --help | head -1
           # Install depencies needed for running the binaries.
           curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
           cat INSTALL
           source ./INSTALL
+          # Test that the binaries work.
+          set -o pipefail
+          ./ServerMain --help | head -1
+          ./IndexBuilderMain --help | head -1
 
       - name: Format and compile check
         run: |
@@ -51,17 +53,13 @@ jobs:
         run: |
           mkdir olympics.with-docker && cd $_
           cp -a ../Qleverfile.ini .
-          script -q -c "../qlever.py get-data docker.USE_DOCKER=true index start status stop status"
+          script -q -c '../qlever.py get-data docker.USE_DOCKER=true index start status stop status; echo $?'
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
-          export PATH="$PATH:$(pwd)/qlever-binaries"
-          echo $PATH
-          ServerMain --help | head -1
-          IndexBuilderMain --help | head -1
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
-          script -q -c "../qlever.py get-data docker.USE_DOCKER=false index start status stop status"
+          script -q -c '../qlever.py get-data docker.USE_DOCKER=false index start status stop status; echo $?'
           ls -lh

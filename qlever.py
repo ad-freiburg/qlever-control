@@ -226,6 +226,7 @@ class Actions:
         # Check if a QLever server is already running on this port.
         port = server_config['port']
         if self.alive_check(port):
+            print("XXX")
             raise ActionException(
                     f"QLever server already running on port {port}")
 
@@ -387,6 +388,7 @@ if __name__ == "__main__":
             # line = traceback.extract_tb(err.__traceback__)[-1].lineno
             print(f"{RED}{err}{NORMAL}")
             print()
+            print("XXX")
             sys.exit(1)
         except Exception as err:
             line = traceback.extract_tb(err.__traceback__)[-1].lineno

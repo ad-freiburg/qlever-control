@@ -25,6 +25,7 @@ jobs:
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}
         run: |
+          open -a docker
           docker pull adfreiburg/qlever
           docker run adfreiburg/qlever --help > /dev/null
 

@@ -12,7 +12,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        runs-on: [ubuntu-22.04, macos-12]
+        os: [ubuntu-22.04, macos-12]
+    runs-on: matrix.os
 
     steps:
       - uses: actions/checkout@v3

@@ -22,16 +22,30 @@ jobs:
           sudo apt update
           sudo apt install wget unzip flake8
           pip3 install psutil
+          docker pull adfreiburg/qlever
+          docker run adfreiburg/qlever --help | head
+          # Install docker, see See https://docs.docker.com/engine/install/ubuntu/
+          # sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+          # sudo apt remove docker docker-engine docker.io containerd runc
+          # curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          # sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+          # sudo apt update
+          # sudo apt-cache policy docker-ce
+          # sudo apt install docker-ce containerd.io
 
       - name: Format and compile check
         run: |
           flake8 qlever.py
           python3 -m py_compile qlever.py
 
-      - name: Test script actions for olympics dataset
+      - name: Set up test directory
         working-directory: ${{github.workspace}}
         run: |
           mkdir olympics
           cp -a Qleverfile.ini olympics
-          cd olympics
-          ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
+
+      - name: Test actions for olympics dataset
+        working-directory: ${{github.workspace}}/olympics
+        run: |
+          ../qlever.py get-data
+          # ../qlever.py get-data docker.USE_DOCKER=true index start status stop status

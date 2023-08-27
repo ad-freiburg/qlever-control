@@ -27,19 +27,19 @@ jobs:
       - name: Install latest version of QLever (download Docker image and compile natively)
         working-directory: ${{github.workspace}}
         run: |
+          # Download Docker image.
           docker pull adfreiburg/qlever
-          git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
-          cd qlever-code
-          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
-          cat INSTALL
-          source ./INSTALL
-          mkdir qlever-binaries
+          # Download QLever binaries.
+          mkdir qlever-binaries && cd $_
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-          pwd
           ./ServerMain --help | head -1
           ./IndexBuilderMain --help | head -1
+          # Install depencies needed for running the binaries.
+          curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
+          cat INSTALL
+          source ./INSTALL
 
       - name: Format and compile check
         run: |

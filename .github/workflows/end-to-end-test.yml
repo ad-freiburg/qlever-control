@@ -48,4 +48,5 @@ jobs:
         working-directory: ${{github.workspace}}/olympics
         run: |
           ../qlever.py get-data
+          ../qlever.py docker.USE_DOCKER=true index
           # ../qlever.py get-data docker.USE_DOCKER=true index start status stop status

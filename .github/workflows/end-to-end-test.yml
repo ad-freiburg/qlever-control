@@ -20,9 +20,8 @@ jobs:
       - name: Install required tools and Python packages
         run: |
           sudo apt update
-          sudo apt install wget unzip flake8
+          sudo apt install wget unzip flake8 expect
           pip3 install psutil
-          # docker run adfreiburg/qlever --help | head
 
       - name: Install latest version of QLever (download Docker image and compile natively)
         working-directory: ${{github.workspace}}
@@ -38,10 +37,10 @@ jobs:
           curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
           cat INSTALL
           source ./INSTALL
-          # Test that the binaries work.
-          set -o pipefail
-          ./ServerMain --help | head -1
-          ./IndexBuilderMain --help | head -1
+          # Check that the docker image and the binaries work.
+          docker run adfreiburg/qlever --help > /dev/null
+          ./ServerMain --help > /dev/null
+          ./IndexBuilderMain --help > /dev/null
 
       - name: Format and compile check
         run: |
@@ -53,13 +52,14 @@ jobs:
         run: |
           mkdir olympics.with-docker && cd $_
           cp -a ../Qleverfile.ini .
-          script -q -c '../qlever.py get-data docker.USE_DOCKER=true index start status stop status; echo $?'
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
+          export PATH="$PATH:$(pwd)/qlever-binaries"
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
-          script -q -c '../qlever.py get-data docker.USE_DOCKER=false index start status stop status; echo $?'
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh

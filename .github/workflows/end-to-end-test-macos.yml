@@ -38,10 +38,11 @@ jobs:
           flake8 qlever.py
           python3 -m py_compile qlever.py
 
-      - name: Test actions for olympics dataset, with Docker
+      - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
-          mkdir olympics.with-docker && cd $_
+          export PATH="$PATH:$(pwd)/qlever-binaries"
+          mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
           python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh

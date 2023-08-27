@@ -34,4 +34,4 @@ jobs:
           mkdir olympics
           cp -a Qleverfile.ini olympics
           cd olympics
-          ../qlever.py get-data index start stop status
+          ../qlever.py get-data docker.USE_DOCKER=true index start status stop status

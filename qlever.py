@@ -53,8 +53,8 @@ class Actions:
             },
             "docker": {
                 "image": f"qlever/qlever:{self.name}",
-                "container_server": f"qlever-server.{self.name}",
-                "container_indexer": f"qlever-indexer.{self.name}",
+                "container_server": f"qlever.server.{self.name}",
+                "container_indexer": f"qlever.indexer.{self.name}",
             },
         }
         for section in defaults:
@@ -140,6 +140,7 @@ class Actions:
             cmdline += " --text-words-from-literals"
         if index_config['stxxl_memory_gb']:
             cmdline += f" --stxxl-memory-gb {index_config['stxxl_memory_gb']}"
+        cmdline += f" | tee {self.name}.index-log.txt"
 
         # If the total file size is larger than 10 GB, set ulimit (such that a
         # large number of open files is allowed).
@@ -147,6 +148,18 @@ class Actions:
                 self.config['index']['file_names'].split())
         if total_file_size > 10:
             cmdline = f"ulimit -Sn 1048576; {cmdline}"
+
+        # If we are using Docker, run the command in a Docker container.
+        # Here is how the shell script does it:
+        if self.config['docker']['use_docker'] in self.yes_values:
+            docker_config = self.config['docker']
+            cmdline = (f"docker run -it --rm -u $(id -u):$(id -g)"
+                       f" -v /etc/localtime:/etc/localtime:ro"
+                       f" -v $(pwd):/index -w /index"
+                       f" --entrypoint bash"
+                       f" --name {docker_config['container_indexer']}"
+                       f" {docker_config['image']}"
+                       f" -c {shlex.quote(cmdline)}")
 
         # Show the command line.
         print(f"{BLUE}{cmdline}{NORMAL}")
@@ -157,8 +170,8 @@ class Actions:
         # Check if index files (name.index.*) already exist.
         if glob.glob(f"{self.name}.index.*"):
             raise ActionException(
-                    f"Index files for dataset {self.name} already "
-                    f"exist, please delete them first")
+                    f"Index files for dataset {self.name} already exist, "
+                    f"please delete them if you want to rebuild the index")
 
         # Run the command.
         os.system(cmdline)
@@ -291,7 +304,8 @@ class Actions:
 
         cmdline_regex = f"^{self.config['server']['binary']}"
         print(f"{BLUE}All processes on this machine where "
-              f"the command line matches: {cmdline_regex}{NORMAL}")
+              f"the command line matches: {cmdline_regex}"
+              f" (using Python's psutil library){NORMAL}")
         print()
         if only_show:
             print(f"{BLUE}If executed, show processes using psutil{NORMAL}")

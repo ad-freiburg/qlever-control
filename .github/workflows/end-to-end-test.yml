@@ -8,7 +8,7 @@ on:
   merge_group:
 
 jobs:
-  end-to-end-test-ubuntu-22.04:
+  end-to-end-test-ubuntu-2204:
     strategy:
       fail-fast: true
       # matrix:

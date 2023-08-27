@@ -22,19 +22,39 @@ jobs:
           sudo apt update
           sudo apt install wget unzip flake8
           pip3 install psutil
-          docker pull adfreiburg/qlever
           # docker run adfreiburg/qlever --help | head
+
+      - name: Install latest version of QLever (download Docker image and compile natively)
+        working-directory: ${{github.workspace}}
+        run: |
+          docker pull adfreiburg/qlever
+          git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
+          cd qlever-code
+          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' > INSTALL
+          cat INSTALL
+          source ./INSTALL
+          export PATH="$PATH:$(pwd)/qlever-code/build"
 
       - name: Format and compile check
         run: |
           flake8 qlever.py
           python3 -m py_compile qlever.py
 
-      - name: Test actions for olympics dataset
+      - name: Test actions for olympics dataset, with Docker
         working-directory: ${{github.workspace}}
         run: |
-          mkdir olympics
-          cp -a Qleverfile.ini olympics
-          cd olympics
+          mkdir olympics.with-docker && cd $_
+          cp -a ../ Qleverfile.ini .
           script -q -c "../qlever.py get-data docker.USE_DOCKER=true index start status stop status"
+          ls -lh
+
+      - name: Test actions for olympics dataset, without Docker
+        working-directory: ${{github.workspace}}
+        run: |
+          echo $PATH
+          ServerMain --help | head -1
+          IndexBuilderMain --help | head -1
+          mkdir olympics.without-docker && cd $_
+          cp -a ../ Qleverfile.ini .
+          script -q -c "../qlever.py get-data docker.USE_DOCKER=false index start status stop status"
           ls -lh

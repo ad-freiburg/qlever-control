@@ -20,6 +20,7 @@ jobs:
           brew update
           brew install wget unzip
           pip3 install flake8 psutil
+          brew install --cask docker
 
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}

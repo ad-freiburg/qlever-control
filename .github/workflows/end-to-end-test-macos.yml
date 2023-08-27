@@ -11,7 +11,7 @@ jobs:
   end-to-end-test:
     strategy:
       fail-fast: true
-    runs-on: macos12
+    runs-on: macos-12
 
     steps:
       - uses: actions/checkout@v3

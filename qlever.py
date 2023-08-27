@@ -77,20 +77,14 @@ class Actions:
             print("Note: psutil.net_connections() is not allowed"
                   " on this system")
 
-        # Check whether docker is installed by running `docker info`. If the
-        # program does not return after 100ms, we assume that docker is not
-        # installed.
-        try:
-            if platform.system() == "Darwin":
-                raise Exception("Docker does not work properly on macOS")
-            subprocess.run("docker info", shell=True,
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL, timeout=0.5)
-            self.docker_installed = True
-        except Exception:
-            self.docker_installed = False
-            print("Note: docker is not installed or does not work"
-                  " properly on this system")
+        # Docker does not work properly on macOS. See below, for how the flag
+        # `self.docker_enabled` is used.
+        if platform.system() != "Darwin":
+            self.docker_enabled = True
+        else:
+            self.docker_enabled = False
+            print("Note: MacOS detected, will not check for running"
+                  " Docker containers for action \"stop\"")
 
     def set_config(self, section, option, value):
         """
@@ -308,7 +302,7 @@ class Actions:
         print()
 
         # First check if there is docker container running.
-        if self.docker_installed:
+        if self.docker_enabled:
             docker_cmd = (f"docker stop {docker_container_name} && "
                           f"docker rm {docker_container_name}")
             try:

@@ -325,20 +325,20 @@ class Actions:
                         attrs=['pid', 'username', 'create_time',
                                'memory_info', 'cmdline'])
                 cmdline = " ".join(pinfo['cmdline'])
-                if re.match(cmdline_regex, cmdline):
-                    print(f"Found process {pinfo['pid']} from user "
-                          f"{pinfo['username']} with command line: {cmdline}")
-                    print()
-                    try:
-                        proc.kill()
-                        print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
-                    except Exception as e:
-                        raise ActionException(
-                                f"Could not kill process with PID "
-                                f"{pinfo['pid']}: {e}")
-                    return
-            except psutil.NoSuchProcess:
+            except Exception:
                 pass
+            if re.match(cmdline_regex, cmdline):
+                print(f"Found process {pinfo['pid']} from user "
+                      f"{pinfo['username']} with command line: {cmdline}")
+                print()
+                try:
+                    proc.kill()
+                    print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
+                except Exception as e:
+                    raise ActionException(
+                            f"Could not kill process with PID "
+                            f"{pinfo['pid']}: {e}")
+                return
 
         # No matching process found.
         raise ActionException("No matching Docker container or process found")
@@ -358,9 +358,12 @@ class Actions:
         # Print the table headers
         num_processes_found = 0
         for proc in psutil.process_iter():
-            pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
-                                        'memory_info', 'cmdline'])
-            cmdline = " ".join(pinfo['cmdline']) if pinfo['cmdline'] else ""
+            try:
+                pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
+                                            'memory_info', 'cmdline'])
+                cmdline = " ".join(pinfo['cmdline'])
+            except Exception:
+                continue
             if not re.match(cmdline_regex, cmdline):
                 continue
             if num_processes_found == 0:

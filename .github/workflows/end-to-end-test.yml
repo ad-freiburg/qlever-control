@@ -63,3 +63,17 @@ jobs:
           cp -a ../Qleverfile.ini .
           unbuffer ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh
+
+      - name: Test actions for olympics dataset, with and without Docker
+        working-directory: ${{github.workspace}}
+        run: |
+          export PATH="$PATH:$(pwd)/qlever-binaries"
+          mkdir olympics.with-and-without-docker && cd $_
+          cp -a ../Qleverfile.ini .
+          unbuffer ../qlever.py get-data index
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=false start
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=true stop
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=true start
+          unbuffer ../qlever.py get-data docker.USE_DOCKER=false stop
+          unbuffer ../qlever.py status
+          ls -lh

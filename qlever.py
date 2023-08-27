@@ -270,14 +270,30 @@ class Actions:
     def action_stop(self, only_show=False):
         """ Stop the QLever server. """
 
-        # Check if there is a process running on the server port using psutil.
+        docker_container_name = self.config['docker']['container_server']
         cmdline_regex = (f"{self.config['server']['binary']}"
                          f" -i [^ ]*{self.name}")
-        print(f"{BLUE}Checking if there is a process with a command line "
+        print(f"{BLUE}Checking for Docker container with name "
+              f"\"{docker_container_name}\" and for processes "
               f"matching: {cmdline_regex}{NORMAL}")
         if only_show:
             return
         print()
+
+        # First check if there is docker container running.
+        docker_cmd = (f"docker stop {docker_container_name} && "
+                      f"docker rm {docker_container_name}")
+        try:
+            subprocess.run(docker_cmd, shell=True, check=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            print(f"Docker container with name \"{docker_container_name}\" "
+                  f"stopped and removed")
+            return
+        except Exception:
+            pass
+
+        # Check if there is a process running on the server port using psutil.
         for proc in psutil.process_iter():
             pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
                                         'memory_info', 'cmdline'])
@@ -296,7 +312,7 @@ class Actions:
                 return
 
         # No matching process found.
-        raise ActionException("No matching process found")
+        raise ActionException("No matching Docker container or process found")
 
     def action_status(self, only_show=False):
         """ Show all QLever processes running on this machine. """

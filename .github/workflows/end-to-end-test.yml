@@ -30,10 +30,14 @@ jobs:
           docker pull adfreiburg/qlever
           git clone --recursive https://github.com/ad-freiburg/qlever qlever-code
           cd qlever-code
-          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' > INSTALL
+          cat Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed '/^sudo/' > INSTALL
           cat INSTALL
           source ./INSTALL
-          export PATH="$PATH:$(pwd)/qlever-code/build"
+          mkdir qlever-binaries
+          wget https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
+          wget https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
+          chmod 755 ServerMain IndexBuilderMain
+          export PATH="$PATH:$(pwd)/qlever-binaries"
 
       - name: Format and compile check
         run: |
@@ -44,7 +48,7 @@ jobs:
         working-directory: ${{github.workspace}}
         run: |
           mkdir olympics.with-docker && cd $_
-          cp -a ../ Qleverfile.ini .
+          cp -a ../Qleverfile.ini .
           script -q -c "../qlever.py get-data docker.USE_DOCKER=true index start status stop status"
           ls -lh
 
@@ -55,6 +59,6 @@ jobs:
           ServerMain --help | head -1
           IndexBuilderMain --help | head -1
           mkdir olympics.without-docker && cd $_
-          cp -a ../ Qleverfile.ini .
+          cp -a ../Qleverfile.ini .
           script -q -c "../qlever.py get-data docker.USE_DOCKER=false index start status stop status"
           ls -lh

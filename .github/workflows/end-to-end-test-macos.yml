@@ -1,0 +1,41 @@
+name: End-to-end test on MacOS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  merge_group:
+
+jobs:
+  end-to-end-test:
+    strategy:
+      fail-fast: true
+    runs-on: macos12
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install required tools and Python packages
+        run: |
+          brew update
+          brew install wget unzip flake8
+          pip3 install psutil
+
+      - name: Install latest version of QLever
+        working-directory: ${{github.workspace}}
+        run: |
+          docker pull adfreiburg/qlever
+          docker run adfreiburg/qlever --help > /dev/null
+
+      - name: Format and compile check
+        run: |
+          flake8 qlever.py
+          python3 -m py_compile qlever.py
+
+      - name: Test actions for olympics dataset, with Docker
+        working-directory: ${{github.workspace}}
+        run: |
+          mkdir olympics.with-docker && cd $_
+          cp -a ../Qleverfile.ini .
+          ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
+          ls -lh

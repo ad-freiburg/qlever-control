@@ -49,4 +49,6 @@ jobs:
         run: |
           ../qlever.py get-data
           ../qlever.py docker.USE_DOCKER=true index
+          ls -lh
+          ../qlever.py status
           # ../qlever.py get-data docker.USE_DOCKER=true index start status stop status

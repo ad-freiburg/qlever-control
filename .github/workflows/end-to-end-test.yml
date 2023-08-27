@@ -50,8 +50,7 @@ jobs:
         run: |
           ../qlever.py get-data
           ls -lh
-          docker run -i -v $(pwd):/index -w /index --entrypoint bash adfreiburg/qlever -c 'cat olympics.nt | IndexBuilderMain -F ttl -f - -i olympics'
+          script -q -c "../qlever.py docker.USE_DOCKER=true index"
           ls -lh
-          # ../qlever.py docker.USE_DOCKER=true index
           ../qlever.py status
           # ../qlever.py get-data docker.USE_DOCKER=true index start status stop status

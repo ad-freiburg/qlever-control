@@ -34,10 +34,11 @@ jobs:
           cat INSTALL
           source ./INSTALL
           mkdir qlever-binaries
-          wget https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
-          wget https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
+          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/ServerMain
+          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-          export PATH="$PATH:$(pwd)/qlever-binaries"
+          ServerMain --help | head -1
+          IndexBuilderMain --help | head -1
 
       - name: Format and compile check
         run: |
@@ -55,6 +56,7 @@ jobs:
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
+          export PATH="$PATH:$(pwd)/qlever-binaries"
           echo $PATH
           ServerMain --help | head -1
           IndexBuilderMain --help | head -1

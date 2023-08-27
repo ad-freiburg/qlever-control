@@ -18,8 +18,8 @@ jobs:
       - name: Install required tools and Python packages
         run: |
           brew update
-          brew install wget unzip flake8
-          pip3 install psutil
+          brew install wget unzip
+          pip3 install flake8 psutil
 
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}

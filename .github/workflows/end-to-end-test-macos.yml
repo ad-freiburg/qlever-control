@@ -18,10 +18,8 @@ jobs:
       - name: Install required tools and Python packages
         run: |
           brew install llvm@16
-          brew install boost
-          brew install icu4c
-          brew install openssl
-          brew install zstd
+          brew install conan@2
+          # brew install boost icu4c openssl zstd
           brew install wget unzip
           pip3 install flake8 psutil
           # brew install --cask docker

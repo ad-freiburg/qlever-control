@@ -54,7 +54,6 @@ jobs:
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
-          cd qlever-code
           mkdir -p qlever-code/build
           cd qlever-code/build
           conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing
@@ -62,7 +61,6 @@ jobs:
           source build/conanrun.sh
           cd ..
           export PATH="$PATH:$(pwd)/qlever-binaries"
-          (cd qlever-code && source build/conanrun.sh)
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_

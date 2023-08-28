@@ -39,6 +39,11 @@ jobs:
           # docker pull adfreiburg/qlever
           # docker run adfreiburg/qlever --help > /dev/null
           git clone https://github.com/ad-freiburg/qlever.git qlever-code
+          mkdir -p qlever-code/build
+          cd qlever-code/build
+          conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing
+          cd ../..
+          # Download the QLever binaries.
           mkdir qlever-binaries && cd $_
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
@@ -54,16 +59,12 @@ jobs:
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}
         run: |
-          mkdir -p qlever-code/build
-          cd qlever-code/build
-          conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing
-          cd ..
-          source build/conanrun.sh
-          cd ..
+          source qlever-code/build/conanrun.sh
           export PATH="$PATH:$(pwd)/qlever-binaries"
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
-          python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
+          python3 ../qlever.py get-data docker.USE_DOCKER=false index 
+          # start status stop status
           ls -lh

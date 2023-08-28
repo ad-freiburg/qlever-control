@@ -8,10 +8,12 @@ on:
   merge_group:
 
 jobs:
-  end-to-end-test-macos-12:
+  end-to-end-test-macos:
+    runs-on: ${{matrix.os}}
     strategy:
       fail-fast: true
-    runs-on: macos-12
+    matrix:
+      os: [macos-12]
 
     steps:
       - uses: actions/checkout@v3

@@ -1,4 +1,4 @@
-name: End-to-end test on Ubuntu 22.04
+name: End-to-end test on Linux
 
 on:
   push:
@@ -8,12 +8,12 @@ on:
   merge_group:
 
 jobs:
-  end-to-end-test-ubuntu-2204:
+  end-to-end-test-linux:
+    runs-on: ${{matrix.os}}
     strategy:
       fail-fast: true
-      # matrix:
-      #   os: [ubuntu-22.04, macos-12]
-    runs-on: ubuntu-22.04
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
 
     steps:
       - uses: actions/checkout@v3

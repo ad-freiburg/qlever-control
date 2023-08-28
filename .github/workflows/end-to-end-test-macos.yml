@@ -62,8 +62,8 @@ jobs:
         run: |
           export PATH="$PATH:$(pwd)/qlever-binaries"
           (cd qlever-code && source build/conanrun.sh)
-          ./ServerMain --help > /dev/null
-          ./IndexBuilderMain --help > /dev/null
+          ServerMain --help > /dev/null
+          IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
           python3 ../qlever.py get-data

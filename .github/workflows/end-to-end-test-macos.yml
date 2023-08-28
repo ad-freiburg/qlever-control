@@ -32,6 +32,8 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
+          ./ServerMain --help > /dev/null
+          ./IndexBuilderMain --help > /dev/null
 
       - name: Format and compile check
         run: |

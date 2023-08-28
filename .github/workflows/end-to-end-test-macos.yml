@@ -21,6 +21,11 @@ jobs:
           brew install wget unzip
           pip3 install flake8 psutil
           # brew install --cask docker
+          brew install llvm@16
+          brew install boost@1.81.0
+          brew install icu4c
+          brew install openssl@3.1.1
+          brew install zstd
 
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}
@@ -32,6 +37,7 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
+
           ./ServerMain --help # > /dev/null
           ./IndexBuilderMain --help # > /dev/null
 

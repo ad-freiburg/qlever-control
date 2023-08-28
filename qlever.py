@@ -6,7 +6,6 @@ from configparser import ConfigParser, ExtendedInterpolation
 from datetime import datetime, date
 import os
 import glob
-import platform
 import psutil
 import re
 import shlex
@@ -72,12 +71,12 @@ class Actions:
         # is not allowed.
         self.net_connections_enabled = True
         self.docker_enabled = True
-        if platform.system() == "Darwin":
-            self.net_connections_enabled = False
-            self.docker_enabled = False
-            print("Note: MacOS detected, will not check for running"
-                  " Docker containers for action \"stop\" and will not"
-                  " scan network connections for action \"start\"")
+        # if platform.system() == "Darwin":
+        #     self.net_connections_enabled = False
+        #     self.docker_enabled = False
+        #     print("Note: MacOS detected, will not check for running"
+        #           " Docker containers for action \"stop\" and will not"
+        #           " scan network connections for action \"start\"")
 
     def set_config(self, section, option, value):
         """

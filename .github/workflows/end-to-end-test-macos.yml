@@ -65,6 +65,10 @@ jobs:
           IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
-          python3 ../qlever.py get-data docker.USE_DOCKER=false index 
+          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index 
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false start
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false status
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false stop
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false status
           # start status stop status
           ls -lh

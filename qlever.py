@@ -72,14 +72,14 @@ class Actions:
         # we test for RUNNER_OS instead.
         self.net_connections_enabled = True
         self.docker_enabled = True
-        try:
-            psutil.net_connections()
-        except psutil.AccessDenied:
-            self.net_connections_enabled = False
-            self.docker_enabled = False
-            print("Note: MacOS detected, will not check for running"
-                  " Docker containers for action \"stop\" and will not"
-                  " scan network connections for action \"start\"")
+        # try:
+        #     psutil.net_connections()
+        # except psutil.AccessDenied:
+        #     self.net_connections_enabled = False
+        #     self.docker_enabled = False
+        #     print("Note: MacOS detected, will not check for running"
+        #           " Docker containers for action \"stop\" and will not"
+        #           " scan network connections for action \"start\"")
 
     def set_config(self, section, option, value):
         """

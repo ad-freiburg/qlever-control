@@ -44,5 +44,6 @@ jobs:
           export PATH="$PATH:$(pwd)/qlever-binaries"
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
-          python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
+          python3 ../qlever.py get-data
+          # python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh

@@ -24,6 +24,14 @@ jobs:
           pip3 install flake8 psutil
           # brew install --cask docker
 
+    - name: Cache for conan
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-conan-modules
+      with:
+        path: ~/.conan2
+        key: ${{runner.os}}-build-${{env.cache-name}}-${{hashFiles('conanfile.txt')}}
+
       - name: Install latest version of QLever
         working-directory: ${{github.workspace}}
         run: |
@@ -41,9 +49,8 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-
-          ./ServerMain --help # > /dev/null
-          ./IndexBuilderMain --help # > /dev/null
+          ./ServerMain --help > /dev/null
+          ./IndexBuilderMain --help > /dev/null
 
       - name: Format and compile check
         run: |
@@ -54,6 +61,9 @@ jobs:
         working-directory: ${{github.workspace}}
         run: |
           export PATH="$PATH:$(pwd)/qlever-binaries"
+          (cd qlever-code && source build/conanrun.sh)
+          ./ServerMain --help > /dev/null
+          ./IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfile.ini .
           python3 ../qlever.py get-data

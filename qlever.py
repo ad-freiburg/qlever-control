@@ -68,23 +68,16 @@ class Actions:
         print(f"Name of dataset: {self.config['DEFAULT']['name']}")
         # print(f"Get the data: {self.config['data']['get_data_cmd']}")
 
-        # Check whether we are allowed to get the list of network connections.
-        try:
-            psutil.net_connections()
-            self.net_connections_allowed = True
-        except psutil.AccessDenied:
-            self.net_connections_allowed = False
-            print("Note: psutil.net_connections() is not allowed"
-                  " on this system")
-
-        # Docker does not work properly on macOS. See below, for how the flag
-        # `self.docker_enabled` is used.
-        if platform.system() != "Darwin":
-            self.docker_enabled = True
-        else:
+        # For macOS, docker does not work properly and psutil.net_connections
+        # is not allowed.
+        self.net_connections_enabled = True
+        self.docker_enabled = True
+        if platform.system() == "Darwin":
+            self.net_connections_enabled = False
             self.docker_enabled = False
             print("Note: MacOS detected, will not check for running"
-                  " Docker containers for action \"stop\"")
+                  " Docker containers for action \"stop\" and will not"
+                  " scan network connections for action \"start\"")
 
     def set_config(self, section, option, value):
         """
@@ -249,7 +242,7 @@ class Actions:
                     f"QLever server already running on port {port}")
 
         # Check if another process is already listening.
-        if self.net_connections_allowed:
+        if self.net_connections_enabled:
             if port in [conn.laddr.port for conn
                         in psutil.net_connections()]:
                 raise ActionException(

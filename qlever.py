@@ -101,7 +101,7 @@ class Actions:
         except Exception:
             self.docker_enabled = False
             print("Note: `docker info` failed, therefore"
-                  "USE_DOCKER=true not supported")
+                  " docker.USE_DOCKER=true not supported")
 
         # Check if the QLever binaries work.
         try:
@@ -114,7 +114,7 @@ class Actions:
             self.binaries_work = True
         except Exception:
             print("Note: QLever binaries not found or failed, therefore"
-                  " USE_DOCKER=false not supported")
+                  " docker.USE_DOCKER=false not supported")
             self.binaries_work = False
 
     def log_level_is_debug(self):

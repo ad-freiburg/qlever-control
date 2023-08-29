@@ -71,9 +71,8 @@ jobs:
           mkdir olympics.with-and-without-docker && cd $_
           cp -a ../Qleverfile.ini .
           unbuffer python3 ../qlever.py get-data index
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=false start
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=true stop
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=true start
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=false stop
-          unbuffer python3 ../qlever.py status
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false start status
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=true stop status
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=true start status
+          unbuffer python3 ../qlever.py docker.USE_DOCKER=false stop status
           ls -lh

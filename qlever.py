@@ -261,8 +261,7 @@ class Actions:
                        f" {docker_config['image']}"
                        f" -c {shlex.quote(cmdline)}")
         else:
-            cmdline = f"{cmdline} &"
-            # cmdline = f"nohup {cmdline} &"
+            cmdline = f"nohup {cmdline} &"
 
         # Show the command line (and exit if only_show is True).
         print(f"{BLUE}{cmdline}{NORMAL}")

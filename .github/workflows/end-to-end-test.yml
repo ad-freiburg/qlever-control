@@ -20,7 +20,7 @@ jobs:
       - name: Install required tools and Python packages
         run: |
           sudo apt update
-          sudo apt install wget unzip flake8 expect
+          sudo apt install unzip flake8 expect
           pip3 install psutil
 
       - name: Install latest version of QLever (download Docker image and compile natively)

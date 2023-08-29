@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # This is the QLever script (new version, written in Python).
 
@@ -67,19 +67,50 @@ class Actions:
         print(f"Name of dataset: {self.config['DEFAULT']['name']}")
         # print(f"Get the data: {self.config['data']['get_data_cmd']}")
 
-        # For macOS, docker does not work properly and psutil.net_connections
-        # is not allowed. In the GitHub workflow, platform.system() hangs, so
-        # we test for RUNNER_OS instead.
-        self.net_connections_enabled = True
-        self.docker_enabled = True
+        # Check specifics of the installation.
+        self.check_installation()
+
+    def check_installation(self):
+        """ Several checks which are important for the script to work properly.
+        """
+
+        # Handle the case Systems like macOS do not allow
+        # psutil.net_connections().
         try:
             psutil.net_connections()
+            self.net_connections_enabled = True
         except psutil.AccessDenied:
             self.net_connections_enabled = False
+            # print("Note: psutil.AccessDenied for net_connections(), thus"
+            #       " will not scan network connections for action \"start\"")
+
+        # Check whether docker is installed and works (on MacOS 12, docker
+        # hangs when installed without GUI, hence the timeout).
+        try:
+            completed_process = subprocess.run(
+                    ["docker", "info"], timeout=0.5,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if completed_process.returncode != 0:
+                raise Exception("docker info failed")
+            self.docker_enabled = True
+        except Exception:
+            print("Note: `docker info` failed, therefore"
+                  "USE_DOCKER=true not supported")
             self.docker_enabled = False
-            print("Note: MacOS detected, will not check for running"
-                  " Docker containers for action \"stop\" and will not"
-                  " scan network connections for action \"start\"")
+
+        # Check if the QLever binaries work.
+        try:
+            subprocess.run([self.config['server']['binary'], "--help"],
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            subprocess.run([self.config['index']['binary'], "--help"],
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            self.binaries_work = True
+        except Exception:
+            print("Note: QLever binaries not found or failed, therefore"
+                  " USE_DOCKER=false not supported")
+            self.binaries_work = False
 
     def set_config(self, section, option, value):
         """
@@ -187,7 +218,8 @@ class Actions:
                     f"please delete them if you want to rebuild the index")
 
         # Run the command.
-        os.system(cmdline)
+        subprocess.run(cmdline, shell=True)
+        # print(f"Return code: {process_completed.returncode}")
 
     def action_start(self, only_show=False):
         """ Start the QLever server. """
@@ -229,7 +261,8 @@ class Actions:
                        f" {docker_config['image']}"
                        f" -c {shlex.quote(cmdline)}")
         else:
-            cmdline = f"nohup {cmdline} &"
+            cmdline = f"{cmdline} &"
+            # cmdline = f"nohup {cmdline} &"
 
         # Show the command line (and exit if only_show is True).
         print(f"{BLUE}{cmdline}{NORMAL}")

@@ -22,7 +22,7 @@ jobs:
           brew install llvm@16
           brew install conan@2
           # brew install boost icu4c openssl zstd
-          brew install wget unzip expect
+          brew install unzip expect
           pip3 install flake8 psutil
           # brew install --cask docker
 

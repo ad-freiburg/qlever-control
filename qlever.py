@@ -354,8 +354,8 @@ class Actions:
                         attrs=['pid', 'username', 'create_time',
                                'memory_info', 'cmdline'])
                 cmdline = " ".join(pinfo['cmdline'])
-            except Exception:
-                pass
+            except Exception as err:
+                print("pinfo error:", err)
             if re.match(cmdline_regex, cmdline):
                 print(f"Found process {pinfo['pid']} from user "
                       f"{pinfo['username']} with command line: {cmdline}")

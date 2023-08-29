@@ -34,6 +34,9 @@ class Actions:
 
         # Default values for options that are not mandatory in the Qleverfile.
         defaults = {
+            "DEFAULT": {
+                "log-level": "info",
+            },
             "server": {
                 "binary": "ServerMain",
                 "num_threads": "8",
@@ -79,10 +82,12 @@ class Actions:
         try:
             psutil.net_connections()
             self.net_connections_enabled = True
-        except psutil.AccessDenied:
+        except Exception as e:
             self.net_connections_enabled = False
-            # print("Note: psutil.AccessDenied for net_connections(), thus"
-            #       " will not scan network connections for action \"start\"")
+            if self.log_level_is_debug():
+                print(f"Note: psutil.net_connections() failed ({e}),"
+                      f" will not scan network connections for action"
+                      f" \"start\"")
 
         # Check whether docker is installed and works (on MacOS 12, docker
         # hangs when installed without GUI, hence the timeout).
@@ -94,9 +99,9 @@ class Actions:
                 raise Exception("docker info failed")
             self.docker_enabled = True
         except Exception:
+            self.docker_enabled = False
             print("Note: `docker info` failed, therefore"
                   "USE_DOCKER=true not supported")
-            self.docker_enabled = False
 
         # Check if the QLever binaries work.
         try:
@@ -111,6 +116,11 @@ class Actions:
             print("Note: QLever binaries not found or failed, therefore"
                   " USE_DOCKER=false not supported")
             self.binaries_work = False
+
+    def log_level_is_debug(self):
+        """ Return True if the log level is debug. """
+
+        return self.config['DEFAULT']['log-level'] == "debug"
 
     def set_config(self, section, option, value):
         """
@@ -340,8 +350,9 @@ class Actions:
                       f"\"{docker_container_name}\" "
                       f"stopped and removed")
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                if self.log_level_is_debug():
+                    print(f"Error running \"{docker_cmd}\": {e}")
 
         # Check if there is a process running on the server port using psutil.
         #
@@ -354,7 +365,8 @@ class Actions:
                                'memory_info', 'cmdline'])
                 cmdline = " ".join(pinfo['cmdline'])
             except Exception as err:
-                print("pinfo error:", err)
+                if self.log_level_is_debug():
+                    print(f"Error getting process info: {err}")
             if re.match(cmdline_regex, cmdline):
                 print(f"Found process {pinfo['pid']} from user "
                       f"{pinfo['username']} with command line: {cmdline}")

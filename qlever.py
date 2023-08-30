@@ -54,7 +54,7 @@ class Actions:
                 "no_patterns": "no",
             },
             "docker": {
-                "image": f"qlever/qlever:{self.name}",
+                "image": f"adfreiburg/qlever:{self.name}",
                 "container_server": f"qlever.server.{self.name}",
                 "container_indexer": f"qlever.indexer.{self.name}",
             },

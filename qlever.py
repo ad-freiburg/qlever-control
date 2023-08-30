@@ -58,6 +58,9 @@ class Actions:
                 "container_server": f"qlever.server.{self.name}",
                 "container_indexer": f"qlever.indexer.{self.name}",
             },
+            "ui": {
+                "port": "7000",
+            }
         }
         for section in defaults:
             for option in defaults[section]:
@@ -309,13 +312,13 @@ class Actions:
         # Set the access token if specified.
         access_token = server_config['access_token']
         access_arg = f"--data-urlencode \"access-token={access_token}\""
-        if self.config['data']['index_description']:
+        if "index_description" in self.config['data']:
             desc = self.config['data']['index_description']
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                         f" --data-urlencode \"index-description={desc}\""
                         f" {access_arg} > /dev/null")
             os.system(curl_cmd)
-        if self.config['data']['text_description']:
+        if "text_description" in self.config['data']:
             desc = self.config['data']['text_description']
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                         f" --data-urlencode \"text-description={desc}\""

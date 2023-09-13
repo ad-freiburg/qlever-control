@@ -7,33 +7,31 @@
 # Also builds a text index for fast kewyword search in literals. Without that
 # (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
 
-# Indexer settings
-DB                = dblp
-RDF_FILES         = ${DB}.ttl.gz
-CAT_FILES         = "zcat ${RDF_FILES}"
-WITH_TEXT_INDEX   = from_literals
-SETTINGS_JSON     = '{ "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }'
-GET_DATA_CMD      = "wget -nc -O ${RDF_FILES} https://dblp.org/rdf/${RDF_FILES}"
-VERSION           = "from $(ls -l --time-style=+%d.%m.%Y\ %H:%M ${RDF_FILES} 2> /dev/null | cut -d' ' -f6,7)"
-INDEX_DESCRIPTION = "RDF from https://dblp.org/rdf/${RDF_FILES}, version ${VERSION}"
-TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
+[DEFAULT]
+NAME              = dblp
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7015
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 20
+[data]
+GET_DATA_URL      = https://dblp.org/rdf/${index:FILE_NAMES}
+GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}
+INDEX_DESCRIPTION = DBLP computer science bibliography, data from ${GET_DATA_URL}
+TEXT_DESCRIPTION  = All literals, search with ?text ql:contains-entity ?literal . ?text ql:contains-word "..." (where ... are keywords, which may end with a *)
+
+[index]
+FILE_NAMES	  = dblp.ttl.gz
+CAT_FILES         = zcat ${FILE_NAMES}
+SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
+
+[server]
+PORT                           = 7015
+ACCESS_TOKEN                   = ${NAME}_7643543846
+MEMORY_FOR_QUERIES_GB          = 30
 CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
+[docker]
+USE_DOCKER       = false
+IMAGE            = adfreiburg/qlever
 
-# QLever UI
+[ui]
 QLEVERUI_PORT   = 7000
 QLEVERUI_DIR    = qlever-ui
 QLEVERUI_CONFIG = dblp

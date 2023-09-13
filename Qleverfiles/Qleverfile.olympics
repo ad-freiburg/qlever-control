@@ -4,34 +4,31 @@
 # qlever index     # takes ~10 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
 # qlever start     # starts the server (instant)
 
-# Indexer settings
-DB                = olympics
-RDF_FILES         = "${DB}.nt"
-CAT_FILES         = "cat ${RDF_FILES}"
-WITH_TEXT_INDEX   = from_literals
-STXXL_MEMORY_GB   = 1
-SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }'
-BASE_URL          = "https://github.com/wallscope/olympics-rdf"
-GET_DATA_CMD      = "wget -nc -O olympics.zip ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip olympics.zip && rm olympics.zip"
-INDEX_DESCRIPTION = "120 Years of Olympics, data from ${BASE_URL}"
-TEXT_DESCRIPTION  = "All literals, search with FILTER CONTAINS(?var, \"...\")"
+[DEFAULT]
+NAME              = olympics
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7019
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 5
+[data]
+BASE_URL          = https://github.com/wallscope/olympics-rdf
+GET_DATA_CMD      = curl -sLo olympics.zip -C - ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip -q -o olympics.zip && rm olympics.zip
+INDEX_DESCRIPTION = 120 Years of Olympics, data from ${BASE_URL}
+TEXT_DESCRIPTION  = All literals, search with FILTER CONTAINS(?var, "...")
+
+[index]
+FILE_NAMES	  = ${NAME}.nt
+CAT_FILES         = cat ${FILE_NAMES}
+SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
+
+[server]
+PORT                           = 7019
+ACCESS_TOKEN                   = ${NAME}_7643543846
+MEMORY_FOR_QUERIES_GB          = 5
 CACHE_MAX_SIZE_GB              = 2
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
-CACHE_MAX_NUM_ENTRIES          = 100
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
+[docker]
+USE_DOCKER       = false
+IMAGE            = adfreiburg/qlever
 
-# QLever UI
+[ui]
 QLEVERUI_PORT   = 7000
 QLEVERUI_DIR    = qlever-ui
 QLEVERUI_CONFIG = olympics

@@ -28,7 +28,7 @@ class Actions:
 
     def __init__(self):
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
-        self.config.read("Qleverfile.ini")
+        self.config.read("Qleverfile.NEW")
         self.name = self.config['DEFAULT']['name']
         self.yes_values = ["1", "true", "yes"]
 
@@ -77,7 +77,9 @@ class Actions:
         self.check_installation()
 
     def check_installation(self):
-        """ Several checks which are important for the script to work properly.
+        """
+        Helper function that checks particulars of the installation and
+        remembers them so that all actions execute without errors.
         """
 
         # Handle the case Systems like macOS do not allow
@@ -121,14 +123,16 @@ class Actions:
             self.binaries_work = False
 
     def log_level_is_debug(self):
-        """ Return True if the log level is debug. """
+        """
+        Helper function that returns `True` if the log level is debug.
+        """
 
         return self.config['DEFAULT']['log-level'] == "debug"
 
     def set_config(self, section, option, value):
         """
-        Set a value in the config file (throws an exception if the
-        section or option does not exist).
+        Helper function that sets a value in the config file (and throws an
+        exceptionon if the section or option does not exist).
         """
 
         if not self.config.has_section(section):
@@ -139,7 +143,10 @@ class Actions:
         self.config[section][option] = value
 
     def get_total_file_size(self, paths):
-        """ Get the total size of all files in the given paths in GB. """
+        """
+        Helper function that gets the total size of all files in the given
+        paths in GB.
+        """
 
         total_size = 0
         for path in paths:
@@ -148,7 +155,10 @@ class Actions:
         return total_size / 1e9
 
     def alive_check(self, port):
-        """ Check if a QLever server is running on the given port. """
+        """
+        Helper function that checks if a QLever server is running on the given
+        port.
+        """
 
         message = "from the qlever script".replace(" ", "%20")
         curl_cmd = f"curl -s http://localhost:{port}/ping?msg={message}"
@@ -157,8 +167,32 @@ class Actions:
                                     stderr=subprocess.DEVNULL)
         return exit_code == 0
 
+    def action_show_config(self, only_show=False):
+        """
+        Action that shows the current configuration including the default
+        values for options that are not set explicitly in the Qleverfile.
+        """
+
+        print(f"{BLUE}Showing the current configuration, including default"
+              f" values for options that are not set explicitly in the"
+              f" Qleverfile{NORMAL}")
+        for section in ['DEFAULT'] + self.config.sections():
+            print()
+            print(f"[{section}]")
+            max_option_length = max([len(option) for option in
+                                     self.config[section]])
+            for option in self.config[section]:
+                if section == "DEFAULT" or \
+                        option not in self.config['DEFAULT']:
+                    print(f"{option.upper().ljust(max_option_length)} = "
+                          f"{self.config[section][option]}")
+
+        print()
+
     def action_get_data(self, only_show=False):
-        """ Get the data. """
+        """
+        Action that gets the data according to GET_DATA_CMD.
+        """
 
         if not self.config['data']['get_data_cmd']:
             print(f"{RED}No GET_DATA_CMD specified in Qleverfile")
@@ -174,7 +208,10 @@ class Actions:
             # os.system(f"ls -lh {self.config['index']['file_names']}")
 
     def action_index(self, only_show=False):
-        """ Build a QLever index for the given dataset. """
+        """
+        Action that builds a QLever index according to the settings in the
+        [index] section of the Qleverfile.
+        """
 
         # Write settings.json file.
         with open(f"{self.name}.settings.json", "w") as f:
@@ -235,7 +272,11 @@ class Actions:
         # print(f"Return code: {process_completed.returncode}")
 
     def action_start(self, only_show=False):
-        """ Start the QLever server. """
+        """
+        Action that starts the QLever server according to the settings in the
+        [server] section of the Qleverfile. If a server is already running, the
+        action reports that fact and does nothing.
+        """
 
         # Construct the command line based on the config file.
         server_config = self.config['server']
@@ -329,7 +370,11 @@ class Actions:
         tail_proc.terminate()
 
     def action_stop(self, only_show=False):
-        """ Stop the QLever server. """
+        """
+        Action that stops the QLever server according to the settings in the
+        [server] section of the Qleverfile. If no server is running, the action
+        does nothing.
+        """
 
         docker_container_name = self.config['docker']['container_server']
         cmdline_regex = (f"{self.config['server']['binary']}"
@@ -387,7 +432,11 @@ class Actions:
         raise ActionException("No matching Docker container or process found")
 
     def action_status(self, only_show=False):
-        """ Show all QLever processes running on this machine. """
+        """
+        Action that shows all QLever processes running on this machine.
+
+        TODO: Also show the QLever-related docker containers.
+        """
 
         cmdline_regex = f"^{self.config['server']['binary']}"
         print(f"{BLUE}All processes on this machine where "
@@ -425,13 +474,6 @@ class Actions:
                 pid, user, start_time, rss, cmdline))
         if num_processes_found == 0:
             print("No processes found")
-
-
-def parse_config():
-    """ Parse the Qleverfile.ini file """
-    config = ConfigParser(interpolation=ExtendedInterpolation())
-    config.read("Qleverfile.ini")
-    # config.write(sys.stdout)
 
 
 if __name__ == "__main__":

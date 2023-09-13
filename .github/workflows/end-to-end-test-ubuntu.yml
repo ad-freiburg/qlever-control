@@ -51,7 +51,7 @@ jobs:
         working-directory: ${{github.workspace}}
         run: |
           mkdir olympics.with-docker && cd $_
-          cp -a ../Qleverfile.ini .
+          cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
           unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
           ls -lh
 
@@ -60,7 +60,7 @@ jobs:
         run: |
           export PATH="$PATH:$(pwd)/qlever-binaries"
           mkdir olympics.without-docker && cd $_
-          cp -a ../Qleverfile.ini .
+          cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
           unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
           ls -lh
 

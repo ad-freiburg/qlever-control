@@ -23,7 +23,7 @@ jobs:
           brew install conan@2
           # brew install boost icu4c openssl zstd
           brew install unzip expect
-          pip3 install flake8 psutil
+          pip3 install flake8 psutil termcolor
           # brew install --cask docker
 
       - name: Cache for conan

@@ -537,9 +537,10 @@ def setup_autocompletion_cmd():
     action_names = [_.replace("_", "-") for _ in action_names]
     action_names = " ".join(action_names)
 
-    # Add docker.USE_DOCKER=true and docker.USE_DOCKER=false to the
-    # autocompletion.
+    # Add config settings to the list of possible actions for autocompletion.
     action_names += " docker.USE_DOCKER=true docker.USE_DOCKER=false"
+    action_names += " index.BINARY=IndexBuilderMain"
+    action_names += " server.BINARY=ServerMain"
 
     # Return multiline string with the command for setting up autocompletion.
     return f"""\

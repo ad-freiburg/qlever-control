@@ -422,7 +422,7 @@ class Actions:
         """
 
         docker_container_name = self.config['docker']['container_server']
-        cmdline_regex = (f"{self.config['server']['binary']}\\S+"
+        cmdline_regex = (f"{self.config['server']['binary']}\\S*"
                          f" -i [^ ]*{self.name}")
         print(f"{BLUE}Checking for Docker container with name "
               f"\"{docker_container_name}\" and for processes "

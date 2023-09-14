@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 
 # This is the QLever script (new version, written in Python).
 
@@ -6,18 +7,51 @@ from configparser import ConfigParser, ExtendedInterpolation
 from datetime import datetime, date
 import os
 import glob
+import inspect
+import logging
 import psutil
 import re
 import shlex
 import subprocess
 import sys
 import time
+from termcolor import colored
 import traceback
 
 BLUE = "\033[34m"
 RED = "\033[31m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
+
+
+# Custom formatter for log messages.
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        message = record.getMessage()
+        if record.levelno == logging.DEBUG:
+            return colored(message, "magenta")
+        elif record.levelno == logging.WARNING:
+            return colored(message, "yellow")
+        elif record.levelno in [logging.CRITICAL, logging.ERROR]:
+            return colored(message, "red")
+        else:
+            return message
+
+
+# Custom logger.
+log = logging.getLogger("qlever")
+log.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(CustomFormatter())
+log.addHandler(handler)
+
+
+# Helper function for tracking the order of the actions in class `Actions`.
+def track_action_rank(method):
+    method.rank = track_action_rank.counter
+    track_action_rank.counter += 1
+    return method
+track_action_rank.counter = 0  # noqa: E305
 
 
 class ActionException(Exception):
@@ -34,8 +68,8 @@ class Actions:
 
         # Default values for options that are not mandatory in the Qleverfile.
         defaults = {
-            "DEFAULT": {
-                "log-level": "info",
+            "general": {
+                "log_level": "info",
             },
             "server": {
                 "binary": "ServerMain",
@@ -63,15 +97,27 @@ class Actions:
             }
         }
         for section in defaults:
+            # If the section does not exist, create it.
+            if not self.config.has_section(section):
+                self.config[section] = {}
+            # If an option does not exist, set it to the default value.
             for option in defaults[section]:
                 if not self.config[section].get(option):
                     self.config[section][option] = defaults[section][option]
 
+        # If the log level was not explicitly set by the first command-line
+        # argument (see below), set it according to the Qleverfile.
+        if log.level == logging.NOTSET:
+            log_level = self.config['general']['log_level'].upper()
+            try:
+                log.setLevel(getattr(logging, log_level))
+            except AttributeError:
+                log.error(f"Invalid log level: \"{log_level}\"")
+                sys.exit(1)
+
         # Show some information (for testing purposes only).
-        print(f"Parsed Qleverfile, sections are: "
-              f"{', '.join(self.config.sections())}")
-        print(f"Name of dataset: {self.config['DEFAULT']['name']}")
-        # print(f"Get the data: {self.config['data']['get_data_cmd']}")
+        log.debug(f"Parsed Qleverfile, sections are: "
+                  f"{', '.join(self.config.sections())}")
 
         # Check specifics of the installation.
         self.check_installation()
@@ -89,8 +135,7 @@ class Actions:
             self.net_connections_enabled = True
         except Exception as e:
             self.net_connections_enabled = False
-            if self.log_level_is_debug():
-                print(f"Note: psutil.net_connections() failed ({e}),"
+            log.debug(f"Note: psutil.net_connections() failed ({e}),"
                       f" will not scan network connections for action"
                       f" \"start\"")
 
@@ -122,13 +167,6 @@ class Actions:
                   " docker.USE_DOCKER=false not supported")
             self.binaries_work = False
 
-    def log_level_is_debug(self):
-        """
-        Helper function that returns `True` if the log level is debug.
-        """
-
-        return self.config['DEFAULT']['log-level'] == "debug"
-
     def set_config(self, section, option, value):
         """
         Helper function that sets a value in the config file (and throws an
@@ -136,10 +174,12 @@ class Actions:
         """
 
         if not self.config.has_section(section):
-            raise Exception(f"Section {section} does not exist in Qleverfile")
+            log.error(f"Section [{section}] does not exist in Qleverfile")
+            sys.exit(1)
         if not self.config.has_option(section, option):
-            raise Exception(f"Option {option} does not exist in section "
-                            f"{section} in Qleverfile")
+            log.error(f"Option {option.upper()} does not exist in section "
+                      f"[{section}] in Qleverfile")
+            sys.exit(1)
         self.config[section][option] = value
 
     def get_total_file_size(self, paths):
@@ -167,6 +207,7 @@ class Actions:
                                     stderr=subprocess.DEVNULL)
         return exit_code == 0
 
+    @track_action_rank
     def action_show_config(self, only_show=False):
         """
         Action that shows the current configuration including the default
@@ -189,6 +230,7 @@ class Actions:
 
         print()
 
+    @track_action_rank
     def action_get_data(self, only_show=False):
         """
         Action that gets the data according to GET_DATA_CMD.
@@ -207,6 +249,7 @@ class Actions:
             print(f"Total file size: {total_file_size:.1f} GB")
             # os.system(f"ls -lh {self.config['index']['file_names']}")
 
+    @track_action_rank
     def action_index(self, only_show=False):
         """
         Action that builds a QLever index according to the settings in the
@@ -271,6 +314,7 @@ class Actions:
         subprocess.run(cmdline, shell=True)
         # print(f"Return code: {process_completed.returncode}")
 
+    @track_action_rank
     def action_start(self, only_show=False):
         """
         Action that starts the QLever server according to the settings in the
@@ -369,6 +413,7 @@ class Actions:
         # Kill the tail process. Note: tail_proc.kill() does not work.
         tail_proc.terminate()
 
+    @track_action_rank
     def action_stop(self, only_show=False):
         """
         Action that stops the QLever server according to the settings in the
@@ -377,7 +422,7 @@ class Actions:
         """
 
         docker_container_name = self.config['docker']['container_server']
-        cmdline_regex = (f"{self.config['server']['binary']}"
+        cmdline_regex = (f"{self.config['server']['binary']}\\S+"
                          f" -i [^ ]*{self.name}")
         print(f"{BLUE}Checking for Docker container with name "
               f"\"{docker_container_name}\" and for processes "
@@ -399,8 +444,7 @@ class Actions:
                       f"stopped and removed")
                 return
             except Exception as e:
-                if self.log_level_is_debug():
-                    print(f"Error running \"{docker_cmd}\": {e}")
+                log.debug(f"Error running \"{docker_cmd}\": {e}")
 
         # Check if there is a process running on the server port using psutil.
         #
@@ -413,8 +457,7 @@ class Actions:
                                'memory_info', 'cmdline'])
                 cmdline = " ".join(pinfo['cmdline'])
             except Exception as err:
-                if self.log_level_is_debug():
-                    print(f"Error getting process info: {err}")
+                log.debug(f"Error getting process info: {err}")
             if re.match(cmdline_regex, cmdline):
                 print(f"Found process {pinfo['pid']} from user "
                       f"{pinfo['username']} with command line: {cmdline}")
@@ -431,6 +474,7 @@ class Actions:
         # No matching process found.
         raise ActionException("No matching Docker container or process found")
 
+    @track_action_rank
     def action_status(self, only_show=False):
         """
         Action that shows all QLever processes running on this machine.
@@ -438,10 +482,10 @@ class Actions:
         TODO: Also show the QLever-related docker containers.
         """
 
-        cmdline_regex = f"^{self.config['server']['binary']}"
+        cmdline_regex = "^(ServerMain|IndexBuilderMain)"
         print(f"{BLUE}All processes on this machine where "
-              f"the command line matches: {cmdline_regex}"
-              f" (using Python's psutil library){NORMAL}")
+              f"the command line matches {cmdline_regex}"
+              f" using Python's psutil library{NORMAL}")
         print()
         if only_show:
             print(f"{BLUE}If executed, show processes using psutil{NORMAL}")
@@ -476,14 +520,72 @@ class Actions:
             print("No processes found")
 
 
-if __name__ == "__main__":
+def setup_autocompletion_cmd():
+    """
+    Print the command for setting up autocompletion for the qlever.py script.
+
+    TODO: Currently work for bash only.
+    """
+
+    # Get methods that start wth "action_" from the Actions class, sorted by
+    # their appearance in the class (see the `@track_action_rank` decorator).
+    methods = inspect.getmembers(Actions, predicate=inspect.isfunction)
+    methods = [m for m in methods if m[0].startswith("action_")]
+    action_names = sorted([m[0] for m in methods],
+                          key=lambda m: getattr(Actions, m).rank)
+    action_names = [_.replace("action_", "") for _ in action_names]
+    action_names = [_.replace("_", "-") for _ in action_names]
+    action_names = " ".join(action_names)
+
+    # Add docker.USE_DOCKER=true and docker.USE_DOCKER=false to the
+    # autocompletion.
+    action_names += " docker.USE_DOCKER=true docker.USE_DOCKER=false"
+
+    # Return multiline string with the command for setting up autocompletion.
+    return f"""\
+_qlever_completion() {{
+  local cur=${{COMP_WORDS[COMP_CWORD]}}
+  COMPREPLY=( $(compgen -W "{action_names}" -- $cur) )
+}}
+complete -o nosort -F _qlever_completion qlever.py
+"""
+
+
+def main():
+    # If there is only argument `setup-autocompletion`, call the function
+    # `Actions.setup_autocompletion()` above and exit.
+    if len(sys.argv) == 2 and sys.argv[1] == "setup-autocompletion":
+        log.setLevel(logging.ERROR)
+        print(setup_autocompletion_cmd())
+        sys.exit(0)
+
+    # If the first argument sets the log level, deal with that immediately (so
+    # that it goes into effect before we do anything else). Otherwise, set the
+    # log level to `NOTSET` (which will signal to the Actions class that it can
+    # take the log level from the config file).
+    log.setLevel(logging.NOTSET)
+    if len(sys.argv) > 1:
+        set_log_level_match = re.match(r"general.log_level=(\w+)", sys.argv[1])
+        if set_log_level_match:
+            log_level = set_log_level_match.group(1).upper()
+            sys.argv = sys.argv[1:]
+            try:
+                log.setLevel(getattr(logging, log_level))
+                log.debug("")
+                log.debug(f"Log level set to {log_level}")
+                log.debug("")
+            except AttributeError:
+                log.error(f"Invalid log level: \"{log_level}\"")
+                sys.exit(1)
+
     # Initalize actions.
-    print()
     action_names = [_ for _ in dir(Actions) if _.startswith("action_")]
     action_names = [_.replace("action_", "") for _ in action_names]
     action_names = [_.replace("_", "-") for _ in action_names]
     actions = Actions()
-    print(f"Actions available are: {', '.join(action_names)}")
+    # log.info(f"Actions available are: {', '.join(action_names)}")
+    # Show the log level as string.
+    # log.info(f"Log level: {logging.getLevelName(log.getEffectiveLevel())}")
 
     # Check if the last argument is "show" (if yes, remember it and remove it).
     only_show = True if len(sys.argv) > 1 and sys.argv[-1] == "show" else False
@@ -496,23 +598,22 @@ if __name__ == "__main__":
         set_config_match = re.match(r"(\w+)\.(\w+)=(.*)", action_name)
         if set_config_match:
             section, option, value = set_config_match.groups()
-            print()
-            print(f"{BOLD}Setting config value: "
-                  f"{section}.{option}={value}{NORMAL}")
+            log.info(f"Setting config value: {section}.{option}={value}")
             try:
                 actions.set_config(section, option, value)
             except ValueError as err:
-                print(f"{RED}{err}{NORMAL}")
+                log.error(err)
                 sys.exit(1)
             continue
         # If the action name does not exist, exit.
         if action_name not in action_names:
-            print(f"{RED}Action \"{action_name}\" does not exist{NORMAL}")
+            log.error(f"Action \"{action_name}\" does not exist, available "
+                      f"actions are: {', '.join(action_names)}")
             sys.exit(1)
         # Execute the action (or only show what would be executed).
-        print()
-        print(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
-        print()
+        log.info("")
+        log.info(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
+        log.info("")
         action = f"action_{action_name.replace('-', '_')}"
         try:
             getattr(actions, action)(only_show=only_show)
@@ -527,4 +628,8 @@ if __name__ == "__main__":
                   f", stack trace follows:{NORMAL}")
             print()
             raise err
-    print()
+    log.info("")
+
+
+if __name__ == "__main__":
+    main()

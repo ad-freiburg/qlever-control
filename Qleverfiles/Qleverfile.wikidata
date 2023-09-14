@@ -1,38 +1,32 @@
 # Qleverfile for Wikidata, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads two .bz2 files of total size 90 GB (as of 31.07.2022)
-# qlever index     # takes ~14 hours and ~40 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (takes around 2 minutes)
+# qlever get-data    downloads two .bz2 files of total size ~100 GB
+# qlever index       takes ~7 hours and ~40 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start       starts the server (takes around 30 seconds)
 
-# Indexer settings
-DB                = wikidata-latest
-RDF_FILES         = "latest-lexemes.ttl.bz2 latest-all.ttl.bz2"
-EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do bzcat \$F | head -1000 | \grep ^@prefix; done | sort -u > wikidata-latest.prefix-definitions"
-CAT_FILES         = "bzcat -f wikidata-latest.prefix-definitions ${RDF_FILES}"
-WITH_TEXT_INDEX   = false
-STXXL_MEMORY_GB   = 10
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }'
-GET_DATA_CMD      = "wget -nc https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.ttl.bz2 https://dumps.wikimedia.org/wikidatawiki/entities/latest-lexemes.ttl.bz2"
-DATE_ALL       = "$(ls -l --time-style=+%d.%m.%Y latest-all.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
-DATE_LEXEMES   = "$(ls -l --time-style=+%d.%m.%Y latest-lexemes.ttl.bz2 2> /dev/null | cut -d' ' -f6)"
-INDEX_DESCRIPTION = "Full Wikidata dump (latest-all.ttl.bz2 from ${DATE_ALL}, latest-lexemes.ttl.bz2 from ${DATE_LEXEMES})"
+[data]
+NAME              = wikidata
+GET_DATA_URL      = https://dumps.wikimedia.org/wikidatawiki/entities
+GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}/latest-all.ttl.bz2 ${GET_DATA_URL}/latest-lexemes.ttl.bz2
+INDEX_DESCRIPTION = "Full Wikidata dump from ${GET_DATA_URL} (latest-all.ttl.bz2 and latest-lexemes.ttl.bz2)"
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7001
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 50
-CACHE_MAX_SIZE_GB              = 30
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
-CACHE_MAX_NUM_ENTRIES          = 100
+[index]
+FILE_NAMES      = latest-lexemes.ttl.bz2 latest-all.ttl.bz2 
+CAT_FILES       = bzcat ${FILE_NAMES}
+SETTINGS_JSON   = { "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
+WITH_TEXT_INDEX = false
+STXXL_MEMORY_GB = 10
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.wikidata
+[server]
+PORT                  = 7001
+ACCESS_TOKEN          = ${DB}_372483264
+MEMORY_FOR_QUERIES_GB = 50
+CACHE_MAX_SIZE_GB     = 30
 
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = wikidata
+[docker]
+USE_DOCKER = true
+IMAGE      = adfreiburg/qlever
+
+[ui]
+PORT   = 7000
+CONFIG = wikidata

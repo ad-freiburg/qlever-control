@@ -8,7 +8,7 @@
 # (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
 
 [DEFAULT]
-NAME              = dblp
+NAME = dblp
 
 [data]
 GET_DATA_URL      = https://dblp.org/rdf/${index:FILE_NAMES}
@@ -17,21 +17,20 @@ INDEX_DESCRIPTION = DBLP computer science bibliography, data from ${GET_DATA_URL
 TEXT_DESCRIPTION  = All literals, search with ?text ql:contains-entity ?literal . ?text ql:contains-word "..." (where ... are keywords, which may end with a *)
 
 [index]
-FILE_NAMES	  = dblp.ttl.gz
-CAT_FILES         = zcat ${FILE_NAMES}
-SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
+FILE_NAMES    = dblp.ttl.gz
+CAT_FILES     = zcat ${FILE_NAMES}
+SETTINGS_JSON = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
 
 [server]
-PORT                           = 7015
-ACCESS_TOKEN                   = ${NAME}_7643543846
-MEMORY_FOR_QUERIES_GB          = 30
-CACHE_MAX_SIZE_GB              = 5
+PORT                  = 7015
+ACCESS_TOKEN          = ${NAME}_7643543846
+MEMORY_FOR_QUERIES_GB = 30
+CACHE_MAX_SIZE_GB     = 5
 
 [docker]
-USE_DOCKER       = false
-IMAGE            = adfreiburg/qlever
+USE_DOCKER = false
+IMAGE      = adfreiburg/qlever
 
 [ui]
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = dblp
+PORT   = 7000
+CONFIG = dblp

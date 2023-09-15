@@ -338,7 +338,7 @@ class Actions:
             cmdline += " --only-pso-and-pos-permutations"
         if server_config['no_patterns'] in self.yes_values:
             cmdline += " --no-patterns"
-        if server_config["with_text_index"] in \
+        if self.config['index']['with_text_index'] in \
                 ["from_text_records",
                  "from_literals",
                  "from_text_records_and_literals"]:

@@ -21,16 +21,20 @@ jobs:
         with:
           path: qlever-control
 
+      - name: Format and compile check
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          flake8 qlever
+          python3 -m py_compile qlever
+
       - name: Install dependencies for the QLever script
         run: |
           brew install llvm@16
           brew install conan@2
-          # brew install boost icu4c openssl zstd
           brew install unzip expect
           pip3 install flake8 psutil termcolor
-          # brew install --cask docker
 
-      - name: Cache for conan (takes very long the first time)
+      - name: Cache for conan (to make the next step much faster)
         uses: actions/cache@v3
         env:
           cache-name: cache-conan-modules
@@ -49,19 +53,20 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
 
-      - name: Format and compile check
-        working-directory: ${{github.workspace}}/qlever-control
+      - name: Check that everything is found and runs
         run: |
-          flake8 qlever
-          python3 -m py_compile qlever
+          pwd && ls -lh
+          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          source qlever-code/build/conanrun.sh
+          ServerMain --help > /dev/null
+          IndexBuilderMain --help > /dev/null
+          qlever
 
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}/qlever-indices/olympics
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           source qlever-code/build/conanrun.sh
-          ServerMain --help > /dev/null
-          IndexBuilderMain --help > /dev/null
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data docker.USE_DOCKER=false index index-stats
           unbuffer qlever docker.USE_DOCKER=false start status stop start stop status start status stop

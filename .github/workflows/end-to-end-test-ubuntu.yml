@@ -21,6 +21,12 @@ jobs:
         with:
           path: qlever-control
 
+      - name: Format and compile check
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          flake8 qlever
+          python3 -m py_compile qlever
+
       - name: Install dependencies for the QLever script
         run: |
           sudo apt update
@@ -40,16 +46,15 @@ jobs:
           curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
           cat INSTALL
           source ./INSTALL
-          # Check that the docker image and the binaries work.
-          docker run adfreiburg/qlever --help > /dev/null
-          ./ServerMain --help > /dev/null
-          ./IndexBuilderMain --help > /dev/null
 
-      - name: Format and compile check
-        working-directory: ${{github.workspace}}/qlever-control
+      - name: Check that everything is found and runs
         run: |
-          flake8 qlever
-          python3 -m py_compile qlever
+          pwd && ls -lh
+          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          docker run adfreiburg/qlever --help > /dev/null
+          ServerMain --help > /dev/null
+          IndexBuilderMain --help > /dev/null
+          qlever
 
       - name: Test actions for olympics dataset, with Docker
         working-directory: ${{github.workspace}}/qlever-indices/olympics.1

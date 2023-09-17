@@ -93,7 +93,7 @@ def show_available_action_names():
     log.info("The qlever script takes a sequence of action names as "
              "arguments, for example:")
     log.info("")
-    log.info(f"{BLUE}qlever get-data index start{NORMAL}")
+    log.info(f"{BLUE}qlever get-data index restart example-query ui {NORMAL}")
     log.info("")
     log.info(f"Available action names are: {', '.join(action_names)}")
     log.info("")
@@ -905,7 +905,7 @@ def main():
             log.info("")
             show_available_action_names()
         else:
-            log.info("I need a Qleverfile in the current directory, which "
+            log.info("You need a Qleverfile in the current directory, which "
                      "you can create as follows:")
             log.info("")
             log.info(f"{BLUE}qlever setup-config <config name>{NORMAL}")

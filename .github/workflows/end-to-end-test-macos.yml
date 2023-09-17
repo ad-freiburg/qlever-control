@@ -61,13 +61,14 @@ jobs:
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           qlever
+          qlever help
 
       - name: Test actions for olympics dataset, without Docker
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           mkdir -p ${{github.workspace}}/qlever-indices/olympics && cd $_
           source ${{github.workspace}}/qlever-code/build/conanrun.sh
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data docker.USE_DOCKER=false index index-stats
-          unbuffer qlever docker.USE_DOCKER=false start status stop start stop status start status stop
+          qlever setup-config olympics
+          qlever get-data docker.USE_DOCKER=false index index-stats
+          qlever docker.USE_DOCKER=false start status example-query stop restart example-query stop status start example-query status stop
           ls -lh

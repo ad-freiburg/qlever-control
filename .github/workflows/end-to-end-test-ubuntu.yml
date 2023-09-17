@@ -56,31 +56,32 @@ jobs:
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           qlever
+          qlever help
 
       - name: Test actions for olympics dataset, with Docker
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.1 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data docker.USE_DOCKER=true index index-stats start status stop status
+          qlever setup-config olympics
+          unbuffer qlever get-data docker.USE_DOCKER=true index index-stats start status example-query restart status example-query stop status start stop start example-query stop status
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.2 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data docker.USE_DOCKER=false index index-stats start status stop status
+          qlever setup-config olympics
+          qlever get-data docker.USE_DOCKER=false index index-stats start status example-query restart status example-query stop status start stop start example-query stop status
           ls -lh
 
       - name: Test actions for olympics dataset, with and without Docker
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.3 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data index index-stats
-          unbuffer qlever docker.USE_DOCKER=false start status
+          qlever setup-config olympics
+          qlever get-data index index-stats
+          qlever docker.USE_DOCKER=false start status example-query
           unbuffer qlever docker.USE_DOCKER=true stop status
-          unbuffer qlever docker.USE_DOCKER=true start status
-          unbuffer qlever docker.USE_DOCKER=false stop status
+          unbuffer qlever docker.USE_DOCKER=true restart status example-query
+          qlever docker.USE_DOCKER=false stop status
           ls -lh

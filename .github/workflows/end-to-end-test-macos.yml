@@ -50,8 +50,6 @@ jobs:
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
           wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
           chmod 755 ServerMain IndexBuilderMain
-          # ./ServerMain --help > /dev/null
-          # ./IndexBuilderMain --help > /dev/null
 
       - name: Format and compile check
         run: |
@@ -67,6 +65,6 @@ jobs:
           IndexBuilderMain --help > /dev/null
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index 
+          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index index-stats
           unbuffer python3 ../qlever.py docker.USE_DOCKER=false start status stop start stop status start status stop
           ls -lh

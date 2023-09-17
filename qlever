@@ -1,993 +1,813 @@
-#!/bin/bash
-
-# This is the script that is called when calling "qlever" from the command line.
-# The script is self-explanatory when you run it. Type ". qlever" for initial
-# configuration and then "qlever" or "qlever help" for initial help.
-#
-# © 2022, University of Freiburg, Chair of Algorithms and Data Structures
-# Author: Hannah Bast <bast@cs.uni-freiburg.de>
-
-
-###
-### STRUCTURE OF THIS SCRIPT
-###
-### 1. Definition of available actions (as bash functions)
-### 2. Setup code when called with ". qlever"
-### 3. Handle calls "qlever", "qlever help", "qlever help-install"
-### 4. Settings (default + from Qleverfile + derived settings)
-### 5. Process actions
-###
-
-
-BLUE=$(printf "\033[34m")
-RED=$(printf "\033[31m")
-GRAY=$(printf "\033[37m")
-MAGENTA=$(printf "\033[35m")
-BOLD=$(printf "\033[1m")
-NORMAL=$(printf "\033[0m")
-
-QLEVER_CMD="${BASH_SOURCE[0]}"   # Command of this script
-QLEVER_CMD_DIR=$(cd -- "$(dirname -- "${QLEVER_CMD}")" &> /dev/null && pwd)
-QLEVER_BIN_DIR=$(which ServerMain | sed 's|/ServerMain$||')
-QLEVERFILE_NEEDED=true
-SIMPLE_ACTIONS=:update:status:help:help-install:help-install-ubuntu-18:help-install-ubuntu-20:show-configs:
-if [[ ${SIMPLE_ACTIONS} == *:$*:* ]]; then QLEVERFILE_NEEDED=false; fi
-
-# Helper function to display simple markdown using ANSI escape codes.
-function display_markdown {
-  sed -E "s/^# (.*)/${BOLD}\1${NORMAL}/g" \
-    | sed -E "s/\`([^\`]+)\`/${BLUE}\1${NORMAL}/g"
-}
-
-
-###
-### AVAILABLE ACTIONS (all available via autocompletion)
-###
-
-function action_help {
-  cat << "EOT" | display_markdown
-# QLEVER HELP
-
-The `qlever` script controls everything concerning QLever. Calling it without
-arguments always displays this information. Before using the script the first
-time in a particular shell and directory, type `. /path/to/qlever`. This will
-enable autocompletion, update your PATH, and create a default Qleverfile.
-
-# Qleverfile
-The Qleverfile configures everything: how to get the data, build an index,
-start the server, and all kinds of settings. Modify the default Qleverfile as
-you see fit. For some datasets, there are preconfigured QLeverfiles: to get one
-of those, type `qlever show-configs` and follow the instructions.
-
-# Actions
-On the command line, typing TAB after `qlever` gives you the available actions.
-You can also execute several actions with one command, for example "qlever index
-start log`. If you just want to see what an action does, but not exeute it,
-append "show", for example `qlever index start show`.
-
-# Binaries
-By default, the qlever script uses the official QLever docker image (settings
-USE_DOCKER and QLEVER_DOCKER_IMAGE in the Qleverfile). If you want to use the
-QLever binaries, you have to compile them on your machine. For instructions,
-type `qlever install-binaries`.
-
-EOT
-}
-
-function action_install_binaries {
-  cat << "EOT" | display_markdown
-# QLEVER INSTALL BINARIES
-
-If you don't want to use docker for the actions "index" (building an index) and
-"start" (starting a server), you have to compile the binaries "IndexBuilderMain"
-and "ServerMain" on your machine. To use these binaries, in your Qleverfile set
-USE_DOCKER=false and QLEVER_BIN_DIR to the directory with your binaries.
-
-# Get a copy of the QLever code
-`git clone --recursive https://github.com/ad-freiburg/qlever qlever-code`
-`cd qlever-code`
-
-# On Ubuntu 18.04, 20.04, or 22.04
-Just type `qlever help-install-ubuntu-22` (or ...-20 or ...-18) and follow the
-instructions. The call will create and show an INSTALL script, which you can
-then just execute.
-
-# On other operatings systems
-We are working on an INSTALL script for MacOS and WSL, analogous to the ones for
-Ubuntu above. In the meantime, look at one of the Ubuntu INSTALL scripts and
-adapt them as good as you can.
-
-EOT
-}
-
-SHOW=
-NOSHOW=
-
-INSTALL_UBUNTU_HELP_TEXT=$(cat << "EOT" | display_markdown
-The following command sequence has been written to a file INSTALL. If it looks
-OK to you, execute the sequence with `source ./INSTALL`. If there is a conflict
-with an existing libboost version, uninstall it and then run again. If you run
-out of RAM, use fewer cores for the last call to ninja, e.g., `ninja -j 3`.
-EOT
-)
-
-function action_help_install_ubuntu_18 {
-  echo "${INSTALL_UBUNTU_HELP_TEXT}"
-  echo
-  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu18.04 \
-    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' \
-    | sed '/^cmake/q' \
-    | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' \
-    > INSTALL
-  echo "${BLUE}$(cat INSTALL)${NORMAL}"
-}
-
-function action_help_install_ubuntu_20 {
-  echo "${INSTALL_UBUNTU_HELP_TEXT}"
-  echo
-  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfiles/Dockerfile.Ubuntu20.04 \
-    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' \
-    | sed '/^cmake/q' \
-    | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' \
-    > INSTALL
-  echo "${BLUE}$(cat INSTALL)${NORMAL}"
-}
-
-function action_help_install_ubuntu_22 {
-  echo "${INSTALL_UBUNTU_HELP_TEXT}"
-  echo
-  $SHOW curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile \
-    | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' \
-    | sed '/^cmake/q' \
-    | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' \
-    > INSTALL
-  echo "${BLUE}$(cat INSTALL)${NORMAL}"
-}
-
-function action_show_configs {
-  cat << "EOT" | display_markdown
-The following pre-configured Qleverfiles are available. To get one of these in
-the current directory, type `. qlever <config-name>`. Beware that this will
-overwrite any Qleverfile that is already there.
-
-EOT
-  CONFIGS_AVAILABLE=$($SHOW ls ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.* | sed 's/^.*\/Qleverfile\.//' $NOSHOW)
-  echo ${BLUE}${CONFIGS_AVAILABLE}${NORMAL}
-}
-
-function action_remove_data {
-  echo "Removing files specified in RDF_FILES in Qleverfile ..."
-  echo
-  ls -l "${RDF_FILES}"
-  $SHOW eval ${REMOVE_DATA_CMD}
-}
-
-function action_get_data {
-  if [ -z "${GET_DATA_CMD}" ]; then
-    echo "${RED}No GET_DATA_CMD specified in Qleverfile${NORMAL}"
-  else
-    echo "Getting data using GET_DATA_CMD from Qleverfile ..."
-    echo
-    eval $SHOW ${GET_DATA_CMD}
-  fi
-}
-
-function action_index {
-  if ls ${DB}.index.* > /dev/null 2>&1; then
-    echo "${RED}Index exists, delete it first with \"qlever remove-index\" (add \"show\" to find out what gets deleted)${NORMAL}"
-  else
-    # # Prepend ulimit setting to INDEXER_CMD if input files are large.
-    # if [ "$(du -bc ${RDF_FILES} | tail -1 | cut -f1)" -gt 1000000000 ]; then
-    #   export INDEXER_CMD="ulimit -Sn 1048576; ${INDEXER_CMD}"
-    # fi
-    # Create settings.json.
-    if jq --version > /dev/null 2>&1; then
-      echo ${SETTINGS_JSON} | jq -M '.' > ${DB}.settings.json
-    else
-      echo ${SETTINGS_JSON} > ${DB}.settings.json
-    fi
-    # Create prefix definitions
-    if [ ! -z "${EXTRACT_PREFIXES}" ]; then eval $SHOW ${EXTRACT_PREFIXES} $NOSHOW; fi
-    # Build index.
-    eval ${INDEXER_CMD_PREFIX} $SHOW ${INDEXER_CMD}
-  fi
-}
-
-function action_remove_index {
-  $SHOW rm -f ${DB}.index.* ${DB}.vocabulary.* ${DB}.prefixes ${DB}.meta-data.json ${DB}.index-log.txt
-  echo "The index files have been removed."
-}
-
-function action_index_stats {
-  if [ ! -e ${DB}.index-log.txt ]; then echo "${RED}Need file \"${DB}.index-log.txt\"${NORMAL}"; return; fi
-  $SHOW readarray -t T < <(sed -En '/INFO:  (Processing|Done, total|Converting triples|Creating|Index build|Adding text index|DocsDB done)/p' ${DB}.index-log.txt | cut -c1-19)
-  if [ "${#T[@]}" -lt "4" ]; then echo "${RED}Missing key lines in \"${DB}.index-log.txt\"${NORMAL}"; return; fi
-  Ts=$(echo "($(date +%s -d "${T[-1]}") - $(date +%s -d "${T[0]}"))" | bc)
-  if [ "${Ts}" -gt "3600" ]; then Tdiv=3600; Tunit="h"; else Tdiv=60; Tunit="min"; fi
-  T1=$(echo "($(date +%s -d "${T[1]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
-  T2=$(echo "($(date +%s -d "${T[2]}") - $(date +%s -d "${T[1]}")) / ${Tdiv}" | bc -l)
-  T3=$(echo "($(date +%s -d "${T[3]}") - $(date +%s -d "${T[2]}")) / ${Tdiv}" | bc -l)
-  T4=$(echo "($(date +%s -d "${T[4]}") - $(date +%s -d "${T[3]}")) / ${Tdiv}" | bc -l)
-  T5=$(echo "($(date +%s -d "${T[5]}") - $(date +%s -d "${T[4]}")) / ${Tdiv}" | bc -l)
-  T6=$(echo "($(date +%s -d "${T[6]}") - $(date +%s -d "${T[5]}")) / ${Tdiv}" | bc -l)
-  T7=$(echo "($(date +%s -d "${T[7]}") - $(date +%s -d "${T[6]}")) / ${Tdiv}" | bc -l)
-  T8=$(echo "($(date +%s -d "${T[8]}") - $(date +%s -d "${T[7]}")) / ${Tdiv}" | bc -l)
-  T9=$(echo "($(date +%s -d "${T[9]}") - $(date +%s -d "${T[8]}")) / ${Tdiv}" | bc -l)
-  TT=$(echo "($(date +%s -d "${T[-1]}") - $(date +%s -d "${T[0]}")) / ${Tdiv}" | bc -l)
-  echo "Time needed for the various phases of the index build"
-  echo
-  printf "%-23s : %5.1f ${Tunit}\n" "Parse input"            ${T1}
-  printf "%-23s : %5.1f ${Tunit}\n" "Build vocabularies"     $(echo "${T2} + ${T4}" | bc)
-  printf "%-23s : %5.1f ${Tunit}\n" "Convert to global IDs"  ${T3}
-  if [ "${#T[@]}" -gt "5" ]; then printf "%-23s : %5.1f ${Tunit}\n" "PSO & POS permutations" ${T5}; fi
-  if [ "${#T[@]}" -gt "6" ]; then printf "%-23s : %5.1f ${Tunit}\n" "SPO & SOP permutations" ${T6}; fi
-  if [ "${#T[@]}" -gt "7" ]; then printf "%-23s : %5.1f ${Tunit}\n" "OSP & OPS permutations" ${T7}; fi
-  if [ "${#T[@]}" -gt "9" ]; then printf "%-23s : %5.1f ${Tunit}\n" "Add text index" ${T9}; fi
-  echo
-  printf "%-23s : %5.1f ${Tunit}\n" "TOTAL index build time" ${TT}
-}
-
-function action_start {
-  if curl --silent http://localhost:${SERVER_PORT} > /dev/null; then 
-    echo "${RED}Server already running on port ${SERVER_PORT}, use \"qlever restart\" or check SERVER_PORT in your Qleverfile${NORMAL}"
-    echo "${BLUE}"
-    ps -e -o "%p" -o "  %U " -o start_time -o "  %a" \
-      | \grep "${SERVER_BINARY} .*-p ${SERVER_PORT}" \
-      | \grep -v "grep.*${SERVER_BINARY}"
-    printf "${NORMAL}"
-  else
-    if [ -f "${DB}.index.pso" ] && [ -f "${DB}.index.pos" ]; then
-      echo "Starting the QLever server in the background and waiting until it's ready (Ctrl+C will not kill it) ..."
-      echo
-      rm -f ${DB}.server-log.txt && touch ${DB}.server-log.txt
-      eval $SHOW ${SERVER_CMD}
-      tail -f -n 10 ${DB}.server-log.txt & PID=$!
-      ALIVE_CHECK_URL="http://localhost:${SERVER_PORT}/ping?msg=from%20the%20qlever%20script"
-      while [ $(curl -s "${ALIVE_CHECK_URL}" > /dev/null; echo $?) != 0 ]; do sleep 1; done
-      # if [ ! -z "${INDEX_DESCRIPTION}${TEXT_DESCRIPTION}" ]; then echo; fi
-      if [ ! -z "${INDEX_DESCRIPTION}" ]; then
-        # echo "Setting index description to \"${INDEX_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} \
-          --data-urlencode "index-description=${INDEX_DESCRIPTION}" \
-          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
-      fi
-      if [ ! -z "${TEXT_DESCRIPTION}" ]; then
-        # echo "Setting text description to \"${TEXT_DESCRIPTION}\""
-        curl -Gs ${SERVER_API} \
-          --data-urlencode "text-description=${TEXT_DESCRIPTION}" \
-          --data-urlencode "access-token=${ACCESS_TOKEN}" > /dev/null
-      fi
-      kill ${PID}
-      wait ${PID} 2> /dev/null  # Supress "Terminated ..." message.
-    else
-      echo "${RED}Index missing, first build one using \"qlever index\"${NORMAL}"
-    fi
-  fi
-}
-
-function action_stop {
-  echo "Stop the QLever server (find and kill manually if it fails) ..."
-  echo
-  if printf ${BLUE} && pgrep -af "${SERVER_BINARY} -i [^ ]*${DB}" && printf ${NORMAL}; then
-    echo
-    eval $SHOW ${STOP_CMD} $NOSHOW && echo "Killed processes and removed \"${DB}.server-log.txt\""
-  else
-    echo "${RED}Did not find a running server for \"${DB}\" or could not kill it, try \"qlever status\"${NORMAL}"
-  fi
-}
-
-function action_restart {
-  $SHOW ${QLEVER_CMD_WITH_VARS} stop $NOSHOW | sed '1,3d'
-  $SHOW ${QLEVER_CMD_WITH_VARS} start $NOSHOW | sed '1,3d; $d'
-}
-
-function action_wait {
-  tail -f -n 10 ${DB}.server-log.txt & PID=$!
-  while [ $(curl --silent http://localhost:$(SERVER_PORT) > /dev/null; echo $?) != 0 ]; do sleep 1; done
-  kill $PID
-}
-
-function action_log {
-  echo "Showing the log (abort with Ctrl+C) ..."
-  echo
-  $SHOW tail -f -n 50 ${DB}.server-log.txt
-}
-
-function action_log_until_server_up {
-  $SHOW tail -f -n 10 ${DB}.server-log.txt & PID=$!
-  while ! curl --silent http://localhost:${SERVER_PORT} > /dev/null; do sleep 1; done
-  kill ${PID}
-}
-
-function action_status {
-  echo "Showing all QLever-related processes and docker containers on this machine ..."
-  echo "${BLUE}"
-  $SHOW ps -e -o %p -o %U -o start_time -o rss:10 -o %a | sed -E '1p; /\b('${SERVER_BINARY}'|'${INDEXER_BINARY}')/!d; /bash -c/d' $NOSHOW \
-    | awk 'NR==1 {o=$0; a=match($0, $5)} NR > 1 {o=$0; $4=int($4/(1024*1024))"G";} {printf "%-7s %-8s %5s %5s  %s\n", $1, $2, $3, $4, substr(o, a)}'
-  printf "${NORMAL}"
-  if [ $(docker ps --filter "name=qlever" | wc -l) -gt 1 ]; then \
-    echo "${BLUE}"
-    $SHOW docker ps --filter "name=qlever" --format "table {{.Names}}\t{{.State}}\t{{.RunningFor}}\t{{.Ports}}"
-    printf "${NORMAL}"
-  fi
-}
-
-function action_example_query {
-  echo "Launching SELECT query for 10 random triples (in TSV format) ..."
-  echo
-  $SHOW curl ${SERVER_API} -H "Accept: text/tab-separated-values" -H "Content-type: application/sparql-query" --data "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
-}
-
-function action_example_query_construct {
-  echo "Launching CONSTRUCT query for 10 random triples (in TSV format) ..."
-  echo
-  $SHOW curl ${SERVER_API} -H "Accept: text/turtle" -H "Content-type: application/sparql-query" --data "CONSTRuCT { ?s ?p ?o } WHERE { ?s ?p ?o } LIMIT 10"
-}
-
-function action_query {
-  echo "Launching GET query (results in TSV format) ..."
-  echo
-  if [ -z "${QUERY}" ]; then
-    echo "${RED}Empty query, specify one via the command line like this: qlever QUERY=\"...\" query${NORMAL}"
-  else
-    $SHOW "${QUERY_CMD[@]}"
-  fi
-}
-
-
-# Warmup queries for the autocompletion.
-# 
-# TODO: This requires a running QLever UI and his currently hard-coded to use
-# instances on particular machine (galera.informatik.privat). It will be fixed
-# soon.
-#
-# NOTE: We need -tt here because the "qlever" script calls "make" via a pipe and
-# so it does not have a terminal (the error message is "Pseudo-terminal will not
-# be allocated because stdin is not a terminal." and "the input device is not a
-# TTY"). The manpage for ssh says: "Multiple -t options force tty allocation,
-# even if ssh has no local tty." and "-tt" is just a shorthand for "-t -t".in.master:
-function action_pin_INTERNAL {
-  echo "Launch warmup queries for the QLever UI autocompletion (via galera) ..." 
-  $SHOW ssh -tt -o LogLevel=QUIET galera docker exec -it qlever-ui bash -c \"python manage.py warmup ${SLUG} pin\"
-}
-
-# Clear the cache.
-function action_clear_cache {
-  echo "Clearing the cache (unpinned entries only) ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=clear-cache" $NOSHOW > /dev/null
-  curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
-    | numfmt --field=2,5,8,11,14 --grouping
-}
-
-function action_clear_cache_complete {
-  echo "Clearing the cache completely (including pinned entries) ..."
-  $SHOW curl -Gs ${SERVER_API} \
-    --data-urlencode "cmd=clear-cache-complete" \
-    --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
-  curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " " \
-    | numfmt --field=2,5,8,11,14 --grouping
-}
-
-# Get various settings and statistics.
-function action_disk_usage {
-  echo "Disk usage of all files in this QLever index, and the size of the input files"
-  echo
-  $SHOW du -hc $(ls ${DB}.* | sed -E '/(index\.|vocabulary|prefixes|meta-data|text)/!d')
-  echo
-  # echo && echo "For comparison, the size of the input files" && echo #
-  du -hc ${RDF_FILES}
-}
-
-function action_cache_stats_and_settings {
-  echo "Show cache statistics (sizes are in bytes) and cache settings (sizes are in GB) ..."
-  echo ${BLUE}
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=cache-stats" $NOSHOW \
-    | sed -n 's/[",]//g; s/:/: /g; s/^\s\+//p' | tr -s " " \
-    | awk '{ if ($1 ~ "pinned-size:") { $2 = 8 * $2 } print }' \
-    | numfmt --field=2 --grouping
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=get-settings" $NOSHOW \
-    | sed 's/[{}",]//g; s/:/: /g; s/^\s\+//' | tr -s " "
-  printf ${NORMAL}
-}
-
-function action_server_stats {
-  echo "Getting stats from \"${SERVER_API}\" ..."
-  echo ${BLUE}
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "cmd=stats" $NOSHOW \
-    | sed -n 's/[",]//g; s/:/: /g; s/^\s\+//p' | tr -s " " \
-    | sed -E 's/^((kb|text)index:\s*)(.*)$/\1"\3"/' \
-    | numfmt --field=2 --grouping --invalid=ignore
-  printf ${NORMAL}
-}
-
-function action_index_description {
-  echo "Setting index description to \"${INDEX_DESCRIPTION}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "index-description=${INDEX_DESCRIPTION}" --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
-}
-
-function action_text_description {
-  echo "Setting text description to \"${TEXT_DESCRIPTION}\" ..."
-  $SHOW curl -Gs ${SERVER_API} --data-urlencode "text-description=${TEXT_DESCRIPTION}" --data-urlencode "access-token=${ACCESS_TOKEN}" $NOSHOW > /dev/null
-}
-
-
-# QLever UI (work in progress).
-LOG_FILE=qleverui-log.tmp
-ERROR_CMD="(echo && echo \"${BLUE}An error occured, check ${LOG_FILE} for details, the last 10 lines are:${NORMAL}\" && tail ${LOG_FILE} && false)"
-QLEVERUI_GIT=https://github.com/ad-freiburg/qlever-ui.git
-QLEVERUI_DIR="qlever-ui"
-function action_ui {
-  echo "Starting the QLever UI on ${HOSTNAME}:${QLEVERUI_PORT} ..."
-  echo
-  $SHOW docker rm -f ${QLEVERUI_DOCKER_CONTAINER} 2>&1 > /dev/null
-  $SHOW docker run -d -p ${QLEVERUI_PORT}:7000 --name ${QLEVERUI_DOCKER_CONTAINER} ${QLEVERUI_DOCKER_IMAGE} > /dev/null $NOSHOW || return
-  $SHOW docker exec -it ${QLEVERUI_DOCKER_CONTAINER} bash -c "python manage.py configure ${QLEVERUI_CONFIG} ${SERVER_API}" $NOSHOW || return
-  echo
-  echo "The QLever UI should now be up at http://${HOSTNAME}:${QLEVERUI_PORT} ."
-  echo "You can log in as QLever UI admin with username and passwort \"demo\""
-}
-
-function action_autocompletion_warmup {
-  echo "Launch warmup queries for the QLever UI autocompletion ..."
-  echo
-  if docker container inspect -f '{{.State.Running}}' ${QLEVERUI_DOCKER_CONTAINER} > /dev/null 2>&1; then
-    $SHOW docker exec -i qlever-ui bash -c "python manage.py warmup ${QLEVERUI_CONFIG} pin" | sed -En 's/^\x1b\[[0-9]+/\x1b\[34/p'
-  else
-    echo "${RED}The autocompletion queries are defined by the UI, run \"qlever ui\" first${NORMAL}"
-  fi
-}
-
-# Update the qlever script (simply git pull from the GitHub repo).
-function action_update {
-  echo "Updating \"qlever\" script ..."
-  echo
-  if [ -d "${QLEVER_CMD_DIR}/.git" ]; then
-    $SHOW cd ${QLEVER_CMD_DIR} && git pull
-  else
-    echo "${RED}Did not find directory \".git\" in \"${QLEVER_CMD_DIR}\"${NORMAL}"
-    echo
-  fi
-}
-
-# Show the paths to "qlever", the QLever binaries, and the QLever UI.
-function action_where {
-  cat << EOT
-Show where everything is ...
-${BLUE}
-Directory with "qlever" script : ${QLEVER_CMD_DIR}
-Directory with QLever binaries : ${QLEVER_BIN_DIR}
-Directory with QLever UI repo  : ${QLEVERUI_DIR}
-${NORMAL}
-EOT
-}
-
-# Produce list of all input files.
-function action_rdf_files {
-  eval $SHOW ls ${RDF_FILES}
-}
-
-# Produce the input as fed to the index builder.
-function action_cat_files {
-  eval $SHOW ${CAT_FILES}
-}
-
-# Actions for turning docker on and off.
-#
-# TODO: Currently, there is one docker container, which is then used for for
-# *all* docker actions using "docker exec". This makes it easier to mix actions,
-# where some actions use docker and some don't. However, if the docker container
-# is running, it blocks the server port even when nothing is running inside the
-# container, so that when cannot do "qlever start" without docker then.
-function action_docker_on_DEPRECATED {
-  if docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
-    echo "${MAGENTA}Docker container \"${QLEVER_DOCKER_CONTAINER}\" already running${NORMAL}"
-  else
-    docker rm -f "${QLEVER_DOCKER_CONTAINER}" > /dev/null 2> /dev/null
-    echo "${MAGENTA}Starting docker container \"${QLEVER_DOCKER_CONTAINER}\" ...${NORMAL}"
-    $SHOW docker run -d -u $(id -u):$(id -g) -it -v $(pwd):/index \
-      -p ${SERVER_PORT}:${SERVER_PORT} \
-      --entrypoint bash \
-      --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} $NOSHOW \
-      > /dev/null
-    while ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; do sleep 0.1; done
-    # $SHOW docker cp ${QLEVER_CMD_DIR}/qlever \
-    #   ${QLEVER_DOCKER_CONTAINER}:/index $NOSHOW \
-    #   > /dev/null #
-  fi
-  echo "${BLUE}"
-  docker ps --filter "name=${QLEVER_DOCKER_CONTAINER}"
-  printf "${NORMAL}"
-}
-
-function action_docker_off_DEPRECATED {
-  $SHOW docker rm -f "${QLEVER_DOCKER_CONTAINER}"
-}
-
-
-###
-### CONFIGURATION (when called with . qlever or if we need to)
-###
-
-# If not called with ". qlever" and completions or the Qleverfile are missing,
-# tell the user to run ". qlever" once for full functionality. Note that bash
-# autocompletion can only be activated by "sourcing" the respective commands
-# (the ". qlever" is equivalent to "source qlever"). If the Qleverfile has
-# BASH_COMPLETION = 0, don't mind the autocompletion.
-# 
-# Skip this when calling "qlever update" because it's not only not necessary
-# then, but even annoying.
-if [ ${BASH_SOURCE[0]} == $0 ] \
-  && ( ( [ -z "${QLEVER_COMPLETIONS}" ] && [ "${BASH_COMPLETION}" != "0" ] ) || \
-     ( [ ! -e Qleverfile ] && ${QLEVERFILE_NEEDED} ) ); then
-    echo
-    action_help
-    exit
-fi
-
-# If called with ". qlever", setup what is not already setup: the PATH, the bash
-# autocompletion (unless user don't want it), the QLeverfile.
-if [ "${QLEVER_CMD}" != "$0" ]; then
-  echo
-  echo "${BOLD}QLEVER CONFIG${NORMAL}"
-  echo
-
-  # PATH: Check if QLEVER_CMD_DIR (read from Qleverfile if it exists) is in the
-  # path and if not add it to the path.
-  #
-  # Note: The full processing of the QLeverfile comes *after* the code for the
-  # ". qlever" case because otherwise the shell from which ". qlever" was called
-  # would be full with variables from this script. The QLEVER_BIN_DIR is an
-  # exception because adding something to the path requires a call to ". qlever"
-  # and would not work with "qlever" (which runs in a subshell).
-  #
-  echo "${BOLD}Checking your PATH ...${NORMAL}"
-  if [ -s "Qleverfile" ] && [ -z "${QLEVER_BIN_DIR}" ]; then
-    export QLEVER_BIN_DIR="$(sed -En 's/^\s*QLEVER_BIN_DIR\s*=\s*(\S+)/\1/p' Qleverfile)"
-  fi
-  for DIR in ${QLEVER_CMD_DIR} ${QLEVER_BIN_DIR}; do
-    if [[ ":${PATH}:" == *":${DIR}:"* ]]; then
-      echo "The directory \"${DIR}\" is already contained in your PATH"
-    else
-      export PATH=${PATH}:${DIR}
-      echo "Added the directory \"${DIR}\" to your PATH"
-    fi
-  done
-  echo
-
-  # If we called ". qlever path" (just to set the paths), exit here.
-  if [ "$*" == "path" ]; then
-    echo "${NORMAL}Called \". qlever path\", so leaving now${NORMAL}"
-    echo
-    return
-  fi
-
-  # Bash autocompletion: Set completions with "complete -W" and store the
-  # completions in "QLEVER_COMPLETIONS". We need the latter so that we know that
-  # the completions are set (complete -p does not work in a subshell).
-  COMP_WORDBREAKS=${COMP_WORDBREAKS/=/}
-  COMPLETIONS_FILE=no_longer_needed
-  echo "${BOLD}Setting up bash autocompletion ...${NORMAL}"
-  COMPLETIONS=$(cat ${QLEVER_CMD} | sed -En '/DEPRECATED/d; s/^function action_([a-zA-Z0-9_.-]+).*/\1/p' | sed 's/_/-/g')
-  COMPLETIONS+=" \"USE_DOCKER=true\" \"USE_DOCKER=false\""
-  export QLEVER_COMPLETIONS="$(echo "${COMPLETIONS}" | paste -sd" ")"
-  complete -W "${QLEVER_COMPLETIONS}" qlever
-  echo "Done, number of completions: $(echo "${COMPLETIONS}" | wc -l)"
-  echo ${NORMAL}
-
-  # If we called ". qlever init" (for use in .bashrc, where we only want to set
-  # the PATH and activate the autocompletion), exit here.
-  if [ "$*" == "shell_init" ]; then
-    echo "${NORMAL}Called \". qlever shell_init\", so leaving now${NORMAL}"
-    echo
-    return
-  fi
-
-  # QLeverfile: If it's not there yet, create a basic one (with good guesses for
-  # some basic settings). Don't overwriting an existing Qleverfile, unless the
-  # script was called with an explicit preconfiguration as argument, for example
-  # ". qlever olympics".
-  if [ -e Qleverfile ] && [ -z $* ]; then
-    echo "${BOLD}Checking Qleverfile ...${NORMAL}"
-    cat << EOT
-There is already a QLeverfile in this directory. If you want a freshly generated
-default Qleverfile, remove or move the existing one and run ". qlever" again.
-
-EOT
-  else
-    echo "${BOLD}Creating new Qleverfile ...${NORMAL}"
-    # If Qleverfiles/Qleverfile.<first arg> exists, just copy that. Otherwise copy
-    # Qleverfiles/Qleverfile.default and fill out the %...% templates.
-    QLEVERFILE_NAME="${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.$1"
-    if [ "$1" != "default" ] && [ -f "${QLEVERFILE_NAME}" ]; then
-      cat ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.$1 \
-        | sed -E "s/^(QLEVER_BIN_DIR\s+=).*/\1 \"${QLEVER_BIN_DIR//\//\\\/}\"/" \
-        | sed -E "s/%RANDOM%/${RANDOM}${RANDOM}/" \
-        > Qleverfile
-      echo "Copied pre-configured Qleverfile for \"$1\" into current directory."
-      echo
-    else
-      # Default values for the %...% templates in Qleverfiles/Qleverfile.default.
-      FOLDER_NAME=$(pwd)
-      DATE=$(date +"%d.%m.%Y %H:%M")
-      DB=must_specify
-      RDF_FILES="\${DB}.ttl"
-      CAT_FILES="cat \${RDF_FILES}"
-      # If a file with suffix .ttl or .nt exists, use the basename as the basename
-      # for the index files (the DB variable in the configuration) and pick the
-      # right "cat" command according to the suffix. If several such files exist,
-      # take the largest one. If no such file exists, leave the basename empty and
-      # for the user to set.
-      FILE=$(ls -S | egrep "\.(ttl|nt)(\.(gz|bz|bz2|xz))?\$" | head -1)
-      if [ ! -z "$FILE" ]; then
-        DB="${FILE/.*/}"
-        RDF_FILES="$FILE"
-        if [[ ${RDF_FILES} =~ .gz$ ]]; then CAT_FILES="zcat \${RDF_FILES}"; fi
-        if [[ ${RDF_FILES} =~ .bz2?$ ]]; then CAT_FILES="bzcat \${RDF_FILES}"; fi
-        if [[ ${RDF_FILES} =~ .xz$ ]]; then CAT_FILES="xzcat \${RDF_FILES}"; fi
-      fi
-      # Copy QLeverfiles/Qleverfile.default and replace the %...% templates.
-      cat ${QLEVER_CMD_DIR}/Qleverfiles/Qleverfile.default \
-        | sed -E "s/%FOLDER_NAME%/${FOLDER_NAME//\//\\\/}/" \
-        | sed -E "s/%DATE%/${DATE}/" \
-        | sed -E "s/%DB%/\"${DB}\"/" \
-        | sed -E "s/%RDF_FILES%/\"${RDF_FILES}\"/" \
-        | sed -E "s/%CAT_FILES%/\"${CAT_FILES}\"/" \
-        | sed -E "s/%QLEVER_BIN_DIR%/\"${QLEVER_BIN_DIR//\//\\\/}\"/" \
-        | sed -E "s/%RANDOM%/${RANDOM}${RANDOM}/" \
-        > Qleverfile
-        # | sed -E "s/%FOLDER_NAME%/${FOLDER_NAME}/; s/%DATE%/${DATE}/" \
-        cat << EOT
-No pre-configuration name specified (as argument of ". qlever"). Copied default
-Qleverfile to current directory, please edit and check.
-
-EOT
-    fi
-  fi
-
-  # DONE: give the user a short heads up what they can do now.
-  cat << "EOT" | display_markdown
-# Setup is complete
-Type `qlever` and use autocompletion to see which actions are available. Add a
-"show" in the end to see what an action does without executing it (for example,
-`qlever index show`). Edit your local Qleverfile to change settings. A typical
-sequence of actions if you have used a preconfigured Qleverfile is:
-
-`qlever get-data`
-`qlever index`
-`qlever start`
-`qlever example-query`
-
-EOT
-  return
-fi
-
-
-###
-### BASIC HELP AND INSTALL INFO
-###
-### Note that this must come after the code for ". qlever" (which is also called
-### without arguments).
-###
-
-if [ -z "$*" ] || [ "$*" == "help" ]; then
-  echo
-  action_help
-  exit
-fi
-if [ "$*" == "install-binaries" ]; then
-  echo
-  action_install_binaries
-  exit
-fi
-
-# Leave a blank line at the beginning (the welcome message used to be here, but
-# we found it redundant).
-echo
-
-###
-### VARIABLE ASSIGNMENTS
-###
-### 1. Default settings
-### 2. Read from Qleverfile (space around = allowed)
-### 3. Computed derived variables
-###
-
-# Some default settings.
-APP_DIR=$(pwd)                   # Where the script was called from
-DB=must_specify
-USE_DOCKER=false
-WITH_TEXT_INDEX=false
-QLEVER_DOCKER_IMAGE=adfreiburg/qlever
-QLEVERUI_DOCKER_IMAGE=adfreiburg/qlever-ui
-QLEVERUI_DOCKER_CONTAINER=qlever-ui
-HOSTNAME=must_specify     # backend host
-SERVER_PORT=must_specify  # backend port
-QLEVERUI_PORT=7000        # frontend port
-MEMORY_FOR_QUERIES=30             # in GB
-CACHE_MAX_SIZE_GB=30              # in GB
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY=5  # in GB
-CACHE_MAX_NUM_ENTRIES=1000
-ADMIN_TOKEN=              # for actions requiring privilege
-QUERY=
-
-# Read from Qleverfile (only lines that look like an assignment are considered,
-# space around = allowed).
-# echo "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
-# echo
-if ${QLEVERFILE_NEEDED}; then
-  eval "$(cat Qleverfile | sed -En 's/^([A-Z_]+)\s*=\s*(.*)$/\1=\2/p')"
-fi
-# echo "CAT_FILES = \"${CAT_FILES}\""
-
-# Check for variable assignments (of the form VARIABLE=value) in the command
-# line. They override the setting from the Qleverfile. The remaining arguments
-# stay in "$@".
-VARS=()
-for ARG do
-  shift
-  # [[ "${ARG}" =~ ^--$ ]] && OPT="${ARG}" && continue
-  [[ "${ARG}" =~ ^[A-Z_]+=[^[:space:]] ]] && VARS+=( "${ARG}" ) && continue
-  set -- "$@" "${ARG}"
-done
-if (( ${#VARS[@]} )); then
-  echo -e "\033[1mVariable settings specified (will override those from Qleverfile):\033[0m"
-  echo "${BLUE}"
-  for VAR in "${VARS[@]}"; do VAR="${VAR/=/=\"}\""; echo "${BLUE}${VAR}${NORMAL}"; eval "${VAR}"; done
-  echo "${NORMAL}"
-fi
-# for ARG in "$@"; do echo "ARG = \"${ARG}\""; done
-
-# Derived variables. TODO: Only if if not explicitly defined in Qleverfile.
-QLEVER_CMD_WITH_VARS=qlever
-if (( ${#VARS[@]} )); then QLEVER_CMD_WITH_VARS+=" ${VARS[*]}"; fi
-QLEVER_DOCKER_CONTAINER=qlever.${DB}
-SLUG=${QLEVERUI_CONFIG} # URL slug used in the QLever UI
-INDEXER_BINARY=IndexBuilderMain
-ULIMIT_CMD="ulimit -Sn 1048576; "
-if [ ! -z "$(ls ${RDF_FILES} 2> /dev/null)" ] && \
-   [ "$(du -Lbc $(eval ls ${RDF_FILES}) | tail -1 | cut -f1)" -lt 10000000000 ]; then ULIMIT_CMD=""; fi
-INDEXER_OPTIONS="-F ttl -f - -i ${DB} -s ${DB}.settings.json"
-if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
-fi
-if [ "${STXXL_MEMORY_GB}" ]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} --stxxl-memory-gb ${STXXL_MEMORY_GB}"
-fi
-if [[ :from_text_records:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} -w ${DB}.wordsfile.tsv -d ${DB}.docsfile.tsv"
-fi
-if [[ :from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
-  INDEXER_OPTIONS="${INDEXER_OPTIONS} --text-words-from-literals"
-fi
-if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  INDEXER_CMD_PREFIX=""
-  INDEXER_CMD="docker run -it --rm -u $(id -u):$(id -g) -v /etc/localtime:/etc/localtime:ro -v $(pwd):/index -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER}.index-build ${QLEVER_DOCKER_IMAGE} -c \"${PIPEFAIL_CMD}${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
-else
-  INDEXER_CMD_PREFIX="/bin/time -o >(xargs printf \"%d/1000000\n\" | bc -l | xargs printf \"\nMax RAM usage: %'.1f GB\n\n\" | tee -a ${DB}.index-log.txt) -f \"%M\""
-  INDEXER_CMD="bash -c \"${ULIMIT_CMD}${CAT_FILES} | ${INDEXER_BINARY} ${INDEXER_OPTIONS//\"/\\\"} | tee ${DB}.index-log.txt\""
-fi
-REMOVE_DATA_CMD="for RDF_FILE in ${RDF_FILES}; do rm -f \$RDF_FILE; done"
-SERVER_BINARY=ServerMain
-SERVER_OPTIONS="-i ${DB} -j 8 -p ${SERVER_PORT} -m ${MEMORY_FOR_QUERIES} -c ${CACHE_MAX_SIZE_GB} -e ${CACHE_MAX_SIZE_GB_SINGLE_ENTRY} -k ${CACHE_MAX_NUM_ENTRIES}"
-if [ ! -z "${ACCESS_TOKEN}" ]; then SERVER_OPTIONS="${SERVER_OPTIONS} -a \"${ACCESS_TOKEN}\""; fi
-if [[ :1:yes:true: == *:${PSO_AND_POS_ONLY}:* ]]; then
-  SERVER_OPTIONS="${SERVER_OPTIONS} --only-pso-and-pos-permutations --no-patterns"
-fi
-if [[ :1:yes:true: == *:${NO_PATTERNS}:* ]]; then
-  SERVER_OPTIONS="${SERVER_OPTIONS} --no-patterns"
-fi
-if [[
-  :1:yes:true:from_text_records:from_literals:from_text_records_and_literals: == *:${WITH_TEXT_INDEX}:* ]]; then
-  SERVER_OPTIONS="${SERVER_OPTIONS} -t"
-fi
-
-# Command for action "start"
-if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  SERVER_CMD="docker run -d --restart unless-stopped -u $(id -u):$(id -g) -it -v /etc/localtime:/etc/localtime:ro -v $(pwd):/index -p ${SERVER_PORT}:${SERVER_PORT} -w /index --entrypoint bash --name ${QLEVER_DOCKER_CONTAINER} ${QLEVER_DOCKER_IMAGE} -c \"${SERVER_BINARY} ${SERVER_OPTIONS//\"/\\\"} > ${DB}.server-log.txt\" > /dev/null"
-else
-  SERVER_CMD="${SERVER_BINARY} ${SERVER_OPTIONS} > ${DB}.server-log.txt &"
-fi
-
-# Command for action "stop"
-if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
-  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} > /dev/null"
-elif [ ! -z "$(pgrep -af "${SERVER_BINARY} -i ${DB} ")" ]; then
-  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\""
-elif [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-  STOP_CMD="docker rm -f ${QLEVER_DOCKER_CONTAINER} > /dev/null"
-else
-  STOP_CMD="pkill -f \"${SERVER_BINARY} -i [^ ]*${DB}\""
-fi
-
-SERVER_API=http://${HOSTNAME}:${SERVER_PORT}
-
-# Command for action "query"
-QUERY=${QUERY//\"/\\\"}
-QUERY_CMD=(curl -Gs ${SERVER_API} -H "Accept: text/tab-separated-values" --data-urlencode "query=${QUERY}")
-
-
-# Variant of make that reads the master Qleverfile (using GET_MASTER_QLEVERFILE)
-# and the local Qleverfile (in the directory from which this script is called).
-# The -s option stands for "silent" (do not show the commands while executing
-# them).
-function qlever_make {
-  QLEVERFILE_ARG=
-  if [ -e "${APP_DIR}/Qleverfile" ]; then
-    QLEVERFILE_ARG=" -f ${APP_DIR}/Qleverfile"
-  fi
-  get_master_qleverfile | make -s -f - ${QLEVERFILE_ARG} "$@"
-}
-
-# Like the above, but only show what would be executed (using the -n option of
-# "make"), in blue. Leave out command lines that end with #.
-function qlever_make_show {
-  printf "${BLUE}"
-  get_master_qleverfile \
-      | make -f - -f ${APP_DIR}/Qleverfile -n "$@" \
-      | egrep -v "#.?\$" | sed 's/^\s*//; s/\s?*\\$//' \
-      | sed 's/^: #/#/'
-  printf "${NORMAL}"
-}
-
-# Execute action function (given as argument $1).
-function execute_action {
-  ACTION_FUNCTION=$1
-  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
-    # echo "Executing function \"${ACTION_FUNCTION}\" ..."
-    # echo
-    eval ${ACTION_FUNCTION}
-  else
-    echo "${RED}Action function \"$1\" not defined${NORMAL}"
-  fi
-}
-
-# Show selected code of action function (given as argument $1).
-function show_action {
-  QUOTE=\"
-  DOLLAR=\$
-  BACKSLASH=\\
-  ACTION_FUNCTION="$1"
-  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
-    printf "${BLUE}"
-    # This miracle code show the code of the action function. It works as
-    # follows:
-    # 1. The declare -t gives the full code (as written above).
-    # 2. The first sed filters out the lines starting with $SHOW and removing any
-    # parts after $NOSHOW (this gives us control which part to show).
-    # 3. The second sed temporarily replaces all $ that are not followed by a {
-    # and all " by ${DOLLAR} and ${QUOTE}, respsectively. That way, these will
-    # be be preserved (and not get interpreted somehow).
-    # 4. The last part expands all the ${...} variables (without the eval, no
-    # expansion would happen), including the ${DOLLAR} and ${QUOTE} introduced
-    # in the previous step.
-    # 5. Remove empty lines (these correpond to commands which are only exeuted
-    # under certain circumstances)
-    declare -f ${ACTION_FUNCTION} \
-      | sed -En 's/\s+\$NOSHOW.*$//; s/;$//; s/^.*\$SHOW //p' \
-      | sed -En 's/"/${QUOTE}/g; s/\$([^{])/${DOLLAR}\1/g; s/\\/${BACKSLASH}/g; p' \
-      | while read LINE; do eval "echo \"${LINE}\""; done \
-      | sed -E '/^\s*$/d'
-    printf "${NORMAL}"
-  else
-    echo "${RED}Action function \"$1\" not defined${NORMAL}"
-  fi
-}
-
-# Command to leave the script ("return" when the script is sourced, "exit" when
-# it is called normally, that is, within its own subshell).
-EXIT=exit
-if [ ${QLEVER_CMD} != $0 ]; then EXIT=return; fi
-function exit_qlever { eval ${EXIT}; }
-
-
-
-# # Special command "show-config" (for debugging, not one of the completions).
-# if [ "$*" == "show-config" ]; then
-#   echo "${BOLD}${MAGENTA}Secret action \"show-config\":${NORMAL}"
-#   echo
-#   cat << EOT
-# Showing the settings of some variables after they went through "make" and then
-# exported to the "qlever" script again (for debugging). If you call the script
-# with a variable assignment as in "qlever USE_DOCKER=0 ...", that value should
-# overrule the one from the QLeverfile.
-# EOT
-#   echo "${BLUE}"
-#   qlever_make "${VARS[@]}" export.HIDDEN
-#   echo "${NORMAL}"
-#   eval ${EXIT}
-# fi
-# 
-# # Actually do these assignments. NO: this is already done above!
-# $(qlever_make "${VARS[@]}" export.HIDDEN)
-# eval $(qlever_make "${VARS[@]}" export.HIDDEN)
-
-
-
-
-###
-### WHAT THE SCRIPT ACTUALLY DOES
-###
-
-# For selected actions: If USE_DOCKER=1 check if docker container is running
-# and if not run it.
-USE_DOCKER_ACTIONS=none
-# USE_DOCKER_ACTIONS=:start:index:
-if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
-  if [ "${USE_DOCKER}" == "1" ]; then
-    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
-      echo "${MAGENTA}Using the already running docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
-      echo
-    else
-      echo "${MAGENTA}Starting new docker container \"${QLEVER_DOCKER_CONTAINER}\"${NORMAL}"
-      echo
-      qlever_make_show "${VARS[@]}" QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" docker-run.HIDDEN
-      echo
-      qlever_make QLEVER_CMD_DIR="${QLEVER_CMD_DIR}" "${VARS[@]}" docker-run.HIDDEN
-    fi
-  else
-    if [ "$(docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} 2> /dev/null)" == "true" ]; then
-      echo "${MAGENTA}USE_DOCKER=0 but found docker container \"${QLEVER_DOCKER_CONTAINER}\", removing it ...${NORMAL}"
-      echo
-      qlever_make_show "${VARS[@]}" docker-remove.HIDDEN
-      echo
-      qlever_make "${VARS[@]}" docker-remove.HIDDEN
-    fi
-  fi
-fi
-
-
-# If the last argument is "show", just show the commands, but don't execute
-# them. The first for loop is a portable hack to get the last argument.
-for LAST; do true; done
-if [ "${LAST}" == "show" ]; then
-  echo "${BOLD}Just showing what would be executed${NORMAL}"
-  echo
-  for ARG in "$@"; do
-    if [ "${ARG}" != "show" ]; then
-      ACTION_FUNCTION=action_$(echo ${ARG} | sed 's/-/_/g')
-      if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
-        echo "\"${ARG}\" would execute the following:"
-        echo
-        show_action "${ACTION_FUNCTION}"
-        # qlever_make_show "${VARS[@]}" "${ARG}"
-        echo
-      else
-        echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
-        echo
-      fi
-    fi
-  done
-  exit
-fi
-
-# For each action, check whether the corresponding action function exists, and
-# if yes, show the command and then execute it.
-for ARG in "$@"; do
-  # If USE_DOCKER=1 and action requires docker, make sure it's running.
-  USE_DOCKER_ACTIONS=none
-  # USE_DOCKER_ACTIONS=:start:index:
-  if [[ ${USE_DOCKER_ACTIONS} == *:"$ARG":* ]]; then
-    if [[ :1:yes:true: == *:${USE_DOCKER}:* ]]; then
-      if ! docker container inspect -f '{{.State.Running}}' ${QLEVER_DOCKER_CONTAINER} > /dev/null 2>&1; then
-        execute_action action_docker_on
-        echo
-      fi
-    fi
-  fi
-  # Now execute the action.
-  echo "${BOLD}Executing \"${ARG}\":${NORMAL}"
-  echo
-  ACTION_FUNCTION=action_$(echo ${ARG} | sed 's/-/_/g')
-  if [ "$(declare -f ${ACTION_FUNCTION})" ]; then
-    if show_action "${ACTION_FUNCTION}"; then
-      echo
-      execute_action "${ACTION_FUNCTION}"
-      echo
-    fi
-  else
-    echo "${RED}Action \"${ARG}\" not defined, use the autocompletion${NORMAL}"
-    echo
-  fi
-done
+#!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
+
+# This is the `qlever` script (new version, written in Python).  It serves as a
+# convenient command-line tool for all things QLever.  See the `README.md` file
+# for how to use it.
+
+from configparser import ConfigParser, ExtendedInterpolation
+from datetime import datetime, date
+import os
+import glob
+import inspect
+import logging
+import psutil
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from termcolor import colored
+import traceback
+
+BLUE = "\033[34m"
+RED = "\033[31m"
+BOLD = "\033[1m"
+NORMAL = "\033[0m"
+
+
+# Custom formatter for log messages.
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        message = record.getMessage()
+        if record.levelno == logging.DEBUG:
+            return colored(message, "magenta")
+        elif record.levelno == logging.WARNING:
+            return colored(message, "yellow")
+        elif record.levelno in [logging.CRITICAL, logging.ERROR]:
+            return colored(message, "red")
+        else:
+            return message
+
+
+# Custom logger.
+log = logging.getLogger("qlever")
+log.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(CustomFormatter())
+log.addHandler(handler)
+
+
+# Helper function for tracking the order of the actions in class `Actions`.
+def track_action_rank(method):
+    method.rank = track_action_rank.counter
+    track_action_rank.counter += 1
+    return method
+track_action_rank.counter = 0  # noqa: E305
+
+
+# Abort the script.
+def abort_script(error_code=1):
+    log.info("")
+    sys.exit(error_code)
+
+
+class ActionException(Exception):
+    pass
+
+
+class Actions:
+
+    def __init__(self):
+        self.config = ConfigParser(interpolation=ExtendedInterpolation())
+        try:
+            self.config.read("Qleverfile")
+        except Exception as e:
+            log.error(f"Could not read \"Qleverfile\": {e}")
+            abort_script()
+        self.name = self.config['DEFAULT']['name']
+        self.yes_values = ["1", "true", "yes"]
+
+        # Default values for options that are not mandatory in the Qleverfile.
+        defaults = {
+            "general": {
+                "log_level": "info",
+            },
+            "server": {
+                "binary": "ServerMain",
+                "num_threads": "8",
+                "cache_max_size_gb": "5",
+                "cache_max_size_gb_single_entry": "1",
+                "cache_max_num_entries": "100",
+                "with_text_index": "no",
+                "only_pso_and_pos_permutations": "no",
+                "no_patterns": "no",
+            },
+            "index": {
+                "binary": "IndexBuilderMain",
+                "with_text_index": "no",
+                "only_pso_and_pos_permutations": "no",
+                "no_patterns": "no",
+            },
+            "docker": {
+                "image": "adfreiburg/qlever",
+                "container_server": f"qlever.server.{self.name}",
+                "container_indexer": f"qlever.indexer.{self.name}",
+            },
+            "ui": {
+                "port": "7000",
+            }
+        }
+        for section in defaults:
+            # If the section does not exist, create it.
+            if not self.config.has_section(section):
+                self.config[section] = {}
+            # If an option does not exist, set it to the default value.
+            for option in defaults[section]:
+                if not self.config[section].get(option):
+                    self.config[section][option] = defaults[section][option]
+
+        # If the log level was not explicitly set by the first command-line
+        # argument (see below), set it according to the Qleverfile.
+        if log.level == logging.NOTSET:
+            log_level = self.config['general']['log_level'].upper()
+            try:
+                log.setLevel(getattr(logging, log_level))
+            except AttributeError:
+                log.error(f"Invalid log level: \"{log_level}\"")
+                abort_script()
+
+        # Show some information (for testing purposes only).
+        log.debug(f"Parsed Qleverfile, sections are: "
+                  f"{', '.join(self.config.sections())}")
+
+        # Check specifics of the installation.
+        self.check_installation()
+
+    def check_installation(self):
+        """
+        Helper function that checks particulars of the installation and
+        remembers them so that all actions execute without errors.
+        """
+
+        # Handle the case Systems like macOS do not allow
+        # psutil.net_connections().
+        try:
+            psutil.net_connections()
+            self.net_connections_enabled = True
+        except Exception as e:
+            self.net_connections_enabled = False
+            log.debug(f"Note: psutil.net_connections() failed ({e}),"
+                      f" will not scan network connections for action"
+                      f" \"start\"")
+
+        # Check whether docker is installed and works (on MacOS 12, docker
+        # hangs when installed without GUI, hence the timeout).
+        try:
+            completed_process = subprocess.run(
+                    ["docker", "info"], timeout=0.5,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if completed_process.returncode != 0:
+                raise Exception("docker info failed")
+            self.docker_enabled = True
+        except Exception:
+            self.docker_enabled = False
+            print("Note: `docker info` failed, therefore"
+                  " docker.USE_DOCKER=true not supported")
+
+    def set_config(self, section, option, value):
+        """
+        Helper function that sets a value in the config file (and throws an
+        exceptionon if the section or option does not exist).
+        """
+
+        if not self.config.has_section(section):
+            log.error(f"Section [{section}] does not exist in Qleverfile")
+            abort_script()
+        if not self.config.has_option(section, option):
+            log.error(f"Option {option.upper()} does not exist in section "
+                      f"[{section}] in Qleverfile")
+            abort_script()
+        self.config[section][option] = value
+
+    def get_total_file_size(self, paths):
+        """
+        Helper function that gets the total size of all files in the given
+        paths in GB.
+        """
+
+        total_size = 0
+        for path in paths:
+            for file in glob.glob(path):
+                total_size += os.path.getsize(file)
+        return total_size / 1e9
+
+    def alive_check(self, port):
+        """
+        Helper function that checks if a QLever server is running on the given
+        port.
+        """
+
+        message = "from the qlever script".replace(" ", "%20")
+        curl_cmd = f"curl -s http://localhost:{port}/ping?msg={message}"
+        exit_code = subprocess.call(curl_cmd, shell=True,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+        return exit_code == 0
+
+    @track_action_rank
+    def action_setup_config(self, only_show=False):
+        """
+        Setup a pre-filled Qleverfile in the current directory.
+        """
+
+        log.info("{BLUE}Creating a pre-filled Qleverfile{NORMAL}")
+        if only_show:
+            return
+        log.info("")
+
+        # If there is already a Qleverfile in the current directory, exit.
+        if os.path.isfile("Qleverfile"):
+            log.error("Qleverfile already exists in current directory")
+            log.info("")
+            log.info("If you want to create a pre-filled Qleverfile using "
+                     "`qlever setup-config`, delete the existing Qleverfile "
+                     "first")
+            log.info("")
+            abort_script()
+
+        # Get the name of the desired configuration (default: "default").
+        if len(sys.argv) == 2:
+            config = "default"
+        else:
+            config = sys.argv[2]
+
+        # Get the directory of this script and copy the Qleverfile for `config`
+        # to the current directory.
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        qleverfile_path = os.path.join(script_dir,
+                                       f"Qleverfiles/Qleverfile.{config}")
+        if not os.path.isfile(qleverfile_path):
+            log.error(f"File \"{qleverfile_path}\" does not exist")
+            log.info("")
+            abort_script()
+        try:
+            shutil.copy(qleverfile_path, "Qleverfile")
+        except Exception as e:
+            log.error(f"Could not copy \"{qleverfile_path}\""
+                      f" to current directory: {e}")
+            abort_script()
+        log.info(f"Created Qleverfile for config \"{config}\""
+                 f" in current directory")
+        log.info("")
+        sys.exit(0)
+
+    @track_action_rank
+    def action_show_config(self, only_show=False):
+        """
+        Action that shows the current configuration including the default
+        values for options that are not set explicitly in the Qleverfile.
+        """
+
+        print(f"{BLUE}Showing the current configuration, including default"
+              f" values for options that are not set explicitly in the"
+              f" Qleverfile{NORMAL}")
+        for section in ['DEFAULT'] + self.config.sections():
+            print()
+            print(f"[{section}]")
+            max_option_length = max([len(option) for option in
+                                     self.config[section]])
+            for option in self.config[section]:
+                if section == "DEFAULT" or \
+                        option not in self.config['DEFAULT']:
+                    print(f"{option.upper().ljust(max_option_length)} = "
+                          f"{self.config[section][option]}")
+
+        print()
+
+    @track_action_rank
+    def action_get_data(self, only_show=False):
+        """
+        Action that gets the data according to GET_DATA_CMD.
+        """
+
+        if not self.config['data']['get_data_cmd']:
+            print(f"{RED}No GET_DATA_CMD specified in Qleverfile")
+            return
+        cmdline = self.config['data']['get_data_cmd']
+        print(f"{BLUE}{cmdline}{NORMAL}")
+        if not only_show:
+            print()
+            os.system(cmdline)
+            total_file_size = self.get_total_file_size(
+                self.config['index']['file_names'].split())
+            print(f"Total file size: {total_file_size:.1f} GB")
+            # os.system(f"ls -lh {self.config['index']['file_names']}")
+
+    @track_action_rank
+    def action_index(self, only_show=False):
+        """
+        Action that builds a QLever index according to the settings in the
+        [index] section of the Qleverfile.
+        """
+
+        # Construct the command line based on the config file.
+        index_config = self.config['index']
+        cmdline = (f"{index_config['cat_files']} | {index_config['binary']}"
+                   f" -F ttl -f -"
+                   f" -i {self.name}"
+                   f" -s {self.name}.settings.json")
+        if index_config['only_pso_and_pos_permutations'] in self.yes_values:
+            cmdline += " --only-pso-and-pos-permutations --no-patterns"
+        if index_config['with_text_index'] in \
+                ["from_text_records", "from_text_records_and_literals"]:
+            cmdline += (f" -w {self.name}.wordsfile.tsv"
+                        f" -d {self.name}.docsfile.tsv")
+        if index_config['with_text_index'] in \
+                ["from_literals", "from_text_records_and_literals"]:
+            cmdline += " --text-words-from-literals"
+        if 'stxxl_memory_gb' in index_config:
+            cmdline += f" --stxxl-memory-gb {index_config['stxxl_memory_gb']}"
+        cmdline += f" | tee {self.name}.index-log.txt"
+
+        # If the total file size is larger than 10 GB, set ulimit (such that a
+        # large number of open files is allowed).
+        total_file_size = self.get_total_file_size(
+                self.config['index']['file_names'].split())
+        if total_file_size > 10:
+            cmdline = f"ulimit -Sn 1048576; {cmdline}"
+
+        # If we are using Docker, run the command in a Docker container.
+        # Here is how the shell script does it:
+        if self.config['docker']['use_docker'] in self.yes_values:
+            docker_config = self.config['docker']
+            cmdline = (f"docker run -it --rm -u $(id -u):$(id -g)"
+                       f" -v /etc/localtime:/etc/localtime:ro"
+                       f" -v $(pwd):/index -w /index"
+                       f" --entrypoint bash"
+                       f" --name {docker_config['container_indexer']}"
+                       f" {docker_config['image']}"
+                       f" -c {shlex.quote(cmdline)}")
+
+        # Show the command line.
+        log.info(f"{BLUE}{cmdline}{NORMAL}")
+        if only_show:
+            return
+        log.info("")
+
+        # When docker.USE_DOCKER=false, check if the binary for building the
+        # index exists and works.
+        try:
+            check_binary_cmd = f"{self.config['index']['binary']} --help"
+            subprocess.run(check_binary_cmd, shell=True, check=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
+                      f"set index.BINARY to a different binary or "
+                      f"set docker.USE_DOCKER=true")
+            abort_script()
+
+        # Check if index files (name.index.*) already exist.
+        if glob.glob(f"{self.name}.index.*"):
+            raise ActionException(
+                    f"Index files \"{self.name}.index.*\" already exist, "
+                    f"please delete them if you want to rebuild the index")
+
+        # Write settings.json file and run the command.
+        with open(f"{self.name}.settings.json", "w") as f:
+            f.write(self.config['index']['settings_json'])
+        subprocess.run(cmdline, shell=True)
+        # print(f"Return code: {process_completed.returncode}")
+
+    @track_action_rank
+    def action_start(self, only_show=False):
+        """
+        Action that starts the QLever server according to the settings in the
+        [server] section of the Qleverfile. If a server is already running, the
+        action reports that fact and does nothing.
+        """
+
+        # Construct the command line based on the config file.
+        server_config = self.config['server']
+        cmdline = (f"{self.config['server']['binary']}"
+                   f" -i {self.name}"
+                   f" -j {server_config['num_threads']}"
+                   f" -p {server_config['port']}"
+                   f" -m {server_config['memory_for_queries_gb']}"
+                   f" -c {server_config['cache_max_size_gb']}"
+                   f" -e {server_config['cache_max_size_gb_single_entry']}"
+                   f" -k {server_config['cache_max_num_entries']}")
+        if server_config['access_token']:
+            cmdline += f" -a {server_config['access_token']}"
+        if server_config['only_pso_and_pos_permutations'] in self.yes_values:
+            cmdline += " --only-pso-and-pos-permutations"
+        if server_config['no_patterns'] in self.yes_values:
+            cmdline += " --no-patterns"
+        if self.config['index']['with_text_index'] in \
+                ["from_text_records",
+                 "from_literals",
+                 "from_text_records_and_literals"]:
+            cmdline += " -t"
+        cmdline += f" > {self.name}.server-log.txt 2>&1"
+
+        # If we are using Docker, run the command in a docker container.
+        if self.config['docker']['use_docker'] in self.yes_values:
+            docker_config = self.config['docker']
+            cmdline = (f"docker run -d --restart=unless-stopped"
+                       f" -u $(id -u):$(id -g)"
+                       f" -it -v /etc/localtime:/etc/localtime:ro"
+                       f" -v $(pwd):/index"
+                       f" -p {server_config['port']}:{server_config['port']}"
+                       f" -w /index"
+                       f" --entrypoint bash"
+                       f" --name {docker_config['container_server']}"
+                       f" {docker_config['image']}"
+                       f" -c {shlex.quote(cmdline)}")
+        else:
+            cmdline = f"nohup {cmdline} &"
+
+        # Show the command line (and exit if only_show is True).
+        log.info(f"{BLUE}{cmdline}{NORMAL}")
+        if only_show:
+            return
+        log.info("")
+
+        # When docker.USE_DOCKER=false, check if the binary for starting the
+        # server exists and works.
+        try:
+            check_binary_cmd = f"{self.config['server']['binary']} --help"
+            subprocess.run(check_binary_cmd, shell=True, check=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
+                      f"set server.BINARY to a different binary or "
+                      f"set docker.USE_DOCKER=true")
+            abort_script()
+
+        # Check if a QLever server is already running on this port.
+        port = server_config['port']
+        if self.alive_check(port):
+            raise ActionException(
+                    f"QLever server already running on port {port}")
+
+        # Check if another process is already listening.
+        if self.net_connections_enabled:
+            if port in [conn.laddr.port for conn
+                        in psutil.net_connections()]:
+                raise ActionException(
+                        f"Port {port} is already in use by another process")
+
+        # Execute the command line.
+        os.system(cmdline)
+
+        # Tail the server log until the server is ready (note that the `exec`
+        # is important to make sure that the tail process is killed and not
+        # just the bash process).
+        print(f"Follow {self.name}.server-log.txt until the server is ready"
+              f" (Ctrl-C stops following the log, but not the server)")
+        print()
+        tail_cmd = f"exec tail -f {self.name}.server-log.txt"
+        tail_proc = subprocess.Popen(tail_cmd, shell=True)
+        while not self.alive_check(port):
+            time.sleep(1)
+
+        # Set the access token if specified.
+        access_token = server_config['access_token']
+        access_arg = f"--data-urlencode \"access-token={access_token}\""
+        if "index_description" in self.config['data']:
+            desc = self.config['data']['index_description']
+            curl_cmd = (f"curl -Gs http://localhost:{port}/api"
+                        f" --data-urlencode \"index-description={desc}\""
+                        f" {access_arg} > /dev/null")
+            os.system(curl_cmd)
+        if "text_description" in self.config['data']:
+            desc = self.config['data']['text_description']
+            curl_cmd = (f"curl -Gs http://localhost:{port}/api"
+                        f" --data-urlencode \"text-description={desc}\""
+                        f" {access_arg} > /dev/null")
+            os.system(curl_cmd)
+
+        # Kill the tail process. Note: tail_proc.kill() does not work.
+        tail_proc.terminate()
+
+    @track_action_rank
+    def action_stop(self, only_show=False):
+        """
+        Action that stops the QLever server according to the settings in the
+        [server] section of the Qleverfile. If no server is running, the action
+        does nothing.
+        """
+
+        docker_container_name = self.config['docker']['container_server']
+        cmdline_regex = (f"{self.config['server']['binary']}\\S*"
+                         f" -i [^ ]*{self.name}")
+        print(f"{BLUE}Checking for Docker container with name "
+              f"\"{docker_container_name}\" and for processes "
+              f"matching: {cmdline_regex}{NORMAL}")
+        if only_show:
+            return
+        print()
+
+        # First check if there is docker container running.
+        if self.docker_enabled:
+            docker_cmd = (f"docker stop {docker_container_name} && "
+                          f"docker rm {docker_container_name}")
+            try:
+                subprocess.run(docker_cmd, shell=True, check=True,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+                print(f"Docker container with name "
+                      f"\"{docker_container_name}\" "
+                      f"stopped and removed")
+                return
+            except Exception as e:
+                log.debug(f"Error running \"{docker_cmd}\": {e}")
+
+        # Check if there is a process running on the server port using psutil.
+        #
+        # NOTE: On MacOS, some of the proc's returned by psutil.process_iter()
+        # no longer exist when we try to access them, so we just skip them.
+        for proc in psutil.process_iter():
+            try:
+                pinfo = proc.as_dict(
+                        attrs=['pid', 'username', 'create_time',
+                               'memory_info', 'cmdline'])
+                cmdline = " ".join(pinfo['cmdline'])
+            except Exception as err:
+                log.debug(f"Error getting process info: {err}")
+            if re.match(cmdline_regex, cmdline):
+                print(f"Found process {pinfo['pid']} from user "
+                      f"{pinfo['username']} with command line: {cmdline}")
+                print()
+                try:
+                    proc.kill()
+                    print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
+                except Exception as e:
+                    raise ActionException(
+                            f"Could not kill process with PID "
+                            f"{pinfo['pid']}: {e}")
+                return
+
+        # No matching process found.
+        raise ActionException("No matching Docker container or process found")
+
+    @track_action_rank
+    def action_status(self, only_show=False):
+        """
+        Action that shows all QLever processes running on this machine.
+
+        TODO: Also show the QLever-related docker containers.
+        """
+
+        cmdline_regex = "^(ServerMain|IndexBuilderMain)"
+        log.info(f"{BLUE}All processes on this machine where "
+                 f"the command line matches {cmdline_regex}"
+                 f" using Python's psutil library{NORMAL}")
+        log.info("")
+        if only_show:
+            print(f"{BLUE}If executed, show processes using psutil{NORMAL}")
+            return
+
+        # Print the table headers
+        num_processes_found = 0
+        for proc in psutil.process_iter():
+            try:
+                pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
+                                            'memory_info', 'cmdline'])
+                cmdline = " ".join(pinfo['cmdline'])
+            except Exception:
+                continue
+            if not re.match(cmdline_regex, cmdline):
+                continue
+            if num_processes_found == 0:
+                print("{:<8} {:<8} {:>5}  {:>5}  {}".format(
+                    "PID", "USER", "START", "RSS", "COMMAND"))
+            num_processes_found += 1
+            pid = pinfo['pid']
+            user = pinfo['username'] if pinfo['username'] else ""
+            start_time = datetime.fromtimestamp(pinfo['create_time'])
+            if start_time.date() == date.today():
+                start_time = start_time.strftime("%H:%M")
+            else:
+                start_time = start_time.strftime("%b%d")
+            rss = f"{pinfo['memory_info'].rss / 1e9:.0f} G"
+            print("{:<8} {:<8} {:>5}  {:>5}  {}".format(
+                pid, user, start_time, rss, cmdline))
+        if num_processes_found == 0:
+            print("No processes found")
+
+    @track_action_rank
+    def action_index_stats(self, only_show=False):
+        """
+        Action that provides a breakdown of the time needed for building the
+        index, based on the log file of th index build.
+        """
+
+        log_file_name = self.config['data']['name'] + ".index-log.txt"
+        log.info(f"{BLUE}Breakdown of the time for building the index"
+                 f" based on the timestamps in \"{log_file_name}{NORMAL}\"")
+        log.info("")
+        if only_show:
+            return
+
+        # Read the content of `log_file_name` into a list of lines.
+        try:
+            with open(log_file_name, "r") as f:
+                lines = f.readlines()
+        except Exception as e:
+            raise ActionException(f"Could not read log file {log_file_name}: "
+                                  f"{e}")
+        current_line = 0
+
+        # Helper lambda that finds the next line matching the given `regex`,
+        # starting from `current_line`, and extracts the time.
+        def find_next_line(regex, line_is_optional=False):
+            nonlocal lines
+            nonlocal current_line
+            current_line_backup = current_line
+            # Find starting from `current_line`.
+            while current_line < len(lines):
+                line = lines[current_line]
+                current_line += 1
+                timestamp_regex = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
+                timestamp_format = "%Y-%m-%d %H:%M:%S"
+                if re.search(regex, line):
+                    try:
+                        return datetime.strptime(
+                                re.match(timestamp_regex, line).group(),
+                                timestamp_format)
+                    except Exception as e:
+                        raise ActionException(
+                                f"Could not parse timestamp of form "
+                                f"\"{timestamp_regex}\" from line "
+                                f" \"{line.rstrip()}\" ({e})")
+            # If we get here, we did not find a matching line.
+            if line_is_optional:
+                current_line = current_line_backup
+            return None
+
+        # Find the lines matching th key_lines_regex and extract the time
+        # information from them.
+        overall_begin = find_next_line(r"INFO:\s*Processing")
+        merge_begin = find_next_line(r"INFO:\s*Merging partial vocabularies")
+        convert_begin = find_next_line(r"INFO:\s*Converting triples")
+        perm1_begin = find_next_line(r"INFO:\s*Creating")
+        perm2_begin = find_next_line(r"INFO:\s*Creating", True)
+        perm3_begin = find_next_line(r"INFO:\s*Creating", True)
+        normal_end = find_next_line(r"INFO:\s*Index build completed")
+        text_begin = find_next_line(r"INFO:\s*Adding text index", True)
+        text_end = find_next_line(r"INFO:\s*DocsDB done", True)
+
+        # Check whether at least the first phase is done.
+        if overall_begin is None:
+            raise ActionException("Missing line that index build has started")
+        if overall_begin and not merge_begin:
+            raise ActionException("According to the log file, the index build "
+                                  "has started, but is still in its first "
+                                  "phase (parsing the input)")
+
+        # Helper lambda that shows the duration for a phase (if the start and
+        # end timestamps are available).
+        def show_duration(heading, start, end):
+            nonlocal unit
+            if start and end:
+                diff_seconds = (end - start).total_seconds()
+                diff = diff_seconds / (3600 if unit == "h" else 60)
+                log.info(f"{heading:<23} : {diff:>5.1f} {unit}")
+
+        # Get the times of the various phases (hours or minutes, depending on
+        # how long the first phase took).
+        unit = "h" if overall_begin and merge_begin and \
+            (merge_begin - overall_begin).total_seconds() > 3600 else "min"
+        show_duration("Parse input", overall_begin, merge_begin)
+        show_duration("Build vocabularies", merge_begin, convert_begin)
+        show_duration("Convert to global IDs", convert_begin, perm1_begin)
+        show_duration("PSO & POS permutations", perm1_begin, perm2_begin)
+        show_duration("SPO & SOP permutations", perm2_begin, perm3_begin)
+        show_duration("OSP & OPS permutations", perm3_begin, normal_end)
+        show_duration("Text index", text_begin, text_end)
+        if text_begin and text_end:
+            log.info("")
+            show_duration("TOTAL index build time", overall_begin, text_end)
+        elif normal_end:
+            log.info("")
+            show_duration("TOTAL index build time", overall_begin, normal_end)
+
+
+def setup_autocompletion_cmd():
+    """
+    Print the command for setting up autocompletion for the qlever.py script.
+
+    TODO: Currently work for bash only.
+    """
+
+    # Get methods that start wth "action_" from the Actions class, sorted by
+    # their appearance in the class (see the `@track_action_rank` decorator).
+    methods = inspect.getmembers(Actions, predicate=inspect.isfunction)
+    methods = [m for m in methods if m[0].startswith("action_")]
+    action_names = sorted([m[0] for m in methods],
+                          key=lambda m: getattr(Actions, m).rank)
+    action_names = [_.replace("action_", "") for _ in action_names]
+    action_names = [_.replace("_", "-") for _ in action_names]
+    action_names = " ".join(action_names)
+
+    # Add config settings to the list of possible actions for autocompletion.
+    action_names += " docker.USE_DOCKER=true docker.USE_DOCKER=false"
+    action_names += " index.BINARY=IndexBuilderMain"
+    action_names += " server.BINARY=ServerMain"
+
+    # Return multiline string with the command for setting up autocompletion.
+    return f"""\
+_qlever_completion() {{
+  local cur=${{COMP_WORDS[COMP_CWORD]}}
+  COMPREPLY=( $(compgen -W "{action_names}" -- $cur) )
+}}
+complete -o nosort -F _qlever_completion qlever
+"""
+
+
+def main():
+    # If there is only argument `setup-autocompletion`, call the function
+    # `Actions.setup_autocompletion()` above and exit.
+    if len(sys.argv) == 2 and sys.argv[1] == "setup-autocompletion":
+        log.setLevel(logging.ERROR)
+        print(setup_autocompletion_cmd())
+        sys.exit(0)
+
+    # If the first argument sets the log level, deal with that immediately (so
+    # that it goes into effect before we do anything else). Otherwise, set the
+    # log level to `NOTSET` (which will signal to the Actions class that it can
+    # take the log level from the config file).
+    log.setLevel(logging.NOTSET)
+    if len(sys.argv) > 1:
+        set_log_level_match = re.match(r"general.log_level=(\w+)", sys.argv[1])
+        if set_log_level_match:
+            log_level = set_log_level_match.group(1).upper()
+            sys.argv = sys.argv[1:]
+            try:
+                log.setLevel(getattr(logging, log_level))
+                log.debug("")
+                log.debug(f"Log level set to {log_level}")
+                log.debug("")
+            except AttributeError:
+                log.error(f"Invalid log level: \"{log_level}\"")
+                abort_script()
+
+    action_names = [_ for _ in dir(Actions) if _.startswith("action_")]
+    action_names = [_.replace("action_", "") for _ in action_names]
+    action_names = [_.replace("_", "-") for _ in action_names]
+    actions = Actions()
+    # log.info(f"Actions available are: {', '.join(action_names)}")
+    # Show the log level as string.
+    # log.info(f"Log level: {logging.getLevelName(log.getEffectiveLevel())}")
+
+    # Check if the last argument is "show" (if yes, remember it and remove it).
+    only_show = True if len(sys.argv) > 1 and sys.argv[-1] == "show" else False
+    if only_show:
+        sys.argv = sys.argv[:-1]
+
+    # If `setup-config` is among the command-line arguments, it must the first
+    # one, followed by at most one more argument.
+    if "setup-config" in sys.argv:
+        if sys.argv.index("setup-config") > 1:
+            log.error("Action `setup-config` must be the first argument")
+            abort_script()
+        if len(sys.argv) > 3:
+            log.error("Action `setup-config` must be followed by at most one "
+                      "argument (the name of the desied configuration)")
+            abort_script()
+
+    # Initalize actions.
+    # Execute the actions specified on the command line.
+    for action_name in sys.argv[1:]:
+        # If the action is of the form section.key=value, set the config value.
+        set_config_match = re.match(r"(\w+)\.(\w+)=(.*)", action_name)
+        if set_config_match:
+            section, option, value = set_config_match.groups()
+            log.info(f"Setting config value: {section}.{option}={value}")
+            try:
+                actions.set_config(section, option, value)
+            except ValueError as err:
+                log.error(err)
+                abort_script()
+            continue
+        # If the action name does not exist, exit.
+        if action_name not in action_names:
+            log.error(f"Action \"{action_name}\" does not exist, available "
+                      f"actions are: {', '.join(action_names)}")
+            abort_script()
+        # Execute the action (or only show what would be executed).
+        log.info("")
+        log.info(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
+        log.info("")
+        action = f"action_{action_name.replace('-', '_')}"
+        try:
+            getattr(actions, action)(only_show=only_show)
+        except ActionException as err:
+            # line = traceback.extract_tb(err.__traceback__)[-1].lineno
+            print(f"{RED}{err}{NORMAL}")
+            abort_script()
+        except Exception as err:
+            line = traceback.extract_tb(err.__traceback__)[-1].lineno
+            print(f"{RED}Error in Python script (line {line}: {err})"
+                  f", stack trace follows:{NORMAL}")
+            print()
+            raise err
+    log.info("")
+
+
+if __name__ == "__main__":
+    main()

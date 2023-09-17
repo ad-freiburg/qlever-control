@@ -52,7 +52,7 @@ jobs:
         run: |
           mkdir olympics.with-docker && cd $_
           cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true index start status stop status
+          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true index index-stats start status stop status
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
@@ -61,7 +61,7 @@ jobs:
           export PATH="$PATH:$(pwd)/qlever-binaries"
           mkdir olympics.without-docker && cd $_
           cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index start status stop status
+          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index index-stats start status stop status
           ls -lh
 
       - name: Test actions for olympics dataset, with and without Docker
@@ -70,7 +70,7 @@ jobs:
           export PATH="$PATH:$(pwd)/qlever-binaries"
           mkdir olympics.with-and-without-docker && cd $_
           cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data index
+          unbuffer python3 ../qlever.py get-data index index-stats
           unbuffer python3 ../qlever.py docker.USE_DOCKER=false start status
           unbuffer python3 ../qlever.py docker.USE_DOCKER=true stop status
           unbuffer python3 ../qlever.py docker.USE_DOCKER=true start status

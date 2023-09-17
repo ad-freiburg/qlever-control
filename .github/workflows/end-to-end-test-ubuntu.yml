@@ -21,17 +21,17 @@ jobs:
         with:
           path: qlever-control
 
-      - name: Format and compile check
-        working-directory: ${{github.workspace}}/qlever-control
-        run: |
-          flake8 qlever
-          python3 -m py_compile qlever
-
       - name: Install dependencies for the QLever script
         run: |
           sudo apt update
           sudo apt install unzip flake8 expect
           pip3 install psutil termcolor
+
+      - name: Format and compile check
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          flake8 qlever
+          python3 -m py_compile qlever
 
       - name: Download QLever binaries and docker image and install dependencies
         run: |

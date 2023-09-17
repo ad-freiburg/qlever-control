@@ -21,18 +21,18 @@ jobs:
         with:
           path: qlever-control
 
-      - name: Format and compile check
-        working-directory: ${{github.workspace}}/qlever-control
-        run: |
-          flake8 qlever
-          python3 -m py_compile qlever
-
       - name: Install dependencies for the QLever script
         run: |
           brew install llvm@16
           brew install conan@2
           brew install unzip expect
           pip3 install flake8 psutil termcolor
+
+      - name: Format and compile check
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          flake8 qlever
+          python3 -m py_compile qlever
 
       - name: Cache for conan (to make the next step much faster)
         uses: actions/cache@v3

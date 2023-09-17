@@ -710,6 +710,24 @@ complete -o nosort -F _qlever_completion qlever
 
 
 def main():
+    # If the script is called without argument, say hello.
+    if len(sys.argv) == 1:
+        log.info("")
+        log.info(f"{BOLD}Hello, I am the QLever script{NORMAL}")
+        log.info("")
+        log.info("The best way to start is to create an empty directory "
+                 "and download one of the preset config files, for example:")
+        log.info("")
+        log.info(f"{BLUE}qlever setup-config olympics{NORMAL}")
+        log.info("")
+        qleverfiles_dir = os.path.join(os.path.dirname(__file__),
+                                       "Qleverfiles")
+        config_names = [qleverfile_name.split(".")[1] for
+                        qleverfile_name in os.listdir(qleverfiles_dir)]
+        log.info(f"Available presets are: {', '.join(sorted(config_names))}")
+        log.info("")
+        return
+
     # If there is only argument `setup-autocompletion`, call the function
     # `Actions.setup_autocompletion()` above and exit.
     if len(sys.argv) == 2 and sys.argv[1] == "setup-autocompletion":

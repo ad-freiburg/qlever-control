@@ -4,23 +4,21 @@
 # qlever index     # takes ~10 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
 # qlever start     # starts the server (instant)
 
-[DEFAULT]
-NAME = olympics
-
 [data]
+NAME              = olympics
 BASE_URL          = https://github.com/wallscope/olympics-rdf
 GET_DATA_CMD      = curl -sLo olympics.zip -C - ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip -q -o olympics.zip && rm olympics.zip
 INDEX_DESCRIPTION = 120 Years of Olympics, data from ${BASE_URL}
 TEXT_DESCRIPTION  = All literals, search with FILTER CONTAINS(?var, "...")
 
 [index]
-FILE_NAMES    = ${NAME}.nt
+FILE_NAMES    = olympics.nt
 CAT_FILES     = cat ${FILE_NAMES}
 SETTINGS_JSON = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
 
 [server]
 PORT                  = 7019
-ACCESS_TOKEN          = ${NAME}_7643543846
+ACCESS_TOKEN          = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES_GB = 5
 CACHE_MAX_SIZE_GB     = 2
 

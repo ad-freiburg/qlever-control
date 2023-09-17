@@ -15,6 +15,7 @@ import psutil
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -63,18 +64,71 @@ def abort_script(error_code=1):
     sys.exit(error_code)
 
 
+# Show the available config names.
+def show_available_config_names():
+    # Get available config names from the Qleverfiles directory (which should
+    # be in the same directory as this script).
+    script_dir = os.path.dirname(__file__)
+    try:
+        qleverfiles_dir = os.path.join(script_dir, "Qleverfiles")
+        config_names = [qleverfile_name.split(".")[1] for
+                        qleverfile_name in os.listdir(qleverfiles_dir)]
+        if not config_names:
+            raise Exception(f"Directory \"{qleverfiles_dir}\" exists, but "
+                            f"contains no Qleverfiles")
+    except Exception as e:
+        log.error(f"Could not find any Qleverfiles in \"{qleverfiles_dir}\" "
+                  f"({e})")
+        log.info("")
+        log.info("Check that you have fully downloaded or cloned "
+                 "https://github.com/ad-freiburg/qlever-control, and "
+                 "not just the script itself")
+        abort_script()
+    # Show available config names.
+    log.info(f"Available config names are: {', '.join(sorted(config_names))}")
+
+
+# Show the available action names.
+def show_available_action_names():
+    log.info("The qlever script takes a sequence of action names as "
+             "arguments, for example:")
+    log.info("")
+    log.info(f"{BLUE}qlever get-data index start{NORMAL}")
+    log.info("")
+    log.info(f"Available action names are: {', '.join(action_names)}")
+    log.info("")
+    log.info("To get autocompletion for these, run the following or "
+             "add it to your `.bashrc`:")
+    log.info("")
+    log.info(f"{BLUE}eval \"$(qlever setup-autocompletion)\"{NORMAL}")
+
+
+# We want to distinguish between exception that we throw intentionally and all
+# others.
 class ActionException(Exception):
     pass
 
 
+# This class contains all the action :-)
 class Actions:
 
     def __init__(self):
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
-        try:
-            self.config.read("Qleverfile")
-        except Exception as e:
-            log.error(f"Could not read \"Qleverfile\": {e}")
+        # Check if the Qleverfile exists.
+        if not os.path.isfile("Qleverfile"):
+            log.setLevel(logging.INFO)
+            log.info("")
+            log.error("The qlever script needs a \"Qleverfile\" "
+                      "in the current directory, but I could not find it")
+            log.info("")
+            log.info("Run `qlever setup-config <config name>` to create a "
+                     "pre-filled Qleverfile")
+            log.info("")
+            show_available_config_names()
+            abort_script()
+        files_read = self.config.read("Qleverfile")
+        if not files_read:
+            log.error("ConfigParser could not read \"Qleverfile\"")
             abort_script()
         self.name = self.config['data']['name']
         self.yes_values = ["1", "true", "yes"]
@@ -107,6 +161,8 @@ class Actions:
             },
             "ui": {
                 "port": "7000",
+                "image": "adfreiburg/qlever-ui",
+                "container": "qlever-ui",
             }
         }
         for section in defaults:
@@ -206,8 +262,21 @@ class Actions:
                                     stderr=subprocess.DEVNULL)
         return exit_code == 0
 
-    @track_action_rank
+    def show(self, action_description, only_show):
+        """
+        Helper function that shows the command line or description of an
+        action, together with an explanation.
+        """
+
+        log.info(f"{BLUE}{action_description}{NORMAL}")
+        log.info("")
+        if only_show:
+            log.info("You called \"qlever ... show\", therefore the action "
+                     "is only shown, but not executed (omit the \"show\" to "
+                     "execute it)")
+
     @staticmethod
+    @track_action_rank
     def action_setup_config(config_name="default"):
         """
         Setup a pre-filled Qleverfile in the current directory.
@@ -220,10 +289,9 @@ class Actions:
         if os.path.isfile("Qleverfile"):
             log.error("Qleverfile already exists in current directory")
             log.info("")
-            log.info("If you want to create a pre-filled Qleverfile using "
+            log.info("If you want to create a new Qleverfile using "
                      "`qlever setup-config`, delete the existing Qleverfile "
                      "first")
-            log.info("")
             abort_script()
 
         # Get the directory of this script and copy the Qleverfile for `config`
@@ -243,6 +311,16 @@ class Actions:
             abort_script()
         log.info(f"Created Qleverfile for config \"{config_name}\""
                  f" in current directory")
+        log.info("")
+        if config_name == "default":
+            log.info("Since this is the default Qleverfile, you need to "
+                     "edit it before you can continue")
+            log.info("")
+            log.info("Afterwards, run `qlever` without arguments to see "
+                     "which actions are available")
+        else:
+            log.info("If you are unsure how to continue, run `qlever`"
+                     " without arguments to see the available actions")
         log.info("")
 
     @track_action_rank
@@ -272,18 +350,22 @@ class Actions:
         Action that gets the data according to GET_DATA_CMD.
         """
 
+        # Construct the command line.
         if not self.config['data']['get_data_cmd']:
-            print(f"{RED}No GET_DATA_CMD specified in Qleverfile")
+            log.error(f"{RED}No GET_DATA_CMD specified in Qleverfile")
             return
         cmdline = self.config['data']['get_data_cmd']
-        print(f"{BLUE}{cmdline}{NORMAL}")
-        if not only_show:
-            print()
-            os.system(cmdline)
-            total_file_size = self.get_total_file_size(
-                self.config['index']['file_names'].split())
-            print(f"Total file size: {total_file_size:.1f} GB")
-            # os.system(f"ls -lh {self.config['index']['file_names']}")
+
+        # Show it.
+        self.show(cmdline, only_show)
+        if only_show:
+            return
+
+        # Execute the command line.
+        os.system(cmdline)
+        total_file_size = self.get_total_file_size(
+            self.config['index']['file_names'].split())
+        print(f"Total file size: {total_file_size:.1f} GB")
 
     @track_action_rank
     def action_index(self, only_show=False):
@@ -331,10 +413,11 @@ class Actions:
                        f" -c {shlex.quote(cmdline)}")
 
         # Show the command line.
-        log.info(f"{BLUE}{cmdline}{NORMAL}")
+        self.show(f"Write value of config variable index.SETTINGS_JSON to "
+                  f"file {self.name}.settings.json\n"
+                  f"{cmdline}", only_show)
         if only_show:
             return
-        log.info("")
 
         # When docker.USE_DOCKER=false, check if the binary for building the
         # index exists and works.
@@ -359,7 +442,6 @@ class Actions:
         with open(f"{self.name}.settings.json", "w") as f:
             f.write(self.config['index']['settings_json'])
         subprocess.run(cmdline, shell=True)
-        # print(f"Return code: {process_completed.returncode}")
 
     @track_action_rank
     def action_start(self, only_show=False):
@@ -408,11 +490,10 @@ class Actions:
         else:
             cmdline = f"nohup {cmdline} &"
 
-        # Show the command line (and exit if only_show is True).
-        log.info(f"{BLUE}{cmdline}{NORMAL}")
+        # Show the command line.
+        self.show(cmdline, only_show)
         if only_show:
             return
-        log.info("")
 
         # When docker.USE_DOCKER=false, check if the binary for starting the
         # server exists and works.
@@ -441,14 +522,14 @@ class Actions:
                         f"Port {port} is already in use by another process")
 
         # Execute the command line.
-        os.system(cmdline)
+        subprocess.run(cmdline, shell=True)
 
         # Tail the server log until the server is ready (note that the `exec`
         # is important to make sure that the tail process is killed and not
         # just the bash process).
-        print(f"Follow {self.name}.server-log.txt until the server is ready"
-              f" (Ctrl-C stops following the log, but not the server)")
-        print()
+        log.info(f"Follow {self.name}.server-log.txt until the server is ready"
+                 f" (Ctrl-C stops following the log, but not the server)")
+        log.info("")
         tail_cmd = f"exec tail -f {self.name}.server-log.txt"
         tail_proc = subprocess.Popen(tail_cmd, shell=True)
         while not self.alive_check(port):
@@ -462,34 +543,35 @@ class Actions:
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                         f" --data-urlencode \"index-description={desc}\""
                         f" {access_arg} > /dev/null")
-            os.system(curl_cmd)
+            log.debug(curl_cmd)
+            subprocess.run(curl_cmd, shell=True)
         if "text_description" in self.config['data']:
             desc = self.config['data']['text_description']
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                         f" --data-urlencode \"text-description={desc}\""
                         f" {access_arg} > /dev/null")
-            os.system(curl_cmd)
+            log.debug(curl_cmd)
+            subprocess.run(curl_cmd, shell=True)
 
-        # Kill the tail process. Note: tail_proc.kill() does not work.
+        # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
         tail_proc.terminate()
 
     @track_action_rank
-    def action_stop(self, only_show=False):
+    def action_stop(self, only_show=False, fail_if_not_running=True):
         """
         Action that stops the QLever server according to the settings in the
         [server] section of the Qleverfile. If no server is running, the action
         does nothing.
         """
 
+        # Show action description.
         docker_container_name = self.config['docker']['container_server']
-        cmdline_regex = (f"{self.config['server']['binary']}\\S*"
-                         f" -i [^ ]*{self.name}")
-        print(f"{BLUE}Checking for Docker container with name "
-              f"\"{docker_container_name}\" and for processes "
-              f"matching: {cmdline_regex}{NORMAL}")
+        cmdline_regex = (f"ServerMain.* -i [^ ]*{self.name}")
+        self.show(f"Checking for process matching \"{cmdline_regex}\" "
+                  f"and for Docker container with name "
+                  f"\"{docker_container_name}\"", only_show)
         if only_show:
             return
-        print()
 
         # First check if there is docker container running.
         if self.docker_enabled:
@@ -499,9 +581,9 @@ class Actions:
                 subprocess.run(docker_cmd, shell=True, check=True,
                                stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL)
-                print(f"Docker container with name "
-                      f"\"{docker_container_name}\" "
-                      f"stopped and removed")
+                log.info(f"Docker container with name "
+                         f"\"{docker_container_name}\" "
+                         f"stopped and removed")
                 return
             except Exception as e:
                 log.debug(f"Error running \"{docker_cmd}\": {e}")
@@ -519,12 +601,12 @@ class Actions:
             except Exception as err:
                 log.debug(f"Error getting process info: {err}")
             if re.match(cmdline_regex, cmdline):
-                print(f"Found process {pinfo['pid']} from user "
-                      f"{pinfo['username']} with command line: {cmdline}")
+                log.info(f"Found process {pinfo['pid']} from user "
+                         f"{pinfo['username']} with command line: {cmdline}")
                 print()
                 try:
                     proc.kill()
-                    print(f"{RED}Killed process {pinfo['pid']}{NORMAL}")
+                    log.info(f"Killed process {pinfo['pid']}")
                 except Exception as e:
                     raise ActionException(
                             f"Could not kill process with PID "
@@ -532,7 +614,21 @@ class Actions:
                 return
 
         # No matching process found.
-        raise ActionException("No matching Docker container or process found")
+        message = "No matching process or Docker container found"
+        if fail_if_not_running:
+            raise ActionException(message)
+        else:
+            log.info(f"{message}, so nothing to stop")
+
+    @track_action_rank
+    def action_restart(self, only_show=False):
+        """
+        Action that restarts the QLever server.
+        """
+
+        self.action_stop(only_show=only_show, fail_if_not_running=False)
+        log.info("")
+        self.action_start()
 
     @track_action_rank
     def action_status(self, only_show=False):
@@ -542,16 +638,18 @@ class Actions:
         TODO: Also show the QLever-related docker containers.
         """
 
-        cmdline_regex = "^(ServerMain|IndexBuilderMain)"
-        log.info(f"{BLUE}All processes on this machine where "
-                 f"the command line matches {cmdline_regex}"
-                 f" using Python's psutil library{NORMAL}")
-        log.info("")
+        # Show action description.
+        cmdline_regex = "(ServerMain|IndexBuilderMain)"
+        # cmdline_regex = f"(ServerMain|IndexBuilderMain).*{self.name}"
+        self.show(f"{BLUE}Show all processes on this machine where "
+                  f"the command line matches {cmdline_regex}"
+                  f" using Python's psutil library", only_show)
         if only_show:
-            print(f"{BLUE}If executed, show processes using psutil{NORMAL}")
             return
 
-        # Print the table headers
+        # Show the results as a table.
+        def show_table_line(pid, user, start_time, rss, cmdline):
+            log.info(f"{pid:<8} {user:<8} {start_time:>5}  {rss:>5} {cmdline}")
         num_processes_found = 0
         for proc in psutil.process_iter():
             try:
@@ -563,8 +661,7 @@ class Actions:
             if not re.match(cmdline_regex, cmdline):
                 continue
             if num_processes_found == 0:
-                print("{:<8} {:<8} {:>5}  {:>5}  {}".format(
-                    "PID", "USER", "START", "RSS", "COMMAND"))
+                show_table_line("PID", "USER", "START", "RSS", "COMMAND")
             num_processes_found += 1
             pid = pinfo['pid']
             user = pinfo['username'] if pinfo['username'] else ""
@@ -574,8 +671,7 @@ class Actions:
             else:
                 start_time = start_time.strftime("%b%d")
             rss = f"{pinfo['memory_info'].rss / 1e9:.0f} G"
-            print("{:<8} {:<8} {:>5}  {:>5}  {}".format(
-                pid, user, start_time, rss, cmdline))
+            show_table_line(pid, user, start_time, rss, cmdline)
         if num_processes_found == 0:
             print("No processes found")
 
@@ -687,6 +783,73 @@ class Actions:
             log.info("")
             show_duration("TOTAL index build time", overall_begin, normal_end)
 
+    @track_action_rank
+    def action_example_query(self, only_show=False):
+        """
+        Action that sends a simple SPARQL query to the server.
+        """
+
+        # Construct the curl command.
+        query = "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
+        port = self.config["server"]["port"]
+        url = f"http://localhost:{port}"
+        headers = ["Accept: text/tab-separated-values",
+                   "Content-Type: application/sparql-query"]
+        curl_cmd = (f"curl -s {url} -H \"{headers[0]}\" -H \"{headers[1]}\" "
+                    f"--data \"{query}\"")
+
+        # Show it.
+        self.show(curl_cmd, only_show)
+        if only_show:
+            return
+
+        # Execute it.
+        subprocess.run(curl_cmd, shell=True)
+
+    @track_action_rank
+    def action_ui(self, only_show=False):
+        """
+        Action that starts the QLever UI with the server according to the
+        Qleverfile as backend.
+        """
+
+        # Construct commands.
+        host_name = socket.getfqdn()
+        server_url = f"http://{host_name}:{self.config['server']['port']}"
+        docker_rm_cmd = f"docker rm -f {self.config['ui']['container']}"
+        docker_pull_cmd = f"docker pull {self.config['ui']['image']}"
+        docker_run_cmd = (f"docker run -d -p {self.config['ui']['port']}:7000 "
+                          f"--name {self.config['ui']['container']} "
+                          f"{self.config['ui']['image']} ")
+        docker_exec_cmd = (f"docker exec -it "
+                           f"{self.config['ui']['container']} "
+                           f"bash -c \"python manage.py configure "
+                           f"{self.config['ui']['config']} "
+                           f"{server_url}\"")
+
+        # Show them.
+        self.show("\n".join([docker_rm_cmd, docker_pull_cmd, docker_run_cmd,
+                             docker_exec_cmd]), only_show)
+        if only_show:
+            return
+
+        # Execute them.
+        try:
+            subprocess.run(docker_rm_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+            subprocess.run(docker_pull_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+            subprocess.run(docker_run_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+            subprocess.run(docker_exec_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            raise ActionException(f"Failed to start the QLever UI {e}")
+        log.info(f"The QLever UI should now be up at "
+                 f"http://{host_name}:{self.config['ui']['port']}")
+        log.info("You can log in as QLever UI admin with username and "
+                 "passwort \"demo\"")
+
 
 def setup_autocompletion_cmd():
     """
@@ -720,22 +883,36 @@ complete -o nosort -F _qlever_completion qlever
 """
 
 
+# Get all action names.
+action_names = [_ for _ in dir(Actions) if _.startswith("action_")]
+action_names = [_.replace("action_", "") for _ in action_names]
+action_names = [_.replace("_", "-") for _ in action_names]
+
+
 def main():
-    # If the script is called without argument, say hello.
-    if len(sys.argv) == 1:
+    # If the script is called without argument, say hello and provide some
+    # help to get started.
+    if len(sys.argv) == 1 or \
+            (len(sys.argv) == 2 and sys.argv[1] == "help") or \
+            (len(sys.argv) == 2 and sys.argv[1] == "--help") or \
+            (len(sys.argv) == 2 and sys.argv[1] == "-h"):
         log.info("")
-        log.info(f"{BOLD}Hello, I am the QLever script{NORMAL}")
+        log.info(f"{BOLD}Hello, I am the qlever script{NORMAL}")
         log.info("")
-        log.info("The best way to start is to create an empty directory "
-                 "and download one of the preset config files, for example:")
-        log.info("")
-        log.info(f"{BLUE}qlever setup-config olympics{NORMAL}")
-        log.info("")
-        qleverfiles_dir = os.path.join(os.path.dirname(__file__),
-                                       "Qleverfiles")
-        config_names = [qleverfile_name.split(".")[1] for
-                        qleverfile_name in os.listdir(qleverfiles_dir)]
-        log.info(f"Available presets are: {', '.join(sorted(config_names))}")
+        if os.path.exists("Qleverfile"):
+            log.info("I see that you already have a \"Qleverfile\" in the "
+                     "current directory, so you are ready to start")
+            log.info("")
+            show_available_action_names()
+        else:
+            log.info("I need a Qleverfile in the current directory, which "
+                     "you can create as follows:")
+            log.info("")
+            log.info(f"{BLUE}qlever setup-config <config name>{NORMAL}")
+            log.info("")
+            show_available_config_names()
+            log.info("")
+            log.info("If you omit <config name>, you get a default Qleverfile")
         log.info("")
         return
 
@@ -768,7 +945,7 @@ def main():
     # Helper function that executes an action.
     def execute_action(actions, action_name, **kwargs):
         log.info("")
-        log.info(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
+        log.info(f"{BOLD}Action \"{action_name}\"{NORMAL}")
         log.info("")
         action = f"action_{action_name.replace('-', '_')}"
         try:
@@ -782,8 +959,6 @@ def main():
                   f", stack trace follows:{NORMAL}")
             print()
             raise err
-
-    log.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
     # If `setup-config` is among the command-line arguments, it must the first
     # one, followed by at most one more argument.
@@ -802,9 +977,6 @@ def main():
         execute_action(Actions, "setup-config", config_name=config_name)
         return
 
-    action_names = [_ for _ in dir(Actions) if _.startswith("action_")]
-    action_names = [_.replace("action_", "") for _ in action_names]
-    action_names = [_.replace("_", "-") for _ in action_names]
     actions = Actions()
     # log.info(f"Actions available are: {', '.join(action_names)}")
     # Show the log level as string.

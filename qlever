@@ -76,7 +76,7 @@ class Actions:
         except Exception as e:
             log.error(f"Could not read \"Qleverfile\": {e}")
             abort_script()
-        self.name = self.config['DEFAULT']['name']
+        self.name = self.config['data']['name']
         self.yes_values = ["1", "true", "yes"]
 
         # Default values for options that are not mandatory in the Qleverfile.
@@ -207,14 +207,13 @@ class Actions:
         return exit_code == 0
 
     @track_action_rank
-    def action_setup_config(self, only_show=False):
+    @staticmethod
+    def action_setup_config(config_name="default"):
         """
         Setup a pre-filled Qleverfile in the current directory.
         """
 
-        log.info("{BLUE}Creating a pre-filled Qleverfile{NORMAL}")
-        if only_show:
-            return
+        log.info(f"{BLUE}Creating a pre-filled Qleverfile{NORMAL}")
         log.info("")
 
         # If there is already a Qleverfile in the current directory, exit.
@@ -227,17 +226,11 @@ class Actions:
             log.info("")
             abort_script()
 
-        # Get the name of the desired configuration (default: "default").
-        if len(sys.argv) == 2:
-            config = "default"
-        else:
-            config = sys.argv[2]
-
         # Get the directory of this script and copy the Qleverfile for `config`
         # to the current directory.
         script_dir = os.path.dirname(os.path.realpath(__file__))
         qleverfile_path = os.path.join(script_dir,
-                                       f"Qleverfiles/Qleverfile.{config}")
+                                       f"Qleverfiles/Qleverfile.{config_name}")
         if not os.path.isfile(qleverfile_path):
             log.error(f"File \"{qleverfile_path}\" does not exist")
             log.info("")
@@ -248,10 +241,9 @@ class Actions:
             log.error(f"Could not copy \"{qleverfile_path}\""
                       f" to current directory: {e}")
             abort_script()
-        log.info(f"Created Qleverfile for config \"{config}\""
+        log.info(f"Created Qleverfile for config \"{config_name}\""
                  f" in current directory")
         log.info("")
-        sys.exit(0)
 
     @track_action_rank
     def action_show_config(self, only_show=False):
@@ -263,16 +255,14 @@ class Actions:
         print(f"{BLUE}Showing the current configuration, including default"
               f" values for options that are not set explicitly in the"
               f" Qleverfile{NORMAL}")
-        for section in ['DEFAULT'] + self.config.sections():
+        for section in self.config.sections():
             print()
             print(f"[{section}]")
             max_option_length = max([len(option) for option in
                                      self.config[section]])
             for option in self.config[section]:
-                if section == "DEFAULT" or \
-                        option not in self.config['DEFAULT']:
-                    print(f"{option.upper().ljust(max_option_length)} = "
-                          f"{self.config[section][option]}")
+                print(f"{option.upper().ljust(max_option_length)} = "
+                      f"{self.config[section][option]}")
 
         print()
 
@@ -746,6 +736,43 @@ def main():
                 log.error(f"Invalid log level: \"{log_level}\"")
                 abort_script()
 
+    # Helper function that executes an action.
+    def execute_action(actions, action_name, **kwargs):
+        log.info("")
+        log.info(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
+        log.info("")
+        action = f"action_{action_name.replace('-', '_')}"
+        try:
+            getattr(actions, action)(**kwargs)
+        except ActionException as err:
+            print(f"{RED}{err}{NORMAL}")
+            abort_script()
+        except Exception as err:
+            line = traceback.extract_tb(err.__traceback__)[-1].lineno
+            print(f"{RED}Error in Python script (line {line}: {err})"
+                  f", stack trace follows:{NORMAL}")
+            print()
+            raise err
+
+    log.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+    # If `setup-config` is among the command-line arguments, it must the first
+    # one, followed by at most one more argument.
+    if "setup-config" in sys.argv:
+        if sys.argv.index("setup-config") > 1:
+            log.setLevel(logging.ERROR)
+            log.error("Action `setup-config` must be the first argument")
+            abort_script()
+        if len(sys.argv) > 3:
+            log.setLevel(logging.ERROR)
+            log.error("Action `setup-config` must be followed by at most one "
+                      "argument (the name of the desied configuration)")
+            abort_script()
+        log.setLevel(logging.INFO)
+        config_name = sys.argv[2] if len(sys.argv) == 3 else "default"
+        execute_action(Actions, "setup-config", config_name=config_name)
+        return
+
     action_names = [_ for _ in dir(Actions) if _.startswith("action_")]
     action_names = [_.replace("action_", "") for _ in action_names]
     action_names = [_.replace("_", "-") for _ in action_names]
@@ -758,17 +785,6 @@ def main():
     only_show = True if len(sys.argv) > 1 and sys.argv[-1] == "show" else False
     if only_show:
         sys.argv = sys.argv[:-1]
-
-    # If `setup-config` is among the command-line arguments, it must the first
-    # one, followed by at most one more argument.
-    if "setup-config" in sys.argv:
-        if sys.argv.index("setup-config") > 1:
-            log.error("Action `setup-config` must be the first argument")
-            abort_script()
-        if len(sys.argv) > 3:
-            log.error("Action `setup-config` must be followed by at most one "
-                      "argument (the name of the desied configuration)")
-            abort_script()
 
     # Initalize actions.
     # Execute the actions specified on the command line.
@@ -790,22 +806,7 @@ def main():
                       f"actions are: {', '.join(action_names)}")
             abort_script()
         # Execute the action (or only show what would be executed).
-        log.info("")
-        log.info(f"{BOLD}Action: \"{action_name}\"{NORMAL}")
-        log.info("")
-        action = f"action_{action_name.replace('-', '_')}"
-        try:
-            getattr(actions, action)(only_show=only_show)
-        except ActionException as err:
-            # line = traceback.extract_tb(err.__traceback__)[-1].lineno
-            print(f"{RED}{err}{NORMAL}")
-            abort_script()
-        except Exception as err:
-            line = traceback.extract_tb(err.__traceback__)[-1].lineno
-            print(f"{RED}Error in Python script (line {line}: {err})"
-                  f", stack trace follows:{NORMAL}")
-            print()
-            raise err
+        execute_action(actions, action_name, only_show=only_show)
     log.info("")
 
 

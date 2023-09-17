@@ -16,15 +16,16 @@ jobs:
         os: [ubuntu-22.04]
 
     steps:
+      - name: Checkout script and install dependencies
       - uses: actions/checkout@v3
-      - name: Install required tools and Python packages
+        with:
+          path: qlever-control
         run: |
           sudo apt update
           sudo apt install unzip flake8 expect
           pip3 install psutil termcolor
 
-      - name: Install latest version of QLever (download Docker image and compile natively)
-        working-directory: ${{github.workspace}}
+      - name: Download QLever binaries and docker image and install dependencies
         run: |
           # Download Docker image.
           docker pull adfreiburg/qlever
@@ -43,36 +44,35 @@ jobs:
           ./IndexBuilderMain --help > /dev/null
 
       - name: Format and compile check
+        working-directory: ${{github.workspace}}/qlever-control
         run: |
-          flake8 qlever.py
-          python3 -m py_compile qlever.py
+          flake8 qlever
+          python3 -m py_compile qlever
 
       - name: Test actions for olympics dataset, with Docker
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/qlever-indices/olympics.1
         run: |
-          mkdir olympics.with-docker && cd $_
-          cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=true index index-stats start status stop status
+          export PATH="$PATH:$(pwd)/qlever-control"
+          unbuffer qlever setup-config olympics
+          unbuffer qlever get-data docker.USE_DOCKER=true index index-stats start status stop status
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/qlever-indices/olympics.2
         run: |
-          export PATH="$PATH:$(pwd)/qlever-binaries"
-          mkdir olympics.without-docker && cd $_
-          cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data docker.USE_DOCKER=false index index-stats start status stop status
+          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          unbuffer qlever setup-config olympics
+          unbuffer qlever get-data docker.USE_DOCKER=false index index-stats start status stop status
           ls -lh
 
       - name: Test actions for olympics dataset, with and without Docker
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/qlever-indices/olympics.3
         run: |
-          export PATH="$PATH:$(pwd)/qlever-binaries"
-          mkdir olympics.with-and-without-docker && cd $_
-          cp -a ../Qleverfiles/Qleverfile.olympics Qleverfile.NEW
-          unbuffer python3 ../qlever.py get-data index index-stats
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=false start status
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=true stop status
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=true start status
-          unbuffer python3 ../qlever.py docker.USE_DOCKER=false stop status
+          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          unbuffer qlever setup-config olympics
+          unbuffer qlever.py get-data index index-stats
+          unbuffer qlever docker.USE_DOCKER=false start status
+          unbuffer qlever docker.USE_DOCKER=true stop status
+          unbuffer qlever docker.USE_DOCKER=true start status
+          unbuffer qlever docker.USE_DOCKER=false stop status
           ls -lh

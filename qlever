@@ -587,8 +587,9 @@ class Actions:
         """
 
         log_file_name = self.config['data']['name'] + ".index-log.txt"
-        log.info(f"{BLUE}Breakdown of the time for building the index"
-                 f" based on the timestamps in \"{log_file_name}{NORMAL}\"")
+        log.info(f"{BLUE}Breakdown of the time for building the index, "
+                 f"based on the timestamps for key lines in "
+                 f"\"{log_file_name}{NORMAL}\"")
         log.info("")
         if only_show:
             return

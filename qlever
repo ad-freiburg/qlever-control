@@ -655,13 +655,23 @@ class Actions:
             nonlocal unit
             if start and end:
                 diff_seconds = (end - start).total_seconds()
-                diff = diff_seconds / (3600 if unit == "h" else 60)
+                if unit == "h":
+                    diff = diff_seconds / 3600
+                elif unit == "min":
+                    diff = diff_seconds / 60
+                else:
+                    diff = diff_seconds
                 log.info(f"{heading:<23} : {diff:>5.1f} {unit}")
 
         # Get the times of the various phases (hours or minutes, depending on
         # how long the first phase took).
-        unit = "h" if overall_begin and merge_begin and \
-            (merge_begin - overall_begin).total_seconds() > 3600 else "min"
+        unit = "h"
+        if merge_begin and overall_begin:
+            parse_duration = (merge_begin - overall_begin).total_seconds()
+            if parse_duration < 200:
+                unit = "s"
+            elif parse_duration < 3600:
+                unit = "min"
         show_duration("Parse input", overall_begin, merge_begin)
         show_duration("Build vocabularies", merge_begin, convert_begin)
         show_duration("Convert to global IDs", convert_begin, perm1_begin)

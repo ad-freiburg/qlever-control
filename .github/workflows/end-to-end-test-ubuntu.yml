@@ -49,6 +49,7 @@ jobs:
 
       - name: Check that everything is found and runs
         run: |
+          mkdir qlever-indices
           pwd && ls -lh
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           docker run adfreiburg/qlever --help > /dev/null

@@ -65,7 +65,7 @@ jobs:
       - name: Test actions for olympics dataset, without Docker
         working-directory: ${{github.workspace}}/qlever-indices/olympics
         run: |
-          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          export PATH="$PATH:${{github.workspace}}/qlever-control:${{github.workspace}}/qlever-binaries"
           source qlever-code/build/conanrun.sh
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data docker.USE_DOCKER=false index index-stats

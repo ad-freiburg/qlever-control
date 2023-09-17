@@ -16,10 +16,12 @@ jobs:
         os: [macos-12]
 
     steps:
-      - uses: actions/checkout@v3
-        name: Checkout script and install dependencies
+      - name: Checkout the QLever script
+        uses: actions/checkout@v3
         with:
           path: qlever-control
+
+      - name: Install dependencies for the QLever script
         run: |
           brew install llvm@16
           brew install conan@2
@@ -28,8 +30,8 @@ jobs:
           pip3 install flake8 psutil termcolor
           # brew install --cask docker
 
-      - uses: actions/cache@v3
-        name: Cache for conan
+      - name: Cache for conan (takes very long the first time)
+        uses: actions/cache@v3
         env:
           cache-name: cache-conan-modules
         with:

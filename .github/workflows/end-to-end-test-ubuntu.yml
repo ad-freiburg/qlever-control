@@ -59,7 +59,9 @@ jobs:
       - name: Test actions for olympics dataset, with Docker
         working-directory: ${{github.workspace}}/qlever-indices/olympics.1
         run: |
+          ls -lh ${{github.workspace}}
           export PATH="$PATH:${{github.workspace}}/qlever-control:${{github.workspace}}/qlever-binaries"
+          echo $PATH
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data docker.USE_DOCKER=true index index-stats start status stop status
           ls -lh

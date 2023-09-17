@@ -16,8 +16,8 @@ jobs:
         os: [macos-12]
 
     steps:
-      - name: Checkout script and install dependencies
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        name: Checkout script and install dependencies
         with:
           path: qlever-control
         run: |
@@ -28,8 +28,8 @@ jobs:
           pip3 install flake8 psutil termcolor
           # brew install --cask docker
 
-      - name: Cache for conan
-        uses: actions/cache@v3
+      - uses: actions/cache@v3
+        name: Cache for conan
         env:
           cache-name: cache-conan-modules
         with:

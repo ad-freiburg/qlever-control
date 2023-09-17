@@ -55,7 +55,6 @@ jobs:
 
       - name: Check that everything is found and runs
         run: |
-          mkdir qlever-indices
           pwd && ls -lh
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           source qlever-code/build/conanrun.sh
@@ -64,11 +63,9 @@ jobs:
           qlever
 
       - name: Test actions for olympics dataset, without Docker
-        working-directory: ${{github.workspace}}/qlever-indices/olympics
         run: |
-          ls -lh ${{github.workspace}}
-          export PATH="$PATH:${{github.workspace}}/qlever-control:${{github.workspace}}/qlever-binaries"
-          echo $PATH
+          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          mkdir -p ${{github.workspace}}/qlever-indices/olympics && cd $_
           source $${github.workspace}}/qlever-code/build/conanrun.sh
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data docker.USE_DOCKER=false index index-stats

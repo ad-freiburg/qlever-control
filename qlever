@@ -421,16 +421,17 @@ class Actions:
 
         # When docker.USE_DOCKER=false, check if the binary for building the
         # index exists and works.
-        try:
-            check_binary_cmd = f"{self.config['index']['binary']} --help"
-            subprocess.run(check_binary_cmd, shell=True, check=True,
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e:
-            log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
-                      f"set index.BINARY to a different binary or "
-                      f"set docker.USE_DOCKER=true")
-            abort_script()
+        if self.config['docker']['use_docker'] not in self.yes_values:
+            try:
+                check_binary_cmd = f"{self.config['index']['binary']} --help"
+                subprocess.run(check_binary_cmd, shell=True, check=True,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+            except subprocess.CalledProcessError as e:
+                log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
+                          f"set index.BINARY to a different binary or "
+                          f"set docker.USE_DOCKER=true")
+                abort_script()
 
         # Check if index files (name.index.*) already exist.
         if glob.glob(f"{self.name}.index.*"):
@@ -497,16 +498,17 @@ class Actions:
 
         # When docker.USE_DOCKER=false, check if the binary for starting the
         # server exists and works.
-        try:
-            check_binary_cmd = f"{self.config['server']['binary']} --help"
-            subprocess.run(check_binary_cmd, shell=True, check=True,
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e:
-            log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
-                      f"set server.BINARY to a different binary or "
-                      f"set docker.USE_DOCKER=true")
-            abort_script()
+        if self.config['docker']['use_docker'] not in self.yes_values:
+            try:
+                check_binary_cmd = f"{self.config['server']['binary']} --help"
+                subprocess.run(check_binary_cmd, shell=True, check=True,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+            except subprocess.CalledProcessError as e:
+                log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
+                          f"set server.BINARY to a different binary or "
+                          f"set docker.USE_DOCKER=true")
+                abort_script()
 
         # Check if a QLever server is already running on this port.
         port = server_config['port']

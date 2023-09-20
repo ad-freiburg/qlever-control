@@ -10,6 +10,7 @@ from datetime import datetime, date
 import os
 import glob
 import inspect
+import json
 import logging
 import psutil
 import re
@@ -139,6 +140,7 @@ class Actions:
                 "log_level": "info",
             },
             "server": {
+                "port": "7000",
                 "binary": "ServerMain",
                 "num_threads": "8",
                 "cache_max_size_gb": "5",
@@ -147,6 +149,7 @@ class Actions:
                 "with_text_index": "no",
                 "only_pso_and_pos_permutations": "no",
                 "no_patterns": "no",
+                "url": f"http://localhost:{self.config['server']['port']}",
             },
             "index": {
                 "binary": "IndexBuilderMain",
@@ -163,6 +166,7 @@ class Actions:
                 "port": "7000",
                 "image": "adfreiburg/qlever-ui",
                 "container": "qlever-ui",
+                "url": f"http://localhost:{self.config['ui']['port']}",
             }
         }
         for section in defaults:
@@ -793,11 +797,10 @@ class Actions:
 
         # Construct the curl command.
         query = "SELECT * WHERE { ?s ?p ?o } LIMIT 10"
-        port = self.config["server"]["port"]
-        url = f"http://localhost:{port}"
         headers = ["Accept: text/tab-separated-values",
                    "Content-Type: application/sparql-query"]
-        curl_cmd = (f"curl -s {url} -H \"{headers[0]}\" -H \"{headers[1]}\" "
+        curl_cmd = (f"curl -s {self.config['server']['url']} "
+                    f"-H \"{headers[0]}\" -H \"{headers[1]}\" "
                     f"--data \"{query}\"")
 
         # Show it.
@@ -851,6 +854,104 @@ class Actions:
                  f"http://{host_name}:{self.config['ui']['port']}")
         log.info("You can log in as QLever UI admin with username and "
                  "passwort \"demo\"")
+
+    @track_action_rank
+    def action_cache_stats_and_settings(self, only_show=False):
+        """
+        Action that shows the cache statistics and settings.
+        """
+
+        # Construct the two curl commands.
+        cache_stats_cmd = (f"curl -s {self.config['server']['url']} "
+                           f"--data-urlencode \"cmd=cache-stats\"")
+        cache_settings_cmd = (f"curl -s {self.config['server']['url']} "
+                              f"--data-urlencode \"cmd=get-settings\"")
+
+        # Show them.
+        self.show("\n".join([cache_stats_cmd, cache_settings_cmd]), only_show)
+        if only_show:
+            return
+
+        # Execute them.
+        try:
+            cache_stats = subprocess.check_output(cache_stats_cmd, shell=True)
+            cache_settings = subprocess.check_output(cache_settings_cmd,
+                                                     shell=True)
+
+            # Print the key-value pairs of the stats JSON in tabular form.
+            def print_json_as_tabular(raw_json):
+                key_value_pairs = json.loads(raw_json).items()
+                max_key_len = max([len(key) for key, _ in key_value_pairs])
+                for key, value in key_value_pairs:
+                    if re.search(r"pinned-size", key):
+                        value *= 8
+                    if isinstance(value, int) or re.match(r"^\d+$", value):
+                        value = "{:,}".format(int(value))
+                    if re.match(r"^\d+\.\d+$", value):
+                        value = "{:.2f}".format(float(value))
+                    log.info(f"{key.ljust(max_key_len)} : {value}")
+            log.info("NOTE: multiplying pinned sizes by 8 to get "
+                     "bytes instead of number of IDs")
+            log.info("")
+            print_json_as_tabular(cache_stats)
+            log.info("")
+            print_json_as_tabular(cache_settings)
+        except Exception as e:
+            raise ActionException(f"Failed to get cache stats and settings: "
+                                  f"{e}")
+
+    @track_action_rank
+    def action_autocompletion_warmup(self, only_show=False):
+        """
+        Action that pins the autocompletion queries from `ui.config` to the
+        cache.
+        """
+
+        # Construct curl command to obtain the warmup queries.
+        #
+        # TODO: This is the access token expected by Django in views.py, where
+        # it is currently set to dummy value. Find a sound yet simple mechanism
+        # for this.
+        access_token = "top-secret"
+        config_name = self.config["ui"]["config"]
+        curl_cmd = (f"curl -s {self.config['ui']['url']}/warmup/{config_name}"
+                    f"/queries?token={access_token}")
+
+        # Show it.
+        self.show(f"Pin warmup queries obtained via: {curl_cmd}", only_show)
+        if only_show:
+            return
+
+        # Get the queries.
+        try:
+            queries = subprocess.check_output(curl_cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            raise ActionException(f"Failed to get warmup queries ({e})")
+
+        # Iterate over them and pin them to the cache.
+        header = "Accept: application/qlever-results+json"
+        first = True
+        for description, query in [line.split("\t") for line in
+                                   queries.decode("utf-8").split("\n")]:
+            if first:
+                first = False
+            else:
+                log.info("")
+            log.info(f"{BOLD}Pin query: {description}{NORMAL}")
+            log.info(f"{query}")
+            pin_cmd = (f"curl -s {self.config['server']['url']}/api "
+                       f"-H \"{header}\" "
+                       f"--data-urlencode query={shlex.quote(query)} "
+                       f"--data-urlencode pinresult=true "
+                       f"--data-urlencode send=0")
+            log.debug(pin_cmd)
+            # Launch query and show the `resultsize` of the JSON response.
+            try:
+                result = subprocess.check_output(pin_cmd, shell=True)
+                json_result = json.loads(result.decode("utf-8"))
+                log.info(f"Result size: {json_result['resultsize']:,}")
+            except subprocess.CalledProcessError as e:
+                log.error(f"Query failed: {e}")
 
 
 def setup_autocompletion_cmd():

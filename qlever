@@ -634,6 +634,13 @@ class Actions:
         Action that restarts the QLever server.
         """
 
+        # Show action description.
+        self.show("Stop running server if found, then start new server",
+                  only_show)
+        if only_show:
+            return
+
+        # Do it.
         self.action_stop(only_show=only_show, fail_if_not_running=False)
         log.info("")
         self.action_start()

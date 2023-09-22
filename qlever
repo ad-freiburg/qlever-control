@@ -167,6 +167,8 @@ class Actions:
                 "image": "adfreiburg/qlever-ui",
                 "container": "qlever-ui",
                 "url": f"http://localhost:{self.config['ui']['port']}",
+                "warmup_url": "https://qlever.cs.uni-freiburg.de/api",
+
             }
         }
         for section in defaults:
@@ -914,8 +916,8 @@ class Actions:
         # for this.
         access_token = "top-secret"
         config_name = self.config["ui"]["config"]
-        curl_cmd = (f"curl -s {self.config['ui']['url']}/warmup/{config_name}"
-                    f"/queries?token={access_token}")
+        warmup_url = f"{self.config['ui']['warmup_url']}/warmup/{config_name}"
+        curl_cmd = (f"curl -s {warmup_url}/queries?token={access_token}")
 
         # Show it.
         self.show(f"Pin warmup queries obtained via: {curl_cmd}", only_show)
@@ -938,19 +940,21 @@ class Actions:
             else:
                 log.info("")
             log.info(f"{BOLD}Pin query: {description}{NORMAL}")
-            log.info(f"{query}")
             pin_cmd = (f"curl -s {self.config['server']['url']}/api "
                        f"-H \"{header}\" "
                        f"--data-urlencode query={shlex.quote(query)} "
                        f"--data-urlencode pinresult=true "
                        f"--data-urlencode send=0")
-            log.debug(pin_cmd)
+            log.info(pin_cmd)
             # Launch query and show the `resultsize` of the JSON response.
             try:
                 result = subprocess.check_output(pin_cmd, shell=True)
                 json_result = json.loads(result.decode("utf-8"))
+                # Check if the JSON has a key "exception".
+                if "exception" in json_result:
+                    raise Exception(json_result["exception"])
                 log.info(f"Result size: {json_result['resultsize']:,}")
-            except subprocess.CalledProcessError as e:
+            except Exception as e:
                 log.error(f"Query failed: {e}")
 
 
@@ -958,7 +962,7 @@ def setup_autocompletion_cmd():
     """
     Print the command for setting up autocompletion for the qlever.py script.
 
-    TODO: Currently work for bash only.
+    TODO: Currently works for bash only.
     """
 
     # Get methods that start wth "action_" from the Actions class, sorted by
@@ -1032,7 +1036,8 @@ def main():
     # take the log level from the config file).
     log.setLevel(logging.NOTSET)
     if len(sys.argv) > 1:
-        set_log_level_match = re.match(r"general.log_level=(\w+)", sys.argv[1])
+        set_log_level_match = re.match(r"general.log_level=(\w+)",
+                                       sys.argv[1], re.IGNORECASE)
         if set_log_level_match:
             log_level = set_log_level_match.group(1).upper()
             sys.argv = sys.argv[1:]

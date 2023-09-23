@@ -146,16 +146,16 @@ class Actions:
                 "cache_max_size_gb": "5",
                 "cache_max_size_gb_single_entry": "1",
                 "cache_max_num_entries": "100",
-                "with_text_index": "no",
-                "only_pso_and_pos_permutations": "no",
-                "no_patterns": "no",
+                "with_text_index": "false",
+                "only_pso_and_pos_permutations": "false",
+                "use_patterns": "true",
                 "url": f"http://localhost:{self.config['server']['port']}",
             },
             "index": {
                 "binary": "IndexBuilderMain",
-                "with_text_index": "no",
-                "only_pso_and_pos_permutations": "no",
-                "no_patterns": "no",
+                "with_text_index": "false",
+                "only_pso_and_pos_permutations": "false",
+                "use_patterns": "true",
             },
             "docker": {
                 "image": "adfreiburg/qlever",
@@ -388,6 +388,8 @@ class Actions:
                    f" -s {self.name}.settings.json")
         if index_config['only_pso_and_pos_permutations'] in self.yes_values:
             cmdline += " --only-pso-and-pos-permutations --no-patterns"
+        if not index_config['use_patterns'] in self.yes_values:
+            cmdline += " --no-patterns"
         if index_config['with_text_index'] in \
                 ["from_text_records", "from_text_records_and_literals"]:
             cmdline += (f" -w {self.name}.wordsfile.tsv"
@@ -472,9 +474,9 @@ class Actions:
             cmdline += f" -a {server_config['access_token']}"
         if server_config['only_pso_and_pos_permutations'] in self.yes_values:
             cmdline += " --only-pso-and-pos-permutations"
-        if server_config['no_patterns'] in self.yes_values:
+        if not server_config['use_patterns'] in self.yes_values:
             cmdline += " --no-patterns"
-        if self.config['index']['with_text_index'] in \
+        if server_config['with_text_index'] in \
                 ["from_text_records",
                  "from_literals",
                  "from_text_records_and_literals"]:

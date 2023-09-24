@@ -134,10 +134,25 @@ class Actions:
         self.name = self.config['data']['name']
         self.yes_values = ["1", "true", "yes"]
 
+        # Defaults for [server] that carry over from [index].
+        for option in ["with_text_index", "only_pso_and_pos_permutations",
+                       "use_patterns"]:
+            if option in self.config['index'] and \
+                    option not in self.config['server']:
+                self.config['server'][option] = \
+                    self.config['index'][option]
+
         # Default values for options that are not mandatory in the Qleverfile.
         defaults = {
             "general": {
                 "log_level": "info",
+                "pid": "0",
+            },
+            "index": {
+                "binary": "IndexBuilderMain",
+                "with_text_index": "false",
+                "only_pso_and_pos_permutations": "false",
+                "use_patterns": "true",
             },
             "server": {
                 "port": "7000",
@@ -150,12 +165,6 @@ class Actions:
                 "only_pso_and_pos_permutations": "false",
                 "use_patterns": "true",
                 "url": f"http://localhost:{self.config['server']['port']}",
-            },
-            "index": {
-                "binary": "IndexBuilderMain",
-                "with_text_index": "false",
-                "only_pso_and_pos_permutations": "false",
-                "use_patterns": "true",
             },
             "docker": {
                 "image": "adfreiburg/qlever",
@@ -267,6 +276,40 @@ class Actions:
                                     stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL)
         return exit_code == 0
+
+    def show_process_info(self, psutil_process,
+                          cmdline_regex, show_heading=True):
+        """
+        Helper function that shows information about a process if information
+        about the process can be retrieved and the command line matches the
+        given regex (in which case the function returns `True`). The heading is
+        only shown if `show_heading` is `True` and the function returns `True`.
+        """
+
+        def show_table_line(pid, user, start_time, rss, cmdline):
+            log.info(f"{pid:<8} {user:<8} {start_time:>5}  {rss:>5} {cmdline}")
+        try:
+            pinfo = psutil_process.as_dict(
+                    attrs=['pid', 'username', 'create_time',
+                           'memory_info', 'cmdline'])
+            cmdline = " ".join(pinfo['cmdline'])
+            if not re.search(cmdline_regex, cmdline):
+                return False
+            pid = pinfo['pid']
+            user = pinfo['username'] if pinfo['username'] else ""
+            start_time = datetime.fromtimestamp(pinfo['create_time'])
+            if start_time.date() == date.today():
+                start_time = start_time.strftime("%H:%M")
+            else:
+                start_time = start_time.strftime("%b%d")
+            rss = f"{pinfo['memory_info'].rss / 1e9:.0f}G"
+            if show_heading:
+                show_table_line("PID", "USER", "START", "RSS", "COMMAND")
+            show_table_line(pid, user, start_time, rss, cmdline)
+            return True
+        except Exception as e:
+            log.debug(f"Could not get process info: {e}")
+            return False
 
     def show(self, action_description, only_show):
         """
@@ -665,30 +708,13 @@ class Actions:
             return
 
         # Show the results as a table.
-        def show_table_line(pid, user, start_time, rss, cmdline):
-            log.info(f"{pid:<8} {user:<8} {start_time:>5}  {rss:>5} {cmdline}")
         num_processes_found = 0
         for proc in psutil.process_iter():
-            try:
-                pinfo = proc.as_dict(attrs=['pid', 'username', 'create_time',
-                                            'memory_info', 'cmdline'])
-                cmdline = " ".join(pinfo['cmdline'])
-            except Exception:
-                continue
-            if not re.match(cmdline_regex, cmdline):
-                continue
-            if num_processes_found == 0:
-                show_table_line("PID", "USER", "START", "RSS", "COMMAND")
-            num_processes_found += 1
-            pid = pinfo['pid']
-            user = pinfo['username'] if pinfo['username'] else ""
-            start_time = datetime.fromtimestamp(pinfo['create_time'])
-            if start_time.date() == date.today():
-                start_time = start_time.strftime("%H:%M")
-            else:
-                start_time = start_time.strftime("%b%d")
-            rss = f"{pinfo['memory_info'].rss / 1e9:.0f} G"
-            show_table_line(pid, user, start_time, rss, cmdline)
+            show_heading = num_processes_found == 0
+            process_shown = self.show_process_info(proc, cmdline_regex,
+                                                   show_heading=show_heading)
+            if process_shown:
+                num_processes_found += 1
         if num_processes_found == 0:
             print("No processes found")
 
@@ -765,10 +791,15 @@ class Actions:
 
         # Helper lambda that shows the duration for a phase (if the start and
         # end timestamps are available).
-        def show_duration(heading, start, end):
+        def show_duration(heading, start_end_pairs):
             nonlocal unit
-            if start and end:
-                diff_seconds = (end - start).total_seconds()
+            num_start_end_pairs = 0
+            diff_seconds = 0
+            for start, end in start_end_pairs:
+                if start and end:
+                    diff_seconds += (end - start).total_seconds()
+                    num_start_end_pairs += 1
+            if num_start_end_pairs > 0:
                 if unit == "h":
                     diff = diff_seconds / 3600
                 elif unit == "min":
@@ -786,19 +817,22 @@ class Actions:
                 unit = "s"
             elif parse_duration < 3600:
                 unit = "min"
-        show_duration("Parse input", overall_begin, merge_begin)
-        show_duration("Build vocabularies", merge_begin, convert_begin)
-        show_duration("Convert to global IDs", convert_begin, perm1_begin)
-        show_duration("PSO & POS permutations", perm1_begin, perm2_begin)
-        show_duration("SPO & SOP permutations", perm2_begin, perm3_begin)
-        show_duration("OSP & OPS permutations", perm3_begin, normal_end)
-        show_duration("Text index", text_begin, text_end)
+        show_duration("Parse input", [(overall_begin, merge_begin)])
+        show_duration("Build vocabularies", [(merge_begin, convert_begin)])
+        show_duration("Convert to global IDs", [(convert_begin, perm1_begin)])
+        show_duration("PSO & POS permutations", [(perm1_begin, perm2_begin)])
+        show_duration("SPO & SOP permutations", [(perm2_begin, perm3_begin)])
+        show_duration("OSP & OPS permutations", [(perm3_begin, normal_end)])
+        show_duration("Text index", [(text_begin, text_end)])
         if text_begin and text_end:
             log.info("")
-            show_duration("TOTAL index build time", overall_begin, text_end)
+            show_duration("TOTAL index build time",
+                          [(overall_begin, normal_end),
+                           (text_begin, text_end)])
         elif normal_end:
             log.info("")
-            show_duration("TOTAL index build time", overall_begin, normal_end)
+            show_duration("TOTAL index build time",
+                          [(overall_begin, normal_end)])
 
     @track_action_rank
     def action_example_query(self, only_show=False):
@@ -965,6 +999,81 @@ class Actions:
                 log.info(f"Result size: {json_result['resultsize']:,}")
             except Exception as e:
                 log.error(f"Query failed: {e}")
+
+    @track_action_rank
+    def action_memory_profile(self, only_show=False):
+        """
+        Action that prints the memory usage of a process (specified via
+        `general.PID`) to a file `<PID>.memory-usage.tsv`.
+        """
+
+        # Show what the action does.
+        self.show("Poll memory usage of the given process every second "
+                  "and print it to a file", only_show)
+        if only_show:
+            return
+
+        # Show process information.
+        if "pid" not in self.config["general"]:
+            raise ActionException("PID must be specified via general.PID")
+        try:
+            pid = int(self.config["general"]["pid"])
+            proc = psutil.Process(pid)
+        except Exception as e:
+            raise ActionException(f"Could not obtain information for process "
+                                  f"with PID {pid} ({e})")
+        self.show_process_info(proc, "", show_heading=True)
+        log.info("")
+
+        # As long as the process exists, poll memory usage once per second and
+        # print it to the screen as well as to a file `<PID>.memory-usage.tsv`.
+        file = open(f"{pid}.memory-usage.tsv", "w")
+        seconds = 0
+        while proc.is_running():
+            # Get memory usage in bytes and print as <timestamp>\t<size>, with
+            # the timestand in the usual logger format (second precision).
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            memory_usage_gb = f"{proc.memory_info().rss / 1e9:.1f}"
+            log.info(f"{timestamp}\t{memory_usage_gb}")
+            file.write(f"{timestamp}\t{memory_usage_gb}\n")
+            time.sleep(1)
+            seconds += 1
+            if seconds % 60 == 0:
+                file.flush()
+        file.close()
+
+    @track_action_rank
+    def action_memory_profile_show(self, only_show=False):
+        """
+        Action that shows a plot of the memory profile produce with action
+        `memory_profile`.
+        """
+
+        # Construct gnuplot command.
+        if "pid" not in self.config["general"]:
+            raise ActionException("PID must be specified via general.PID")
+        pid = int(self.config["general"]["pid"])
+        gnuplot_script = (f"set datafile separator \"\t\"; "
+                          f"set xdata time; "
+                          f"set timefmt \"%Y-%m-%d %H:%M:%S\"; "
+                          f"set xlabel \"Time\"; "
+                          f"set ylabel \"Memory Usage\"; "
+                          f"set grid; "
+                          f"plot \"{pid}.memory-usage.tsv\" "
+                          f"using 1:2 with lines; "
+                          f"pause -1")
+        gnuplot_cmd = f"gnuplot -e {shlex.quote(gnuplot_script)}"
+
+        # Show it.
+        self.show(gnuplot_cmd, only_show)
+        if only_show:
+            return
+
+        # Launch gnuplot.
+        try:
+            subprocess.check_output(gnuplot_cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            raise ActionException(f"Failed to launch gnuplot ({e})")
 
 
 def setup_autocompletion_cmd():

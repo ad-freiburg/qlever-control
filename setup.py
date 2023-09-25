@@ -24,6 +24,7 @@ setup(
         "requests",
         "docker",
         "argcomplete",
+        "thefuzz",  # Levenshtein Distance
     ],
     scripts=["src/main.py"],
     extras_require={  # ex: pip install qlever_control[mac]

@@ -6,12 +6,15 @@ import argparse
 from src.qlever_cmd import parser
 from src.qlever_docker import is_docker_installed, docker_version
 from src.qlever_native import alive_check
-from src.qlever_config import print_config, list_config_names
+from src.qlever_config import QleverConfig
+from src.qlever_logging import log
+
 
 # TODO: logger
 
 
-USAGE_AUTO_COMPLETE = """
+def _USAGE_AUTO_COMPLETE() -> str:
+    return """
 Enable Autocompletion in your current shell:
 $ eval "$(register-python-argcomplete qleverkontrol)"
 
@@ -19,15 +22,20 @@ Or globally (edits your ~/.zshenv AND ~/.bash_complete):
 $ activate-global-python-argcomplete
 """
 
-# TODO: align properly
-USAGE_HEALTH = f"""
+
+def _USAGE_HEALTH() -> str:
+    # TODO: align properly
+    return f"""
 * Docker installed: {is_docker_installed()}
 * Docker engine version : {docker_version()}
-* QLever server is running? : {alive_check(7001)}
+* QLever server is running (port 7001)? : {alive_check(7001)}
 """
 
 
-USAGE_CONFIG_NAMES = "\n".join(map(lambda x: f"* {x}", list_config_names()))
+def _USAGE_CONFIG_NAMES() -> str:
+    return "\n".join(
+        map(lambda x: f"* {x}", QleverConfig.show_available_config_names())
+    )
 
 
 def main_run():
@@ -43,22 +51,13 @@ def main_run():
 
     match args:  # python >= 3.10 (PEP 636)
         case argparse.Namespace(autocomplete=True):
-            print(USAGE_AUTO_COMPLETE)
+            log.info(_USAGE_AUTO_COMPLETE())
         case argparse.Namespace(health=True):
-            print(USAGE_HEALTH)
+            log.info(_USAGE_HEALTH())
         case argparse.Namespace(lsconfigs=True):
-            print(USAGE_CONFIG_NAMES)
-        case argparse.Namespace(config=c) if c is not None:
-            print(print_config(c))
-        case argparse.Namespace(docker_action=a) if a is not None:
-            match a:
-                case "up":
-                    # docker_run()
-                    pass
-                case "down":
-                    pass
-                case "stats":
-                    pass
+            log.info(_USAGE_CONFIG_NAMES())
+        case argparse.Namespace(setup_config=c) if c is not None:
+            QleverConfig.write_config(config_name=c)
 
 
 if __name__ == "__main__":

@@ -15,7 +15,6 @@ def is_docker_installed(docker_host="unix://var/run/docker.sock") -> bool:
     """
     try:
         d = DockerClient(base_url=docker_host)  # noqa
-        print
 
     except DockerException as err:
         # docker.errors.DockerException:

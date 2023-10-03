@@ -619,7 +619,7 @@ class Actions:
 
         # Show action description.
         docker_container_name = self.config['docker']['container_server']
-        cmdline_regex = (f"ServerMain.* -i [^ ]*{self.name}")
+        cmdline_regex = (f"ServerMain.* -i [^ ]*{self.name} ")
         self.show(f"Checking for process matching \"{cmdline_regex}\" "
                   f"and for Docker container with name "
                   f"\"{docker_container_name}\"", only_show)

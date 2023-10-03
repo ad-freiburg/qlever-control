@@ -7,25 +7,25 @@
 # Also builds a text index for fast kewyword search in literals. Without that
 # (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
 
-[DEFAULT]
-NAME = dblp
-
 [data]
+NAME              = dblp
 GET_DATA_URL      = https://dblp.org/rdf/${index:FILE_NAMES}
 GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}
 INDEX_DESCRIPTION = DBLP computer science bibliography, data from ${GET_DATA_URL}
-TEXT_DESCRIPTION  = All literals, search with ?text ql:contains-entity ?literal . ?text ql:contains-word "..." (where ... are keywords, which may end with a *)
+TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
-FILE_NAMES    = dblp.ttl.gz
-CAT_FILES     = zcat ${FILE_NAMES}
-SETTINGS_JSON = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
+FILE_NAMES      = dblp.ttl.gz
+CAT_FILES       = zcat ${FILE_NAMES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+WITH_TEXT_INDEX = from_literals
 
 [server]
 PORT                  = 7015
-ACCESS_TOKEN          = ${NAME}_7643543846
+ACCESS_TOKEN          = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES_GB = 30
 CACHE_MAX_SIZE_GB     = 5
+WITH_TEXT_INDEX       = from_literals
 
 [docker]
 USE_DOCKER = false

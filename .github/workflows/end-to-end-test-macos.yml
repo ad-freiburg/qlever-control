@@ -70,5 +70,5 @@ jobs:
           source ${{github.workspace}}/qlever-code/build/conanrun.sh
           qlever setup-config olympics
           qlever get-data docker.USE_DOCKER=false index index-stats
-          qlever docker.USE_DOCKER=false start status example-query stop restart example-query stop status start example-query status stop
+          qlever docker.USE_DOCKER=false start status test-query stop restart test-query stop status start test-query status stop
           ls -lh

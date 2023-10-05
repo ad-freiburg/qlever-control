@@ -175,8 +175,7 @@ class Actions:
                 "port": "7000",
                 "image": "adfreiburg/qlever-ui",
                 "container": "qlever-ui",
-                "url": f"http://localhost:{self.config['ui']['port']}",
-                "warmup_url": "https://qlever.cs.uni-freiburg.de/api",
+                "url": "https://qlever.cs.uni-freiburg.de/api",
 
             }
         }
@@ -575,7 +574,9 @@ class Actions:
                         f"Port {port} is already in use by another process")
 
         # Execute the command line.
-        subprocess.run(cmdline, shell=True)
+        subprocess.run(cmdline, shell=True,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
 
         # Tail the server log until the server is ready (note that the `exec`
         # is important to make sure that the tail process is killed and not
@@ -619,7 +620,7 @@ class Actions:
 
         # Show action description.
         docker_container_name = self.config['docker']['container_server']
-        cmdline_regex = (f"ServerMain.* -i [^ ]*{self.name} ")
+        cmdline_regex = (f"ServerMain.* -i [^ ]*{self.name}")
         self.show(f"Checking for process matching \"{cmdline_regex}\" "
                   f"and for Docker container with name "
                   f"\"{docker_container_name}\"", only_show)
@@ -689,6 +690,24 @@ class Actions:
         self.action_stop(only_show=only_show, fail_if_not_running=False)
         log.info("")
         self.action_start()
+
+    @track_action_rank
+    def action_log(self, only_show=False):
+        """
+        Action that shows the server log.
+        """
+
+        # Show action description.
+        log_cmd = f"tail -f -n 50 {self.name}.server-log.txt"
+        self.show(log_cmd, only_show)
+        if only_show:
+            return
+
+        # Do it.
+        log.info(f"Follow {self.name}.server-log.txt (Ctrl-C stops"
+                 f" following the log, but not the server)")
+        log.info("")
+        subprocess.run(log_cmd, shell=True)
 
     @track_action_rank
     def action_status(self, only_show=False):
@@ -835,9 +854,9 @@ class Actions:
                           [(overall_begin, normal_end)])
 
     @track_action_rank
-    def action_example_query(self, only_show=False):
+    def action_test_query(self, only_show=False):
         """
-        Action that sends a simple SPARQL query to the server.
+        Action that sends a simple test SPARQL query to the server.
         """
 
         # Construct the curl command.
@@ -959,7 +978,7 @@ class Actions:
         # for this.
         access_token = "top-secret"
         config_name = self.config["ui"]["config"]
-        warmup_url = f"{self.config['ui']['warmup_url']}/warmup/{config_name}"
+        warmup_url = f"{self.config['ui']['url']}/warmup/{config_name}"
         curl_cmd = (f"curl -s {warmup_url}/queries?token={access_token}")
 
         # Show it.
@@ -999,6 +1018,79 @@ class Actions:
                 log.info(f"Result size: {json_result['resultsize']:,}")
             except Exception as e:
                 log.error(f"Query failed: {e}")
+
+    @track_action_rank
+    def action_example_queries(self, only_show=False):
+        """
+        Action that shows the example queries from `ui.config`.
+        """
+
+        # Construct curl command to obtain the example queries.
+        config_name = self.config["ui"]["config"]
+        examples_url = f"{self.config['ui']['url']}/examples/{config_name}"
+        curl_cmd = f"curl -s {examples_url}"
+
+        # Show what the action does.
+        self.show(f"Launch example queries obtained via: {curl_cmd}\n"
+                  f"SPARQL endpoint: {self.config['server']['url']}\n"
+                  f"Clearing the cache before each query + using send=0",
+                  only_show)
+        if only_show:
+            return
+
+        # Get the queries.
+        try:
+            queries = subprocess.check_output(curl_cmd, shell=True)
+        except subprocess.CalledProcessError as e:
+            raise ActionException(f"Failed to get example queries ({e})")
+
+        # Launch the queries one after the other and for each print: the
+        # description, the result size, and the query processing time.
+        count = 0
+        total_time_seconds = 0.0
+        total_result_size = 0
+        for description, query in [line.split("\t") for line in
+                                   queries.decode("utf-8").split("\n")]:
+            # Launch query and show the `resultsize` of the JSON response.
+            clear_cache_cmd = (f"curl -s {self.config['server']['url']} "
+                               f"--data-urlencode cmd=clear-cache")
+            query_cmd = (f"curl -s {self.config['server']['url']} "
+                         f"-H \"Accept: application/qlever-results+json\" "
+                         f"--data-urlencode query={shlex.quote(query)} "
+                         f"--data-urlencode send=0")
+            try:
+                subprocess.run(clear_cache_cmd, shell=True,
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+                start_time = time.time()
+                result = subprocess.check_output(query_cmd, shell=True)
+                time_seconds = time.time() - start_time
+                json_result = json.loads(result.decode("utf-8"))
+                if "exception" in json_result:
+                    raise Exception(json_result["exception"])
+                result_size = int(json_result["resultsize"])
+                result_string = "{:,}".format(result_size)
+            except Exception as e:
+                time_seconds = 0.0
+                result_size = 0
+                result_string = f"{RED}{e}{NORMAL}"
+
+            # Print description, time, result in tabular form.
+            log.debug(query)
+            log.info(f"{description:<60}  {time_seconds:6.2f} s  "
+                     f"{result_string:>10}")
+            count += 1
+            total_time_seconds += time_seconds
+            total_result_size += result_size
+            if count == 10:
+                break
+
+        # Print total time.
+        log.info("")
+        description = (f"TOTAL for {count} "
+                       f"{'query' if count == 1 else 'queries'}")
+        log.info(f"{description:<60}  {total_time_seconds:6.2f} s  "
+                 f"{total_result_size:>10,}")
 
     @track_action_rank
     def action_memory_profile(self, only_show=False):

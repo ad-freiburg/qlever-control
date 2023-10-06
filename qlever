@@ -762,7 +762,10 @@ class Actions:
         current_line = 0
 
         # Helper lambda that finds the next line matching the given `regex`,
-        # starting from `current_line`, and extracts the time.
+        # starting from `current_line`, and extracts the time. Returns a tuple
+        # of the time and the regex match object. If a matchine is found,
+        # `current_line` is updated to the line after the match. Otherwise,
+        # `current_line` is not changed.
         def find_next_line(regex, line_is_optional=False):
             nonlocal lines
             nonlocal current_line
@@ -773,11 +776,12 @@ class Actions:
                 current_line += 1
                 timestamp_regex = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
                 timestamp_format = "%Y-%m-%d %H:%M:%S"
-                if re.search(regex, line):
+                regex_match = re.search(regex, line)
+                if regex_match:
                     try:
                         return datetime.strptime(
                                 re.match(timestamp_regex, line).group(),
-                                timestamp_format)
+                                timestamp_format), regex_match
                     except Exception as e:
                         raise ActionException(
                                 f"Could not parse timestamp of form "
@@ -786,19 +790,28 @@ class Actions:
             # If we get here, we did not find a matching line.
             if line_is_optional:
                 current_line = current_line_backup
-            return None
+            return None, None
 
         # Find the lines matching th key_lines_regex and extract the time
         # information from them.
-        overall_begin = find_next_line(r"INFO:\s*Processing")
-        merge_begin = find_next_line(r"INFO:\s*Merging partial vocabularies")
-        convert_begin = find_next_line(r"INFO:\s*Converting triples")
-        perm1_begin = find_next_line(r"INFO:\s*Creating")
-        perm2_begin = find_next_line(r"INFO:\s*Creating", True)
-        perm3_begin = find_next_line(r"INFO:\s*Creating", True)
-        normal_end = find_next_line(r"INFO:\s*Index build completed")
-        text_begin = find_next_line(r"INFO:\s*Adding text index", True)
-        text_end = find_next_line(r"INFO:\s*DocsDB done", True)
+        overall_begin, _ = find_next_line(r"INFO:\s*Processing")
+        merge_begin, _ = find_next_line(r"INFO:\s*Merging partial vocab")
+        convert_begin, _ = find_next_line(r"INFO:\s*Converting triples")
+        perm_begin_and_info = []
+        while True:
+            perm_begin, _ = find_next_line(r"INFO:\s*Creating a pair", True)
+            if perm_begin is None:
+                break
+            _, perm_info = find_next_line(r"INFO:\s*Writing meta data for"
+                                          r" ([A-Z]+ and [A-Z]+)", True)
+            if perm_info is None:
+                break
+            perm_begin_and_info.append((perm_begin, perm_info))
+        convert_end = (perm_begin_and_info[0][0] if
+                       len(perm_begin_and_info) > 0 else None)
+        normal_end, _ = find_next_line(r"INFO:\s*Index build completed")
+        text_begin, _ = find_next_line(r"INFO:\s*Adding text index", True)
+        text_end, _ = find_next_line(r"INFO:\s*DocsDB done", True)
 
         # Check whether at least the first phase is done.
         if overall_begin is None:
@@ -838,10 +851,15 @@ class Actions:
                 unit = "min"
         show_duration("Parse input", [(overall_begin, merge_begin)])
         show_duration("Build vocabularies", [(merge_begin, convert_begin)])
-        show_duration("Convert to global IDs", [(convert_begin, perm1_begin)])
-        show_duration("PSO & POS permutations", [(perm1_begin, perm2_begin)])
-        show_duration("SPO & SOP permutations", [(perm2_begin, perm3_begin)])
-        show_duration("OSP & OPS permutations", [(perm3_begin, normal_end)])
+        show_duration("Convert to global IDs", [(convert_begin, convert_end)])
+        for i in range(len(perm_begin_and_info)):
+            perm_begin, perm_info = perm_begin_and_info[i]
+            perm_end = perm_begin_and_info[i + 1][0] if i + 1 < len(
+                    perm_begin_and_info) else normal_end
+            perm_info_text = (perm_info.group(1).replace(" and ", " & ")
+                              if perm_info else f"#{i + 1}")
+            show_duration(f"Permutation {perm_info_text}",
+                          [(perm_begin, perm_end)])
         show_duration("Text index", [(text_begin, text_end)])
         if text_begin and text_end:
             log.info("")

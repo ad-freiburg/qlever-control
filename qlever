@@ -495,6 +495,42 @@ class Actions:
         subprocess.run(cmdline, shell=True)
 
     @track_action_rank
+    def action_remove_index(self, only_show=False):
+        """
+        Action that removes the index files.
+        """
+
+        # List of all the index files (not all of them need to be there).
+        index_fileglobs = (f"{self.name}.index.*",
+                           f"{self.name}.patterns.*",
+                           f"{self.name}.prefixes",
+                           f"{self.name}.meta-data.json",
+                           f"{self.name}.vocabulary.*")
+
+        # Show the command line.
+        self.show(f"Remove index files {', '.join(index_fileglobs)}",
+                  only_show)
+        if only_show:
+            return
+
+        # Remove the index files.
+        files_removed = []
+        total_file_size = 0
+        for index_fileglob in index_fileglobs:
+            for filename in glob.glob(index_fileglob):
+                if os.path.isfile(filename):
+                    total_file_size += os.path.getsize(filename)
+                    os.remove(filename)
+                    files_removed.append(filename)
+        if files_removed:
+            log.info(f"Removed the following index files of total size "
+                     f"{total_file_size / 1e9:.1f} GB:")
+            log.info("")
+            log.info(", ".join(files_removed))
+        else:
+            log.info("None of the listed index files found, nothing removed")
+
+    @track_action_rank
     def action_start(self, only_show=False):
         """
         Action that starts the QLever server according to the settings in the

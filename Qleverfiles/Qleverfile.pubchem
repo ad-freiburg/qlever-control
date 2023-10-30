@@ -4,40 +4,39 @@
 # qlever index     # takes ~20 hours and ~40 GB RAM on an AMD Ryzen 9 5900X
 # qlever start     # starts the server (takes around 2 minutes)
 #
-# When rebuilding the index and you already have pubchem.prefix-definitions, you
-# can comment out EXTRACT_PREFIXES. See the variable settings below for more
-# details.
+# TODO: The instance on https://qlever.cs.uni-freiburg.de/pubchem also contains
+# the following ontologies, which are very useful for resolving names but which
+# are not yet part of what is downloaded with GET_DATA_CMD.
+# 
+# bao bfo biopax-level3 chebi cheminf cito dublin_core_terms fabio go iao ncit
+# obi pr ro sio skos so uo
 
-# Indexer settings
-DB                = pubchem
-RDF_FILES         = "ttl/*.ttl.gz"
-EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do zcat -f \$F | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
-CAT_FILES         = "zcat -f ${DB}.prefix-definitions ${RDF_FILES}"
+
+[DEFAULT]
+NAME              = pubchem
+
+[data]
+GET_DATA_URL      = https://ftp.ncbi.nlm.nih.gov/pubchem/RDF
+GET_DATA_CMD      = wget --recursive --exclude-directories=nbr2d,nbr3d --no-host-directories --no-clobber --cut-dirs=2 --directory-prefix=ttl ${GET_DATA_URL} && find ttl \( -name "*.ttl.gz" -o -name "*.ttl" \) | parallel 'zcat -f {} | docker run --rm -i stain/jena riot --syntax=TTL --output=NT /dev/stdin 2> pubchem.ttl2nt.stderr | gzip > nt/$$(basename -s .ttl.gz -s ttl {}).nt.gz'
+INDEX_DESCRIPTION = PubChem RDF from ${GET_DATA_URL}, version 29.10.2023 (all folders except nbr2d and nbr3d)
+
+[index]
+FILE_NAMES        = nt/*.nt.gz nt/*/*.nt.gz nt/*/*/*.nt.gz
+CAT_FILES         = zcat ${FILE_NAMES}
 WITH_TEXT_INDEX   = false
 STXXL_MEMORY_GB   = 10
 SETTINGS_JSON     = '{ "languages-internal": [""], "prefixes-external": [ "<http://rdf.ncbi.nlm.nih.gov/pubchem/"  ], "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }'
-FTP_BASE_URL      = "ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF"
-FTP_DIRS          = "bioassay compound/general concept conserveddomain descriptor/compound descriptor/substance disease endpoint gene inchikey measuregroup patent patent/cpc patent/ipc pathway protein reference source substance synonym taxonomy" 
-GET_DATA_CMD      = "for FTP_DIR in ${FTP_DIRS}; do wget -r -A .ttl.gz -nH -nc --cut-dirs=99 -P ttl ${FTP_BASE_URL}/\${FTP_DIR}; done"
-DATE              = "$(ls -ld --time-style=+%d.%m.%Y ttl/void.ttl 2> /dev/null | cut -d' ' -f6)"
-INDEX_DESCRIPTION = "PubChem RDF from ${FTP_BASE_URL}, version ${DATE} (all folders except nbr2d and nbr3d)"
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7023
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 70
-CACHE_MAX_SIZE_GB              = 50
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 40
-CACHE_MAX_NUM_ENTRIES          = 100
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
+[server]
+PORT                   = 7023
+ACCESS_TOKEN           = ${NAME}_310129823
+MEMORY_FOR_QUERIES_GB  = 50
+
+[docker]
+USE_DOCKER              = false
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
 
-# QLever UI
-QLEVERUI_PORT   = 7023
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = pubchem
+[ui]
+PORT   = 7000
+CONFIG = pubchem

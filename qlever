@@ -1025,10 +1025,10 @@ class Actions:
         # TODO: This is the access token expected by Django in views.py, where
         # it is currently set to dummy value. Find a sound yet simple mechanism
         # for this.
-        access_token = "top-secret"
+        access_token_ui = "top-secret"
         config_name = self.config["ui"]["config"]
         warmup_url = f"{self.config['ui']['url']}/warmup/{config_name}"
-        curl_cmd = (f"curl -s {warmup_url}/queries?token={access_token}")
+        curl_cmd = (f"curl -s {warmup_url}/queries?token={access_token_ui}")
 
         # Show it.
         self.show(f"Pin warmup queries obtained via: {curl_cmd}", only_show)
@@ -1041,9 +1041,12 @@ class Actions:
         except subprocess.CalledProcessError as e:
             raise ActionException(f"Failed to get warmup queries ({e})")
 
-        # Iterate over them and pin them to the cache.
+        # Iterate over them and pin them to the cache. Give a more generous
+        # timeout (which requires an access token).
         header = "Accept: application/qlever-results+json"
         first = True
+        timeout = "300s"
+        access_token = self.config["server"]["access_token"]
         for description, query in [line.split("\t") for line in
                                    queries.decode("utf-8").split("\n")]:
             if first:
@@ -1054,6 +1057,8 @@ class Actions:
             pin_cmd = (f"curl -s {self.config['server']['url']}/api "
                        f"-H \"{header}\" "
                        f"--data-urlencode query={shlex.quote(query)} "
+                       f"--data-urlencode timeout={timeout} "
+                       f"--data-urlencode access-token={access_token} "
                        f"--data-urlencode pinresult=true "
                        f"--data-urlencode send=0")
             log.info(pin_cmd)

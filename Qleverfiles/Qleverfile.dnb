@@ -1,0 +1,39 @@
+# Qleverfile for Olympics, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # takes ~ 10 min to download .nt.gz file of size ~ 8 GB
+# qlever index     # takes ~ 20 min and ~ 5 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server
+#
+# NOTE: https://data.dnb.de/opendata/ is rather confusing becase of the many
+# files. This Qleverfile downloads all the datasets named "Gesamtabzug", except
+# bib_lds.nt.gz, which contains incorrectly formatted IRIs. The file
+# dnb-all_ldsprov.nt.gz contains invalid floating point literals; to ignore
+# them, compile QLever with TurtleParserBase::invalidLiteralsAreSkipped_ = true
+
+[data]
+NAME              = dnb
+BASE_URL          = https://data.dnb.de/opendata
+GET_DATA_CMD      = curl -L -C - --remote-name-all ${BASE_URL}/authorities-gnd_lds.nt.gz ${BASE_URL}/dnb-all_lds.nt.gz ${BASE_URL}/dnb-all_ldsprov.nt.gz ${BASE_URL}/zdb_lds.nt.gz
+INDEX_DESCRIPTION = DNB data from ${BASE_ULR} (authoritities-gnd_lds, dnb_all_lds, dnb-all_ldsprov, zdb_lds)
+TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?var, "...")
+
+[index]
+FILE_NAMES      = *.nt.gz
+CAT_FILES       = zcat ${FILE_NAMES}
+SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }
+WITH_TEXT_INDEX = from_literals
+
+[server]
+PORT               = 7035
+ACCESS_TOKEN       = ${data:NAME}_284732743
+MEMORY_FOR_QUERIES = 10G
+CACHE_MAX_SIZE     = 2G
+WITH_TEXT_INDEX    = from_literals
+
+[docker]
+USE_DOCKER = false
+IMAGE      = adfreiburg/qlever
+
+[ui]
+PORT   = 7000
+CONFIG = gnd

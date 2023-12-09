@@ -17,10 +17,10 @@ CAT_FILES     = cat ${FILE_NAMES}
 SETTINGS_JSON = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
 
 [server]
-PORT                  = 7019
-ACCESS_TOKEN          = ${data:NAME}_7643543846
-MEMORY_FOR_QUERIES_GB = 5
-CACHE_MAX_SIZE_GB     = 2
+PORT               = 7019
+ACCESS_TOKEN       = ${data:NAME}_7643543846
+MEMORY_FOR_QUERIES = 5G
+CACHE_MAX_SIZE     = 2G
 
 [docker]
 USE_DOCKER = false

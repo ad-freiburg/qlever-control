@@ -24,14 +24,14 @@ INDEX_DESCRIPTION = PubChem RDF from ${GET_DATA_URL}, version 29.10.2023 (all fo
 FILE_NAMES        = nt/*.nt.gz nt/*/*.nt.gz nt/*/*/*.nt.gz
 CAT_FILES         = zcat ${FILE_NAMES}
 WITH_TEXT_INDEX   = false
-STXXL_MEMORY_GB   = 10
+STXXL_MEMORY      = 10G
 SETTINGS_JSON     = '{ "languages-internal": [""], "prefixes-external": [ "<http://rdf.ncbi.nlm.nih.gov/pubchem/"  ], "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }'
 
 
 [server]
 PORT                   = 7023
 ACCESS_TOKEN           = ${NAME}_310129823
-MEMORY_FOR_QUERIES_GB  = 50
+MEMORY_FOR_QUERIES     = 50G
 
 [docker]
 USE_DOCKER              = false

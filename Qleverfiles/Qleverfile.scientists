@@ -12,7 +12,7 @@ DB                = scientists
 RDF_FILES         = "${DB}.nt"
 CAT_FILES         = "cat ${RDF_FILES}"
 WITH_TEXT_INDEX   = from_text_records_and_literals
-STXXL_MEMORY_GB   = 1
+STXXL_MEMORY      = 1G
 SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }'
 GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
 INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
@@ -22,9 +22,9 @@ TEXT_DESCRIPTION  = "Literals (use FILTER CONTAINS) and Wikipedia articles (use 
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7020
 ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 5
-CACHE_MAX_SIZE_GB              = 2
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 1
+MEMORY_FOR_QUERIES             = 5G
+CACHE_MAX_SIZE                 = 2G
+CACHE_MAX_SIZE_SINGLE_ENTRY    = 1G
 CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries

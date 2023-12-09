@@ -15,13 +15,13 @@ FILE_NAMES      = latest-lexemes.ttl.bz2 latest-all.ttl.bz2
 CAT_FILES       = bzcat ${FILE_NAMES}
 SETTINGS_JSON   = { "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
 WITH_TEXT_INDEX = false
-STXXL_MEMORY_GB = 10
+STXXL_MEMORY    = 10g
 
 [server]
 PORT                  = 7001
 ACCESS_TOKEN          = ${data:NAME}_372483264
-MEMORY_FOR_QUERIES_GB = 50
-CACHE_MAX_SIZE_GB     = 30
+MEMORY_FOR_QUERIES    = 50G
+CACHE_MAX_SIZE        = 30G
 
 [docker]
 USE_DOCKER = true

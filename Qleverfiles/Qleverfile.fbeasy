@@ -17,11 +17,11 @@ FILE_NAMES = fbeasy.nt
 CAT_FILES  = cat ${RDF_FILES}
 
 [server]
-PORT                           = 7003
-ACCESS_TOKEN                   = ${data:NAME}_12631403
-MEMORY_FOR_QUERIES_GB          = 10
-CACHE_MAX_SIZE_GB              = 5
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 2
+PORT                        = 7003
+ACCESS_TOKEN                = ${data:NAME}_12631403
+MEMORY_FOR_QUERIES          = 10G
+CACHE_MAX_SIZE              = 5G
+CACHE_MAX_SIZE_SINGLE_ENTRY = 2G
 
 [docker]
 USE_DOCKER = false

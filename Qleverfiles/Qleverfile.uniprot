@@ -12,7 +12,7 @@ EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do xzcat \$F | head -1000 | \grep ^@
 CAT_FILES         = "xzcat -f ${DB}.prefix-definitions ${RDF_FILES}"
 WITH_TEXT_INDEX   = false
 PSO_AND_POS_ONLY  = true
-STXXL_MEMORY_GB   = 80
+STXXL_MEMORY      = 80G
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://purl.uniprot.org/uniprot/", "<http://purl.uniprot.org/uniparc/", "<http://purl.uniprot.org/uniref/", "<http://purl.uniprot.org/isoforms/", "<http://purl.uniprot.org/range/", "<http://purl.uniprot.org/position/", "<http://purl.uniprot.org/refseq/", "<http://purl.uniprot.org/embl-cds/", "<http://purl.uniprot.org/EMBL", "<http://purl.uniprot.org/PATRIC", "<http://purl.uniprot.org/SEED", "<http://purl.uniprot.org/gi", "<http://rdf.ebi.ac.uk/resource", "<http://purl.uniprot.org/SHA-384" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-partial-vocab": 20000000 }'
 GET_DATA_CMD      = 'echo "Please read https://github.com/ad-freiburg/qlever/wiki/Using-QLever-for-UniProt"'
 INDEX_DESCRIPTION = "Complete UniProt data from https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf, version ${DATE}"
@@ -21,9 +21,9 @@ INDEX_DESCRIPTION = "Complete UniProt data from https://ftp.uniprot.org/pub/data
 HOSTNAME                       = $(hostname -f)
 SERVER_PORT                    = 7018
 ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 80
-CACHE_MAX_SIZE_GB              = 50
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 10
+MEMORY_FOR_QUERIES             = 80G
+CACHE_MAX_SIZE                 = 50G
+CACHE_MAX_SIZE_SINGLE_ENTRY    = 10G
 CACHE_MAX_NUM_ENTRIES          = 100
 
 # QLever binaries

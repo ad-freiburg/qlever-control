@@ -21,11 +21,11 @@ SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 10000
 WITH_TEXT_INDEX = from_literals
 
 [server]
-PORT                  = 7015
-ACCESS_TOKEN          = ${data:NAME}_7643543846
-MEMORY_FOR_QUERIES_GB = 30
-CACHE_MAX_SIZE_GB     = 5
-WITH_TEXT_INDEX       = from_literals
+PORT               = 7015
+ACCESS_TOKEN       = ${data:NAME}_7643543846
+MEMORY_FOR_QUERIES = 30G
+CACHE_MAX_SIZE     = 5G
+WITH_TEXT_INDEX    = from_literals
 
 [docker]
 USE_DOCKER = false

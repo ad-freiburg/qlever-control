@@ -158,8 +158,8 @@ class Actions:
                 "port": "7000",
                 "binary": "ServerMain",
                 "num_threads": "8",
-                "cache_max_size_gb": "5",
-                "cache_max_size_gb_single_entry": "1",
+                "cache_max_size": "5G",
+                "cache_max_size_single_entry": "1G",
                 "cache_max_num_entries": "100",
                 "with_text_index": "false",
                 "only_pso_and_pos_permutations": "false",
@@ -439,8 +439,8 @@ class Actions:
         if index_config['with_text_index'] in \
                 ["from_literals", "from_text_records_and_literals"]:
             cmdline += " --text-words-from-literals"
-        if 'stxxl_memory_gb' in index_config:
-            cmdline += f" --stxxl-memory-gb {index_config['stxxl_memory_gb']}"
+        if 'stxxl_memory' in index_config:
+            cmdline += f" --stxxl-memory {index_config['stxxl_memory']}"
         cmdline += f" | tee {self.name}.index-log.txt"
 
         # If the total file size is larger than 10 GB, set ulimit (such that a
@@ -544,9 +544,9 @@ class Actions:
                    f" -i {self.name}"
                    f" -j {server_config['num_threads']}"
                    f" -p {server_config['port']}"
-                   f" -m {server_config['memory_for_queries_gb']}"
-                   f" -c {server_config['cache_max_size_gb']}"
-                   f" -e {server_config['cache_max_size_gb_single_entry']}"
+                   f" -m {server_config['memory_for_queries']}"
+                   f" -c {server_config['cache_max_size']}"
+                   f" -e {server_config['cache_max_size_single_entry']}"
                    f" -k {server_config['cache_max_num_entries']}")
         if server_config['access_token']:
             cmdline += f" -a {server_config['access_token']}"
@@ -799,9 +799,11 @@ class Actions:
 
         # Helper lambda that finds the next line matching the given `regex`,
         # starting from `current_line`, and extracts the time. Returns a tuple
-        # of the time and the regex match object. If a matchine is found,
+        # of the time and the regex match object. If a match is found,
         # `current_line` is updated to the line after the match. Otherwise,
-        # `current_line` is not changed.
+        # `current_line` will be one beyond the last line, unless 
+        # `line_is_optional` is true, in which case it will be the same as 
+        # when the function was entered.
         def find_next_line(regex, line_is_optional=False):
             nonlocal lines
             nonlocal current_line
@@ -840,14 +842,17 @@ class Actions:
                 break
             _, perm_info = find_next_line(r"INFO:\s*Writing meta data for"
                                           r" ([A-Z]+ and [A-Z]+)", True)
-            if perm_info is None:
-                break
+            # if perm_info is None:
+            #     break
             perm_begin_and_info.append((perm_begin, perm_info))
         convert_end = (perm_begin_and_info[0][0] if
                        len(perm_begin_and_info) > 0 else None)
         normal_end, _ = find_next_line(r"INFO:\s*Index build completed")
         text_begin, _ = find_next_line(r"INFO:\s*Adding text index", True)
         text_end, _ = find_next_line(r"INFO:\s*DocsDB done", True)
+        # print("DEBUG:", len(perm_begin_and_info), perm_begin_and_info)
+        # print("DEBUG:", overall_begin)
+        # print("DEBUG:", normal_end)
 
         # Check whether at least the first phase is done.
         if overall_begin is None:

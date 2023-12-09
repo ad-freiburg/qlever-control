@@ -9,7 +9,7 @@ DB                = yago-4
 RDF_FILES         = "yago-wd-*.nt.gz"
 CAT_FILES         = "zcat ${RDF_FILES}"
 WITH_TEXT_INDEX   = false
-STXXL_MEMORY_GB   = 10
+STXXL_MEMORY      = 10G
 SETTINGS_JSON     = '{ "languages-internal": ["en"], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
 
 # Get the data
@@ -21,13 +21,13 @@ GET_DATA_CMD      = "wget -nc https://yago-knowledge.org/data/yago4/full/2020-02
 INDEX_DESCRIPTION = "Full dump from https://yago-knowledge.org/downloads/yago-4, version 12.03.2020"
 
 # Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 9004
-ACCESS_TOKEN                   = ${DB}_2347348732
-MEMORY_FOR_QUERIES             = 30
-CACHE_MAX_SIZE_GB              = 20
-CACHE_MAX_SIZE_GB_SINGLE_ENTRY = 5
-CACHE_MAX_NUM_ENTRIES          = 100
+HOSTNAME                    = $(hostname -f)
+SERVER_PORT                 = 9004
+ACCESS_TOKEN                = ${DB}_2347348732
+MEMORY_FOR_QUERIES          = 30G
+CACHE_MAX_SIZE              = 20G
+CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
+CACHE_MAX_NUM_ENTRIES       = 100
 
 # QLever binaries
 QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build

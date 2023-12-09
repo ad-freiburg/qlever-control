@@ -801,9 +801,9 @@ class Actions:
         # starting from `current_line`, and extracts the time. Returns a tuple
         # of the time and the regex match object. If a match is found,
         # `current_line` is updated to the line after the match. Otherwise,
-        # `current_line` will be one beyond the last line, unless 
-        # `line_is_optional` is true, in which case it will be the same as 
-        # when the function was entered.
+        # `current_line` will be one beyond the last line, unless
+        # `line_is_optional` is true, in which case it will be the same as when
+        # the function was entered.
         def find_next_line(regex, line_is_optional=False):
             nonlocal lines
             nonlocal current_line

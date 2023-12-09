@@ -36,4 +36,4 @@ IMAGE      = adfreiburg/qlever
 
 [ui]
 PORT   = 7000
-CONFIG = gnd
+CONFIG = dnb

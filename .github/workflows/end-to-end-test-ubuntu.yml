@@ -53,7 +53,7 @@ jobs:
           pwd && ls -lh
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           docker run --entrypoint bash adfreiburg/qlever -c "ServerMain --help" > /dev/null
-          docker run --entrypoint bash adfreiburg/qlever -c "IndexBuildeMain --help" > /dev/null
+          docker run --entrypoint bash adfreiburg/qlever -c "IndexBuilderMain --help" > /dev/null
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           qlever

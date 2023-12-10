@@ -1109,7 +1109,7 @@ class Actions:
         total_time_seconds = 0.0
         total_result_size = 0
         for description, query in [line.split("\t") for line in
-                                   queries.decode("utf-8").split("\n")]:
+                                   queries.decode("utf-8").splitlines()]:
             # Launch query and show the `resultsize` of the JSON response.
             clear_cache_cmd = (f"curl -s {self.config['server']['url']} "
                                f"--data-urlencode cmd=clear-cache")

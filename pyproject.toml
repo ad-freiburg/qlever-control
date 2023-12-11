@@ -1,0 +1,28 @@
+[project]
+name = "qlever"
+description = "Script for using the QLever SPARQL engine."
+version = "0.2.13"
+authors = [
+    { name = "Hannah Bast", email = "bast@cs.uni-freiburg.de" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+
+keywords = ["SPARQL", "RDF", "knowledge graphs", "triple store"]
+
+classifiers = [
+ "Topic :: Database :: Database Engines/Servers",
+ "Topic :: Database :: Front-Ends"
+]
+
+dependencies = [ "psutil", "termcolor" ]
+
+[project.scripts]
+"qlever" = "qlever:main"
+
+[project.urls]
+Github = "https://github.com/ad-freiburg/qlever-control"
+
+[tool.setuptools]
+package-data = { "*" = ["*.py", "Qleverfiles/Qleverfile.*"] }

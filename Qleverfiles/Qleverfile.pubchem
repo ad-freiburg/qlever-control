@@ -34,7 +34,7 @@ ACCESS_TOKEN           = ${NAME}_310129823
 MEMORY_FOR_QUERIES     = 50G
 
 [docker]
-USE_DOCKER              = false
+USE_DOCKER              = true
 QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
 
 [ui]

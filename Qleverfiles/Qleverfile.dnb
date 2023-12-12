@@ -31,7 +31,7 @@ CACHE_MAX_SIZE     = 2G
 WITH_TEXT_INDEX    = from_literals
 
 [docker]
-USE_DOCKER = false
+USE_DOCKER = true
 IMAGE      = adfreiburg/qlever
 
 [ui]

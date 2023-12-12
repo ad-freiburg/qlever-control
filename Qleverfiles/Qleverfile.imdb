@@ -29,7 +29,7 @@ MEMORY_FOR_QUERIES = 5G
 CACHE_MAX_SIZE     = 3G
 
 [docker]
-USE_DOCKER = false
+USE_DOCKER = true
 IMAGE      = adfreiburg/qlever
 
 [ui]

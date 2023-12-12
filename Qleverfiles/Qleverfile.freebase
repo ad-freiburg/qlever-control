@@ -23,7 +23,7 @@ CACHE_MAX_SIZE              = 20G
 CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
 
 [docker]
-USE_DOCKER = false
+USE_DOCKER = true
 IMAGE      = adfreiburg/qlever
 
 [ui]

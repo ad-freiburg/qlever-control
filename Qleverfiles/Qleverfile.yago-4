@@ -1,41 +1,37 @@
 # Qleverfile for YAGO 4, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads eight nt.gz file of size ~60 GB (as of 12.03.2020)
-# qlever index     # takes ~4.5 hours and ~10 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (takes around one minute)
+# qlever get-data  # downloads 8 nt.gz file of size ~60 GB (as of 12.03.2020)
+# qlever index     # takes ~4 hours and ~10 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server
 
-# Indexer settings
-DB                = yago-4
-RDF_FILES         = "yago-wd-*.nt.gz"
-CAT_FILES         = "zcat ${RDF_FILES}"
-WITH_TEXT_INDEX   = false
-STXXL_MEMORY      = 10G
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 5000000 }'
+# NOTE concerning GET_DATA_CMD: The triples from wd-annotated-facts are
+# contained in wd-facts. The "full types" are the YAGO types, the "simple
+# types" are the schema.org types. They don't interfere with each other because
+# they have distinct prefixes.
 
-# Get the data
-#
-# NOTE: The triples from wd-annotated-facts are contained in wd-facts. The
-# "full types" are the YAGO types, the "simple types" are the schema.org types.
-# They don't interfere with each other because they have distinct prefixes.
-GET_DATA_CMD      = "wget -nc https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-class.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-facts.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-full-types.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-labels.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-sameAs.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-schema.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-shapes.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-simple-types.nt.gz"
+[data]
+NAME         = yago-4
+GET_DATA_CMD = curl --location --continue-at - --remote-name-all https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-class.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-facts.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-full-types.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-labels.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-sameAs.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-schema.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-shapes.nt.gz https://yago-knowledge.org/data/yago4/full/2020-02-24/yago-wd-simple-types.nt.gz
 INDEX_DESCRIPTION = "Full dump from https://yago-knowledge.org/downloads/yago-4, version 12.03.2020"
 
-# Server settings
-HOSTNAME                    = $(hostname -f)
-SERVER_PORT                 = 9004
+[index]
+FILE_NAMES      = yago-wd-*.nt.gz
+CAT_FILES       = zcat ${FILE_NAMES}
+WITH_TEXT_INDEX = false
+STXXL_MEMORY    = 10G
+SETTINGS_JSON   = { "languages-internal": ["en"], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
+
+[server]
+PORT                        = 9004
 ACCESS_TOKEN                = ${DB}_2347348732
 MEMORY_FOR_QUERIES          = 30G
 CACHE_MAX_SIZE              = 20G
 CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
-CACHE_MAX_NUM_ENTRIES       = 100
 
-# QLever binaries
-QLEVER_BIN_DIR          = /local/data/qlever/qlever-code/build
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
+[docker]
+USE_DOCKER = true
+IMAGE      = adfreiburg/qlever
 
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = yago-4
+[ui]
+PORT   = 7000
+CONFIG = yago-4

@@ -1017,6 +1017,33 @@ class Actions:
                                   f"{e}")
 
     @track_action_rank
+    def action_clear_cache_complete(self, only_show=False):
+        """
+        Action that clears the complete cache.
+        """
+
+        # Construct the curl command.
+        access_token = self.config['server']['access_token']
+        clear_cache_cmd = (f"curl -s {self.config['server']['url']} "
+                           f"--data-urlencode \"cmd=clear-cache-complete\" "
+                           f"--data-urlencode \"access-token={access_token}\"")
+
+        # Show it.
+        self.show(clear_cache_cmd, only_show)
+        if only_show:
+            return
+
+        # Execute it.
+        try:
+            subprocess.run(clear_cache_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+            print("Cache cleared (both pinned and unpinned entries)")
+            print()
+            self.action_cache_stats_and_settings(only_show)
+        except Exception as e:
+            raise ActionException(f"Failed to clear the cache: {e}")
+
+    @track_action_rank
     def action_autocompletion_warmup(self, only_show=False):
         """
         Action that pins the autocompletion queries from `ui.config` to the

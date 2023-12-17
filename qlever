@@ -1022,9 +1022,35 @@ class Actions:
                                   f"{e}")
 
     @track_action_rank
+    def action_clear_cache(self, only_show=False):
+        """
+        Action that clears the cache (unpinned entries only).
+        """
+
+        # Construct the curl command.
+        clear_cache_cmd = (f"curl -s {self.config['server']['url']} "
+                           f"--data-urlencode \"cmd=clear-cache\"")
+
+        # Show it.
+        self.show(clear_cache_cmd, only_show)
+        if only_show:
+            return
+
+        # Execute it.
+        try:
+            subprocess.run(clear_cache_cmd, shell=True,
+                           stdout=subprocess.DEVNULL)
+            print("Cache cleared (only unpinned entries)")
+            print()
+            self.action_cache_stats_and_settings(only_show)
+        except Exception as e:
+            raise ActionException(f"Failed to clear the cache: {e}")
+
+    @track_action_rank
     def action_clear_cache_complete(self, only_show=False):
         """
-        Action that clears the complete cache.
+        Action that clears the cache completely (both pinned and unpinned
+        entries).
         """
 
         # Construct the curl command.
@@ -1096,6 +1122,8 @@ class Actions:
                        f"--data-urlencode access-token={access_token} "
                        f"--data-urlencode pinresult=true "
                        f"--data-urlencode send=0")
+            clear_cache_cmd = (f"curl -s {self.config['server']['url']} "
+                               f"--data-urlencode \"cmd=clear-cache\"")
             log.info(pin_cmd)
             # Launch query and show the `resultsize` of the JSON response.
             try:
@@ -1105,6 +1133,9 @@ class Actions:
                 if "exception" in json_result:
                     raise Exception(json_result["exception"])
                 log.info(f"Result size: {json_result['resultsize']:,}")
+                log.info(clear_cache_cmd)
+                subprocess.check_output(clear_cache_cmd, shell=True,
+                                        stderr=subprocess.DEVNULL)
             except Exception as e:
                 log.error(f"Query failed: {e}")
 

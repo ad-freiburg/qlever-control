@@ -1193,16 +1193,17 @@ class Actions:
                 if "exception" in json_result:
                     raise Exception(json_result["exception"])
                 result_size = int(json_result["resultsize"])
-                result_string = "{:,}".format(result_size)
+                result_string = f"{result_size:>14,}"
             except Exception as e:
                 time_seconds = 0.0
                 result_size = 0
-                result_string = f"{RED}{e}{NORMAL}"
+                result_string = (f"{RED}        FAILED{NORMAL}"
+                                 f" {RED}({e}){NORMAL}")
 
             # Print description, time, result in tabular form.
             log.debug(query)
             log.info(f"{description:<60}  {time_seconds:6.2f} s  "
-                     f"{result_string:>10}")
+                     f"{result_string}")
             count += 1
             total_time_seconds += time_seconds
             total_result_size += result_size
@@ -1214,11 +1215,11 @@ class Actions:
         description = (f"TOTAL   for {count} "
                        f"{'query' if count == 1 else 'queries'}")
         log.info(f"{description:<60}  {total_time_seconds:6.2f} s  "
-                 f"{total_result_size:>10,}")
+                 f"{total_result_size:>14,}")
         description = (f"AVERAGE for {count} "
                        f"{'query' if count == 1 else 'queries'}")
         log.info(f"{description:<60}  {total_time_seconds / count:6.2f} s  "
-                 f"{round(total_result_size / count):>10,}")
+                 f"{round(total_result_size / count):>14,}")
 
     @track_action_rank
     def action_memory_profile(self, only_show=False):

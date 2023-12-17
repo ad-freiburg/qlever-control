@@ -146,6 +146,11 @@ class Actions:
             "general": {
                 "log_level": "info",
                 "pid": "0",
+                "example_queries_url": (f"https://qlever.cs.uni-freiburg.de/"
+                                        f"api/examples/"
+                                        f"{self.config['ui']['config']}"),
+                "example_queries_limit": "10",
+                "example_queries_send": "0",
             },
             "index": {
                 "binary": "IndexBuilderMain",
@@ -1110,14 +1115,18 @@ class Actions:
         """
 
         # Construct curl command to obtain the example queries.
-        config_name = self.config["ui"]["config"]
-        examples_url = f"{self.config['ui']['url']}/examples/{config_name}"
-        curl_cmd = f"curl -s {examples_url}"
+        config_general = self.config["general"]
+        example_queries_url = config_general["example_queries_url"]
+        example_queries_limit = int(config_general["example_queries_limit"])
+        example_queries_send = int(config_general["example_queries_send"])
+        curl_cmd = f"curl -s {example_queries_url}"
 
         # Show what the action does.
         self.show(f"Launch example queries obtained via: {curl_cmd}\n"
                   f"SPARQL endpoint: {self.config['server']['url']}\n"
-                  f"Clearing the cache before each query + using send=0",
+                  f"Clearing the cache before each query\n"
+                  f"Using send={example_queries_send} and limit="
+                  f"{example_queries_limit}",
                   only_show)
         if only_show:
             return
@@ -1141,7 +1150,7 @@ class Actions:
             query_cmd = (f"curl -s {self.config['server']['url']} "
                          f"-H \"Accept: application/qlever-results+json\" "
                          f"--data-urlencode query={shlex.quote(query)} "
-                         f"--data-urlencode send=0")
+                         f"--data-urlencode send={example_queries_send}")
             try:
                 subprocess.run(clear_cache_cmd, shell=True,
                                stdout=subprocess.DEVNULL,
@@ -1166,15 +1175,19 @@ class Actions:
             count += 1
             total_time_seconds += time_seconds
             total_result_size += result_size
-            if count == 10:
+            if count == example_queries_limit:
                 break
 
         # Print total time.
         log.info("")
-        description = (f"TOTAL for {count} "
+        description = (f"TOTAL   for {count} "
                        f"{'query' if count == 1 else 'queries'}")
         log.info(f"{description:<60}  {total_time_seconds:6.2f} s  "
                  f"{total_result_size:>10,}")
+        description = (f"AVERAGE for {count} "
+                       f"{'query' if count == 1 else 'queries'}")
+        log.info(f"{description:<60}  {total_time_seconds / count:6.2f} s  "
+                 f"{round(total_result_size / count):>10,}")
 
     @track_action_rank
     def action_memory_profile(self, only_show=False):

@@ -29,6 +29,135 @@ RED = "\033[31m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
 
+import abc
+
+class ContainerRuntime(abc.ABC):
+    @abc.abstractmethod
+    def check_installation(self) -> str:
+        pass
+
+    @abc.abstractmethod
+    def stop_container(self, container: str) -> str:
+        pass
+
+    @abc.abstractmethod
+    def remove_container(self, container: str, force: bool = False) -> str:
+        pass
+
+    @abc.abstractmethod
+    def pull_image(self, image_name: str) -> str:
+        pass
+
+    @abc.abstractmethod
+    def exec(self, container: str, cmd: str) -> str:
+        pass
+
+    # TODO: inconsistency between run and exec: cmd vs. command
+    @abc.abstractmethod
+    def run(self, image: str, remove: bool = False, map_ids: bool = False, volumes: list[str] = None,
+            entrypoint: str = None, name: str = None, command: str = None,
+            detached: bool = False, restart: str = None,
+            ports: list[str] = None, working_dir: str = None,
+            interactive: bool = False, ptty: bool = False) -> str:
+        pass
+
+class DockerlikeRuntime(ContainerRuntime):
+    executable: str = None
+
+    def check_installation(self) -> str:
+        return f"{self.executable} info"
+
+    def stop_container(self, container: str) -> str:
+        return f"{self.executable} stop {container}"
+
+    def remove_container(self, container: str, force: bool = False) -> str:
+        cmd = f"{self.executable} rm"
+        # TODO: debate using the short/long form of the options
+        if force:
+            cmd += " -f"
+        cmd += f" {container}"
+        return cmd
+
+    def pull_image(self, image_name: str) -> str:
+        return f"{self.executable} pull f{image_name}"
+
+    def exec(self, container: str, cmd: str) -> str:
+        return f"{self.executable} exec {container} {cmd}"
+
+    def run(self, image: str, remove: bool = False, map_ids: bool = False, volumes: list[str] = [],
+            entrypoint: str = None, name: str = None, command: str = None,
+            detached: bool = False, restart: str = None, ports: list[str] = [],
+            working_dir: str = None, interactive: bool = False,
+            ptty: bool = False) -> str:
+        cmd = f"{self.executable} run"
+        # handle image and cmd last
+        if remove:
+            cmd += " --rm"
+        if map_ids:
+            cmd += " -u $(id -u):$(id -g)"
+        for volume in volumes:
+            cmd += f" -v {volume}"
+        if entrypoint:
+            cmd += f" --entrypoint {entrypoint}"
+        if name:
+            cmd += f" --name {name}"
+        if detached:
+            cmd += " -d"
+        if restart:
+            cmd += f" --restart {restart}"
+        for port in ports:
+            cmd += f" -p {port}"
+        if working_dir:
+            cmd += f" -w {working_dir}"
+        if interactive:
+            cmd += " -i"
+        if ptty:
+            cmd += " -t"
+        cmd += f" {image}"
+        if command:
+            cmd += f" {command}"
+        return cmd
+
+class DockerRuntime(DockerlikeRuntime):
+    executable = "docker"
+
+class PodmanRuntime(DockerlikeRuntime):
+    executable = "podman"
+
+    def run(self, image: str, remove: bool = False, map_ids: bool = False, volumes: list[str] = [],
+            entrypoint: str = None, name: str = None, command: str = None,
+            detached: bool = False, restart: str = None, ports: list[str] = [],
+            working_dir: str = None, interactive: bool = False,
+            ptty: bool = False) -> str:
+        cmd = f"{self.executable} run"
+        # handle image and cmd last
+        if remove:
+            cmd += " --rm"
+        if map_ids:
+            cmd += f" -u root"
+        for volume in volumes:
+            cmd += f" -v {volume}"
+        if entrypoint:
+            cmd += f" --entrypoint {entrypoint}"
+        if name:
+            cmd += f" --name {name}"
+        if detached:
+            cmd += " -d"
+        if restart:
+            cmd += f" --restart {restart}"
+        for port in ports:
+            cmd += f" -p {port}"
+        if working_dir:
+            cmd += f" -w {working_dir}"
+        if interactive:
+            cmd += " -i"
+        if ptty:
+            cmd += " -t"
+        cmd += f" {image}"
+        if command:
+            cmd += f" {command}"
+        return cmd
+
 
 # Custom formatter for log messages.
 class CustomFormatter(logging.Formatter):
@@ -173,6 +302,7 @@ class Actions:
                 "url": f"http://localhost:{self.config['server']['port']}",
             },
             "docker": {
+                "runtime": "docker",
                 "image": "adfreiburg/qlever",
                 "container_server": f"qlever.server.{self.name}",
                 "container_indexer": f"qlever.indexer.{self.name}",
@@ -204,6 +334,16 @@ class Actions:
                 log.error(f"Invalid log level: \"{log_level}\"")
                 abort_script()
 
+        if self.config['docker']['use_docker'] in self.yes_values:
+            container_runtime = self.config['docker']['runtime']
+            if container_runtime == "docker":
+                self.container_runtime = DockerRuntime()
+            elif container_runtime == "podman":
+                self.container_runtime = PodmanRuntime()
+            else:
+                log.errror(f"Invalid container runtime: \"{container_runtime}\"")
+                abort_script()
+
         # Show some information (for testing purposes only).
         log.debug(f"Parsed Qleverfile, sections are: "
                   f"{', '.join(self.config.sections())}")
@@ -232,7 +372,8 @@ class Actions:
         # hangs when installed without GUI, hence the timeout).
         try:
             completed_process = subprocess.run(
-                    ["docker", "info"], timeout=0.5,
+                    self.container_runtime.check_installation(),
+                    timeout=0.5, shell=True, check=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if completed_process.returncode != 0:
                 raise Exception("docker info failed")
@@ -459,13 +600,16 @@ class Actions:
         # Here is how the shell script does it:
         if self.config['docker']['use_docker'] in self.yes_values:
             docker_config = self.config['docker']
-            cmdline = (f"docker run -it --rm -u $(id -u):$(id -g)"
-                       f" -v /etc/localtime:/etc/localtime:ro"
-                       f" -v $(pwd):/index -w /index"
-                       f" --entrypoint bash"
-                       f" --name {docker_config['container_indexer']}"
-                       f" {docker_config['image']}"
-                       f" -c {shlex.quote(cmdline)}")
+            cmdline = self.container_runtime\
+                    .run(image=docker_config['image'],
+                         interactive=True,
+                         ptty=True,
+                         remove=True,
+                         user="$(id -u):$(id -g)",
+                         volumes=["/etc/localtime:/etc/localtime:ro", "$(pwd):/index -w /index"],
+                         entrypoint="bash",
+                         name=docker_config['container_indexer'],
+                         command=f"-c {shlex.quote(cmdline)}")
 
         # Show the command line.
         self.show(f"Write value of config variable index.SETTINGS_JSON to "
@@ -571,16 +715,18 @@ class Actions:
         # If we are using Docker, run the command in a docker container.
         if self.config['docker']['use_docker'] in self.yes_values:
             docker_config = self.config['docker']
-            cmdline = (f"docker run -d --restart=unless-stopped"
-                       f" -u $(id -u):$(id -g)"
-                       f" -it -v /etc/localtime:/etc/localtime:ro"
-                       f" -v $(pwd):/index"
-                       f" -p {server_config['port']}:{server_config['port']}"
-                       f" -w /index"
-                       f" --entrypoint bash"
-                       f" --name {docker_config['container_server']}"
-                       f" {docker_config['image']}"
-                       f" -c {shlex.quote(cmdline)}")
+            cmdline = self.container_runtime\
+                    .run(image=docker_config['image'],
+                         interactive=True,
+                         ptty=True,
+                         map_ids=True,
+                         volumes=["/etc/localtime:/etc/localtime:ro", "$(pwd):/index -w /index"],
+                         entrypoint="bash",
+                         name=docker_config['container_server'],
+                         command=f"-c {shlex.quote(cmdline)}",
+                         detached=True,
+                         restart="unless-stopped",
+                         ports=[f"{server_config['port']}:{server_config['port']}"])
         else:
             cmdline = f"nohup {cmdline} &"
 
@@ -672,8 +818,9 @@ class Actions:
 
         # First check if there is docker container running.
         if self.docker_enabled:
-            docker_cmd = (f"docker stop {docker_container_name} && "
-                          f"docker rm {docker_container_name}")
+            stop_cmd = self.container_runtime.stop_container(docker_container_name)
+            remove_cmd = self.container_runtime.remove_container(docker_container_name)
+            docker_cmd = f"{stop_cmd} && {remove_cmd}"
             try:
                 subprocess.run(docker_cmd, shell=True, check=True,
                                stdout=subprocess.DEVNULL,

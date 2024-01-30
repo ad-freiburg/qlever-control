@@ -1202,6 +1202,8 @@ class Actions:
 
             # Print description, time, result in tabular form.
             log.debug(query)
+            if (len(description) > 60):
+                description = description[:57] + "..."
             log.info(f"{description:<60}  {time_seconds:6.2f} s  "
                      f"{result_string}")
             count += 1

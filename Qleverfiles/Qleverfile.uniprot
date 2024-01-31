@@ -1,38 +1,42 @@
 # Qleverfile for UniProt, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # See https://github.com/ad-freiburg/qlever/wiki/Using-QLever-for-UniProt
-# qlever index     # takes ~85 hours and ~100 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (takes around 2 minutes)
+# qlever get-data  # download RDFXML and convert to NT (around 1 TB each)
+# qlever index     # takes ~ 1.5 days and ~40 GB RAM (on an AMD Ryzen 9 5900X)
+# qlever start     # starts the server (takes a few second)
+#
+# Install packages: sudo apt install -y libxml2-utils parallel xz-utils pv
+# Install manually: Apache Jena binaries (https://dlcdn.apache.org/jena/binaries)
+#
+# Set DATE to the date of the latest release
+#
+# IMPORTANT: Build on SSD, disk space required: ~ 10 T. For running the server,
+# the uniprot.index.???.meta files can be on HDD.
 
-# Indexer settings
-DB                = uniprot
-DATE              = "2022-10-12"
-RDF_FILES         = "ttl.${DATE}/*.ttl.xz"
-EXTRACT_PREFIXES  = "for F in ${RDF_FILES}; do xzcat \$F | head -1000 | \grep ^@prefix; done | sort -u > ${DB}.prefix-definitions"
-CAT_FILES         = "xzcat -f ${DB}.prefix-definitions ${RDF_FILES}"
-WITH_TEXT_INDEX   = false
-PSO_AND_POS_ONLY  = true
-STXXL_MEMORY      = 80G
-SETTINGS_JSON     = '{ "languages-internal": ["en"], "prefixes-external": [ "<http://purl.uniprot.org/uniprot/", "<http://purl.uniprot.org/uniparc/", "<http://purl.uniprot.org/uniref/", "<http://purl.uniprot.org/isoforms/", "<http://purl.uniprot.org/range/", "<http://purl.uniprot.org/position/", "<http://purl.uniprot.org/refseq/", "<http://purl.uniprot.org/embl-cds/", "<http://purl.uniprot.org/EMBL", "<http://purl.uniprot.org/PATRIC", "<http://purl.uniprot.org/SEED", "<http://purl.uniprot.org/gi", "<http://rdf.ebi.ac.uk/resource", "<http://purl.uniprot.org/SHA-384" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-partial-vocab": 20000000 }'
-GET_DATA_CMD      = 'echo "Please read https://github.com/ad-freiburg/qlever/wiki/Using-QLever-for-UniProt"'
-INDEX_DESCRIPTION = "Complete UniProt data from https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf, version ${DATE}"
+[data]
+NAME              = uniprot
+DATE              = 2024-01-24
+DOWNLOAD_URL      = https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf
+GET_RDFXML_CMD    = mkdir -p rdf.${DATE} && curl -s ${DOWNLOAD_URL}/RELEASE.meta4 | sed "s/<metalink.*/<metalink>/" | xmllint --xpath "/metalink/files/file/url[@location=\"ch\"]/text()" - | while read URL; do wget --no-verbose -P rdf.${DATE} $$URL 2>&1 | tee -a uniprot.download-log; done
+RDFXML2NT_CMD     = mkdir -p nt.${DATE} && for RDFXML in rdf.${DATE}/*.{owl,owl.xz,rdf,rdf.xz}; do echo "xzcat -f $$RDFXML | rdfxml --output=nt 2> /dev/null | xz -c > nt.${DATE}/$$(basename ${RDFXML} | sed 's/\(rdf\|rdf.xz\|owl\|owl.xz\)$$/nt.xz/') && echo 'DONE converting ${RDFXML}'"; done | parallel
+GET_DATA_CMD      = ${GET_RDFXML_CMD} && ${RDFXML2NT_CMD}
+INDEX_DESCRIPTION = Complete UniProt data from ${DOWNLOAD_URL}, version ${DATE}
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7018
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 80G
-CACHE_MAX_SIZE                 = 50G
-CACHE_MAX_SIZE_SINGLE_ENTRY    = 10G
-CACHE_MAX_NUM_ENTRIES          = 100
+[index]
+FILE_NAMES        = nt.${data:DATE}/*.nt.xz
+CAT_FILES         = parallel --tmpdir . -j 4 'xzcat -f {}' ::: nt.${data:DATE}/*.nt.xz | pv -q -B 5G 
+STXXL_MEMORY      = 60G
+SETTINGS_JSON     = { "languages-internal": [], "prefixes-external": [""], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = qlever.uniprot
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
+[server]
+PORT               = 7018
+ACCESS_TOKEN       = ${data:NAME}_1369924040
+MEMORY_FOR_QUERIES = 100G
+CACHE_MAX_SIZE     = 70G
 
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = uniprot
+[docker]
+USE_DOCKER  = true
+IMAGE       = adfreiburg/qlever
+
+[ui]
+PORT   = 7000
+CONFIG = uniprot

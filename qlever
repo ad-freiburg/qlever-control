@@ -167,6 +167,7 @@ class Actions:
                 "cache_max_num_entries": "100",
                 "with_text_index": "false",
                 "only_pso_and_pos_permutations": "false",
+                "timeout": "30s",
                 "use_patterns": "true",
                 "url": f"http://localhost:{self.config['server']['port']}",
             },
@@ -551,6 +552,8 @@ class Actions:
                    f" -c {server_config['cache_max_size']}"
                    f" -e {server_config['cache_max_size_single_entry']}"
                    f" -k {server_config['cache_max_num_entries']}")
+        if server_config['timeout']:
+            cmdline += f" -s {server_config['timeout']}"
         if server_config['access_token']:
             cmdline += f" -a {server_config['access_token']}"
         if server_config['only_pso_and_pos_permutations'] in self.yes_values:

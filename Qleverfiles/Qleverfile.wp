@@ -1,0 +1,45 @@
+# Qleverfile for WikiPathways
+#
+# qlever get-data
+# qlever index
+# qlever start
+#
+# Limitations:
+# - does not load the ontologies (WP, GPML, ChEBI, PW, CLO, ...) yet
+
+[data]
+NAME              = wp
+RELEASE           = 20231210
+GET_DATA_URL      = https://data.wikipathways.org/${RELEASE}/rdf/
+GET_DATA_CMD      = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-void.ttl && \
+                    wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-wp.zip && \
+                      unzip -qq -c wikipathways-${RELEASE}-rdf-wp.zip -x wp/wpOntology.ttl > wikipathways-rdf-wp.ttl && \
+                    wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-gpml.zip && 
+                      unzip -qq -c wikipathways-${RELEASE}-rdf-gpml.zip -x gpml/gpmlOntology.ttl > wikipathways-rdf-gpml.ttl && \
+                    wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-authors.zip && \
+                      unzip -qq -c wikipathways-${RELEASE}-rdf-authors.zip > wikipathways-rdf-authors.ttl && \
+                    cat wikipathways-rdf-*.ttl | grep ^@prefix | tr -s ' ' | sort -u > ${NAME}.prefix-definitions
+INDEX_DESCRIPTION = WikiPathways RDF, data from ${GET_DATA_URL}
+TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
+
+[index]
+NAME              = wp
+FILE_NAMES        = ${NAME}.prefix-definitions wikipathways-rdf-wp.ttl wikipathways-rdf-gpml.ttl wikipathways-rdf-void.ttl wikipathways-rdf-authors.ttl
+CAT_FILES         = cat ${FILE_NAMES}
+SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+WITH_TEXT_INDEX   = from_literals
+
+[server]
+PORT               = 7015
+ACCESS_TOKEN       = ${data:NAME}_7643543846
+MEMORY_FOR_QUERIES = 30G
+CACHE_MAX_SIZE     = 5G
+WITH_TEXT_INDEX    = from_literals
+
+[docker]
+USE_DOCKER = true
+IMAGE      = adfreiburg/qlever
+
+[ui]
+PORT   = 7001
+CONFIG = default

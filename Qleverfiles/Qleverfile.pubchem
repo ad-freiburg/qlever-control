@@ -1,7 +1,7 @@
 # Qleverfile for PubChem, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads .gz files of total size 114 GB; see NOTES 2, 3, 4
-# qlever index     # takes ~5 hours and ~20 GB RAM on an AMD Ryzen 9 5900X
+# qlever get-data  # downloads+converts .gz files of size ~114 GB, takes ~5 h
+# qlever index     # takes ~5 h and ~20 GB RAM on an AMD Ryzen 9 5900X
 # qlever start     # starts the server (a few seconds)
 #
 # IMPORTANT NOTES:
@@ -16,36 +16,35 @@
 # obi pr ro sio skos so uo
 #
 # NOTE 2: The robots.txt file from https://ftp.ncbi.nlm.nih.gov currently
-# disallows downloading the PubChem RDF data using `wget --recursive` as in the
-# GET_DATA_CMD below. As a workaround, you can write a simple Python script
-# (using `BeautifulSoup` and `urllib.parse`) to scrape the URLs from the HTML
-# pages and download the files individually. This was done for the latest
-# version of https://qlever.cs.uni-freiburg.de/pubchem .
+# disallows downloading the PubChem RDF data using `wget --recursive`. As a  
+# workaround, the `GET_DATA_CMD` below uses `curl` to download the `void.ttl`
+# and from that file extracts the URLs of the TTL files, which are then
+# downloaded one by one. Alternatively, `wget --recursive` does work for the
+# URL `ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF` (`ftp` instead of `https`).
 #
 # NOTE 3: Many of the TTL files have generic prefix definitions in the middle
-# of the file, like @prefix ns23: <http://identifiers.org/biocyc/ARACYC:> .
+# of the file, like `@prefix ns23: <http://identifiers.org/biocyc/ARACYC:>`.
 # See https://github.com/ad-freiburg/qlever/issues/711#issuecomment-1197113953
-# This is allowed by the standard, but VERY unusual. For use with QLever,
-# convert the TTL files to NT before indexing, see GET_DATA_CMD below.
+# This is allowed by the standard, but very unusual. For use with QLever, the 
+# `GET_DATA_CMD` therefore converts the TTL files to NT before indexing.
 #
 # NOTE 4: Many of the files (TTL as well as NT) contain invalid IRIs because
-# spaces and braces are not properly escaped. Here is a simple awk-based script
-# to percent-encode spaces and braces in all IRIs in the NT files:
-#
-# for NTGZ in nt.${DATE}/*.nt.gz; do echo "zcat $NTGZ | sed 's/> />\t/1; s/> />\t/1; s/ \.\$/\t./' | awk 'BEGIN{FS=OFS=\"\t\"} {for (i = 1; i <= 3; i++) if (\$i ~ /^<.*>\$/) { gsub(/ /, \"%20\", \$i); gsub(/\[/, \"%5B\", \$i); gsub(/\]/, \"%5D\", \$i); gsub(/{/, \"%7B\", \$i); gsub(/}/, \"%7D\", \$i); } print }' | sed 's/\t/ /g' | gzip -c > nt.${DATE}.FIXED/$(basename $NTGZ)"; done > fix-nt.commands.txt
-# cat fix-nt.commands.txt | parallel
+# spaces and braces are not properly escaped. The `GET_DATA_CMD` below
+# percent-encodes each occurrence of a space, `[`, `]`, `{`, and `}` in an IRI.
 
 
 [DEFAULT]
-NAME              = pubchem
+NAME = pubchem
+DATE = 2024-02-03
 
 [data]
-GET_DATA_URL      = https://ftp.ncbi.nlm.nih.gov/pubchem/RDF
-GET_DATA_CMD      = wget --recursive --exclude-directories=nbr2d,nbr3d --no-host-directories --no-clobber --cut-dirs=2 --directory-prefix=ttl ${GET_DATA_URL} && find ttl \( -name "*.ttl.gz" -o -name "*.ttl" \) | parallel 'zcat -f {} | docker run --rm -i stain/jena riot --syntax=TTL --output=NT /dev/stdin 2> pubchem.ttl2nt.stderr | gzip > nt/$$(basename -s .ttl.gz -s ttl {}).nt.gz'
-INDEX_DESCRIPTION = PubChem RDF from ${GET_DATA_URL}, version 12.12.2023 (all folders except nbr2d and nbr3d)
+GET_DATA_URL      = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
+MAKE_GET_DATA_CMD = curl -s ${GET_DATA_URL}/void.ttl | grep -oP '${GET_DATA_URL}/.*?\.ttl\.gz' | grep -v "nbr[23]d" | while read URL; do echo "echo \"Processing $$URL ...\"; curl --silent --remote-time --output ttl.${DATE}/$$(basename $$URL) $$URL && docker run --rm -v $$(pwd)/ttl.${DATE}:/data stain/jena turtle --output=NT /data/$$(basename $$URL) | sed 's/> />\t/1; s/> />\t/1; s/ \.\$$/\t./' | awk 'BEGIN{FS=OFS=\"\t\"} {for (i = 1; i <= 3; i++) if (\$$i ~ /^<.*>\$$/) { gsub(/ /, \"%20\", \$$i); gsub(/\[/, \"%5B\", \$$i); gsub(/\]/, \"%5D\", \$$i); gsub(/{/, \"%7B\", \$$i); gsub(/}/, \"%7D\", \$$i); } print }' | sed 's/\t/ /g' | gzip -c > nt.${DATE}/$$(basename -s .ttl.gz $$URL).nt.gz"; done > pubchem.get-data-cmds.txt
+GET_DATA_CMD      = mkdir -p ttl.${DATE} && mkdir -p nt.${DATE} && ${MAKE_GET_DATA_CMD} && cat pubchem.get-data-cmds.txt | parallel --line-buffer
+INDEX_DESCRIPTION = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folders except nbr2d and nbr3d)
 
 [index]
-FILE_NAMES        = nt.ONTOLOGIES/*.nt.gz nt.2024-02-05/*.nt.gz
+FILE_NAMES        = nt.ONTOLOGIES/*.nt.gz nt.${DATE}/*.nt.gz
 CAT_FILES         = zcat ${FILE_NAMES}
 WITH_TEXT_INDEX   = false
 STXXL_MEMORY      = 10G

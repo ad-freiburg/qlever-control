@@ -406,15 +406,15 @@ class Actions:
         if not self.config['data']['get_data_cmd']:
             log.error(f"{RED}No GET_DATA_CMD specified in Qleverfile")
             return
-        cmdline = self.config['data']['get_data_cmd']
+        get_data_cmd = self.config['data']['get_data_cmd']
 
         # Show it.
-        self.show(cmdline, only_show)
+        self.show(get_data_cmd, only_show)
         if only_show:
             return
 
         # Execute the command line.
-        os.system(cmdline)
+        subprocess.run(get_data_cmd, shell=True)
         total_file_size = self.get_total_file_size(
             self.config['index']['file_names'].split())
         print(f"Total file size: {total_file_size:.1f} GB")

@@ -579,6 +579,7 @@ class Actions:
                        f" -w /index"
                        f" --entrypoint bash"
                        f" --name {docker_config['container_server']}"
+                       f" --init"
                        f" {docker_config['image']}"
                        f" -c {shlex.quote(cmdline)}")
         else:

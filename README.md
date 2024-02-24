@@ -1,60 +1,61 @@
 # QLever Control
 
-This is a very small repository. Its main contents is a script `qlever`
-that can control everything that QLever does. The script is supposed to be very
-easy to use and pretty much self-explanatory as you use it. If you use docker, you
-don't even have to download any QLever code (docker will pull anything it needs)
-and the script is all you need.
+This is a small repository, which provides a script `qlever` that can control
+everything that QLever does. The script is supposed to be very easy to use and
+pretty much self-explanatory as you use it. If you use Docker, you don't even
+have to download any QLever code (Docker will pull the required images) and the
+script is all you need.
 
-# Directory structure
+# Installation
 
-We recommend that you have a directory "qlever" for all things QLever on your machine,
-with subdirectories for the different components, in particular: "qlever-control" (this
-repository), "qlever-indices" (with a subfolder for each of your datasets), and "qlever-code"
-(only needed if you don't want to use docker, but compile the binaries on your machine).
+Simply do `pip install qlever` and make sure that the directory where pip
+installs the package is in your `PATH`. Typically, `pip` will warn you when
+that is not the case and tell you what to do.
 
-# Quickstart
+# Usage
 
-Create an empty directory (preferably as a subdirectory of "qlever-indices", go there,
-and call the `qlever` script once with its full path and a dot and a space preceding it,
-and the name of a preconfiguration as only argument. For example:
-
-```. /path/to/qlever olympics```
-
-This will create a `Qleverfile` preconfigured for the
-[120 Years of Olympics](https://github.com/wallscope/olympics-rdf) dataset, which is
-a great dataset to get started because it's small. Other options are:
-`scientists` (another small test collection), `dblp` (larger), `wikidata` (very large),
-and more. If you leave out the argument, you get a default `Qleverfile`, which you need
-to edit first to use for your own dataset (it should be self-explanatory, after you have
-played around with and looked at one of the preconfigured Qleverfiles).
-
-Now you can call `qlever` without path and without a dot and a space preceding it and
-with one or more actions as argument. To see the set of avaiable actions, just use the
-autocompletion. When you are a first-timer, execute these commands one after the other
-(without the comments):
+First, create an empty directory, with a name corresponding to the dataset you
+want to work with. For the following example, take `olympics`. Go to that
+directory, and do the following:
 
 ```
-qlever get-data       # Download the dataset
-qlever index          # Build a QLever index for your data
-qlever start          # Start a QLever server using that index
-qlever example-query  # Launch an example query 
+qlever                         # Basic help + lists of available pre-configs
+qlever setup-config olympics   # Get examplary Qleverfile (config file)
+qlever get-data                # Download the dataset (see below)
+qlever index                   # Build index data structures for this dataset
+qlever start                   # Start a QLever server using that index
+qlever test-query              # Launch a test query 
+qlever ui                      # Launch the QLever UI
 ```
 
-Each command will not only execute the respective action, but it will also show you
-the exact command line it uses. That way you can learn, on the side, how QLever works
-internally. If you just want to know the command used for a particular action, but
-not execute it, you can append "show" like this:
+This will create a SPARQL endpoint for the [120 Years of
+Olympics](https://github.com/wallscope/olympics-rdf) dataset. It is a great
+dataset for getting started because it is small, but not trivial (around 2
+million triples), and the downloading and indexing should only take a few
+seconds.
+
+Each command will also show you the command line it uses. That way you can
+learn, on the side, how QLever works internally. If you just want to know the
+command line for a particular command, without executing it, you can append
+"show" like this:
 
 ```
 qlever index show
 ```
 
-You can also perform a sequence of actions with a single call, for example:
+There are many more commands and options, see `qlever --help`. The script
+supports autocompletion for all its commands and options. You can (and should)
+activate it following the instructions given when you just type `qlever`
+without any arguments.
 
-```
-qlever stop remove-index index start
-```
+# For developers
 
-There are many more actions. The script supports autocompletion. Just type "qlever "
-and then TAB and you will get a list of all the available actions.
+The (Python) code for the script is in the `*.py` files in `src/qlever`. The
+preconfigured Qleverfiles are in `src/qlever/Qleverfiles`.
+
+If you want to make changes to the script, git clone this repository, make any
+changes you want, and run `pip install -e .`. Then you can use the script (with
+whatever modifications you have made), just as if you had installed it via `pip
+install qlever`. Note that unless you change the directory structure, you have
+to execute `pip install -e .` only once (this local installation will not copy
+your files but link to them).

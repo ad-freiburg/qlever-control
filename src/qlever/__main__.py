@@ -20,6 +20,7 @@ import socket
 import subprocess
 import sys
 import time
+import pkg_resources
 from termcolor import colored
 import traceback
 
@@ -1341,6 +1342,12 @@ action_names = [_.replace("_", "-") for _ in action_names]
 
 
 def main():
+    # Get the version.
+    try:
+        version = pkg_resources.get_distribution("qlever").version
+    except Exception as e:
+        log.error(f"Could not determine package version: {e}")
+        version = "unknown"
     # If the script is called without argument, say hello and provide some
     # help to get started.
     if len(sys.argv) == 1 or \
@@ -1348,7 +1355,8 @@ def main():
             (len(sys.argv) == 2 and sys.argv[1] == "--help") or \
             (len(sys.argv) == 2 and sys.argv[1] == "-h"):
         log.info("")
-        log.info(f"{BOLD}Hello, I am the qlever script{NORMAL}")
+        log.info(f"{BOLD}Hello, I am the qlever script"
+                 f" (version {version}){NORMAL}")
         log.info("")
         if os.path.exists("Qleverfile"):
             log.info("I see that you already have a \"Qleverfile\" in the "

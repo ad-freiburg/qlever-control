@@ -7,14 +7,16 @@ class SehrDoofCommand(QleverCommand):
     """
 
     @staticmethod
-    def add_subparser(subparsers):
-        subparsers.add_parser(
-                "sehr_doof",
-                help="Sehr doofes command")
+    def help_text():
+        return "Sehr doofes command"
 
     @staticmethod
-    def arguments():
+    def relevant_arguments():
         return {"data": ["name"], "server": ["port"]}
+
+    @staticmethod
+    def should_have_qleverfile():
+        return False
 
     @staticmethod
     def execute(args):

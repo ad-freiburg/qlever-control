@@ -7,14 +7,16 @@ class IndexCommand(QleverCommand):
     """
 
     @staticmethod
-    def add_subparser(subparsers):
-        subparsers.add_parser(
-                "index",
-                help="Building an index")
+    def help_text():
+        return "Building an index"
 
     @staticmethod
-    def arguments():
+    def relevant_arguments():
         return {"index": ["cat_files", "settings_json"]}
+
+    @staticmethod
+    def should_have_qleverfile():
+        return True
 
     @staticmethod
     def execute(args):

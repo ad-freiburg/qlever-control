@@ -21,7 +21,7 @@ for command_name in command_names:
                         f"{module_path} for command {command}: {e}")
     command_classes[command_name] = getattr(module, class_name)
 
-print(f"Package path: {package_path}")
-print(f"Command names: {command_names}")
-print(f"Command classes: {command_classes}")
-print()
+# print(f"Package path: {package_path}")
+# print(f"Command names: {command_names}")
+# print(f"Command classes: {command_classes}")
+# print()

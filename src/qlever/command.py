@@ -9,18 +9,30 @@ class QleverCommand(ABC):
 
     @staticmethod
     @abstractmethod
-    def add_subparser(subparsers):
+    def help_text():
         """
-        Add a subparser for the command to the given `subparsers` object.
+        Return the help text that will be shown upon `qlever <command> --help`.
         """
         pass
 
     @staticmethod
     @abstractmethod
-    def arguments():
+    def relevant_arguments():
         """
         Retun the arguments relevant for this command. This must be a subset of
-        the arguments defined in the `QleverConfig` object.
+        the names of `all_arguments` defined in `QleverConfig`. Only these
+        arguments can then be used in the `execute` method.
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def should_have_qleverfile():
+        """
+        Return `True` if the command should have a Qleverfile, `False`
+        otherwise. If a command should have a Qleverfile, but none is
+        specified, the command can still be executed if all the required
+        arguments are specified on the command line, but there will be warning.
         """
         pass
 

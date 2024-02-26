@@ -29,27 +29,27 @@ RED = "\033[31m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
 
-
-# Custom formatter for log messages.
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        message = record.getMessage()
-        if record.levelno == logging.DEBUG:
-            return colored(message, "magenta")
-        elif record.levelno == logging.WARNING:
-            return colored(message, "yellow")
-        elif record.levelno in [logging.CRITICAL, logging.ERROR]:
-            return colored(message, "red")
-        else:
-            return message
-
-
-# Custom logger.
-log = logging.getLogger("qlever")
-log.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter())
-log.addHandler(handler)
+from qlever.log import log
+# # Custom formatter for log messages.
+# class CustomFormatter(logging.Formatter):
+#     def format(self, record):
+#         message = record.getMessage()
+#         if record.levelno == logging.DEBUG:
+#             return colored(message, "magenta")
+#         elif record.levelno == logging.WARNING:
+#             return colored(message, "yellow")
+#         elif record.levelno in [logging.CRITICAL, logging.ERROR]:
+#             return colored(message, "red")
+#         else:
+#             return message
+# 
+# 
+# # Custom logger.
+# log = logging.getLogger("qlever")
+# log.setLevel(logging.INFO)
+# handler = logging.StreamHandler()
+# handler.setFormatter(CustomFormatter())
+# log.addHandler(handler)
 
 
 # Helper function for tracking the order of the actions in class `Actions`.

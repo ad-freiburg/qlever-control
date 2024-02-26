@@ -1,13 +1,13 @@
 import argparse
-import argcomplete
-from qlever import command_classes
+import os
+import traceback
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
+
+import argcomplete
+
+from qlever import command_objects
 from qlever.log import log
-import os
-import sys
-import shlex
-import traceback
 
 
 # Simple exception class for configuration errors (the class need not do
@@ -65,12 +65,40 @@ class QleverConfig:
                 "--index-description", type=str, required=True,
                 help="A description of the index")
 
+        index_args["file_names"] = arg(
+                "--file-names", type=str, required=True,
+                help="A space-separated list of patterns that match "
+                     "all the files of the dataset")
         index_args["cat_files"] = arg(
                 "--cat-files", type=str, required=True,
                 help="The command that produces the input")
         index_args["settings_json"] = arg(
                 "--settings-json", type=str, default="{}",
                 help="The `.settings.json` file for the index")
+        index_args["index_binary"] = arg(
+                "--index-binary", type=str, default="IndexBuilderMain",
+                help="The binary for building the index, this requires "
+                     "that you have compiled QLever on your machine")
+        index_args["only_pso_and_pos_permutations"] = arg(
+                "--only-pso-and-pos-permutations", action="store_true",
+                default=False,
+                help="Only create the PSO and POS permutations")
+        index_args["use_patterns"] = arg(
+                "--use-patterns", action="store_true", default=True,
+                help="Precompute so-called patterns needed for fast processing"
+                     "of queries like SELECT ?p (COUNT(DISTINCT ?s) AS ?c) "
+                     "WHERE { ?s ?p [] ... } GROUP BY ?p")
+        index_args["with_text_index"] = arg(
+                "--with-text-index",
+                choices=["none", "from_text_records", "from_literals",
+                         "from_text_records_and_literals"],
+                default="none",
+                help="Whether to also build an index for text search"
+                     "and for which texts")
+        index_args["stxxl_memory"] = arg(
+                "--stxxl-memory", type=str, default="5G",
+                help="The amount of memory to use for the index build "
+                     "(the name of the option has historical reasons)")
 
         server_args["port"] = arg(
                 "--port", type=int, required=True,
@@ -82,11 +110,18 @@ class QleverConfig:
                 "--memory-for-queries", type=str, default="1G",
                 help="The maximal memory allowed for query processing")
 
-        runtime_args["environment"] = arg(
-                "--environment", type=str,
+        runtime_args["runtime_environment"] = arg(
+                "--runtime_environment", type=str,
                 choices=["docker", "podman", "native"],
                 default="docker",
                 help="The runtime environment for the server")
+        runtime_args["index_image"] = arg(
+                "--index-image", type=str,
+                default="docker.io/adfreiburg/qlever",
+                help="The name of the image for the index build")
+        runtime_args["index_container"] = arg(
+                "--index-container", type=str, default="qlever-index",
+                help="The name of the container for the index build")
 
         ui_args["port"] = arg(
                 "--port", type=int, default=7000,
@@ -147,23 +182,10 @@ class QleverConfig:
                         kwargs["help"] += f" [default: {default_value}]"
                 subparser.add_argument(*args, **kwargs)
 
-    def get_command_line_arguments(self):
-        """
-        Get the current command line arguments.
-
-        NOTE: This should work both when the script is called "normally" (in
-        which case, we can just use `sys.argv`), as well as when it is called
-        by the shell's autocompletion mechanism (in which case, the command
-        line is in the environment variable `COMP_LINE`).
-        """
-        if "COMP_LINE" in os.environ:
-            # Note: `COMP_LINE` is a string, with spaces used to separate the
-            # arguments and spaces within arguments escaped with a backslash.
-            return shlex.split(os.environ["COMP_LINE"])
-        else:
-            return sys.argv
-
     def parse_args(self):
+        # Determine whether we are in autocomplete mode or not.
+        autocomplete_mode = "COMP_LINE" in os.environ
+
         # Create a temporary parser only to parse the `--qleverfile` option, in
         # case it is given. This is because in the actual parser below we want
         # the values from the Qleverfile to be shown in the help strings.
@@ -188,8 +210,8 @@ class QleverConfig:
             raise ConfigException(f"Qleverfile with non-default name "
                                   f"`{qleverfile_path_name}` specified, "
                                   f"but it does not exist")
-        # If it exists and we arenot in the autocompletion mode, parse it.
-        if qleverfile_exists and "COMP_LINE" not in os.environ:
+        # If it exists and we are not in the autocompletion mode, parse it.
+        if qleverfile_exists and not autocomplete_mode:
             qleverfile_config = self.parse_qleverfile(qleverfile_path)
         else:
             qleverfile_config = None
@@ -203,12 +225,17 @@ class QleverConfig:
         subparsers = parser.add_subparsers(dest='command')
         subparsers.required = True
         all_args = self.all_arguments()
-        for command_name, command_class in command_classes.items():
-            help_text = command_class.help_text()
+        for command_name, command_object in command_objects.items():
+            help_text = command_object.help_text()
             subparser = subparsers.add_parser(command_name, help=help_text)
-            arg_names = command_class.relevant_arguments()
+            arg_names = command_object.relevant_qleverfile_arguments()
             self.add_arguments_to_subparser(subparser, arg_names, all_args,
                                             qleverfile_config)
+            command_object.additional_arguments(subparser)
+            subparser.add_argument("--show", action="store_true",
+                                   default=False,
+                                   help="Only show what would be executed, "
+                                        "but don't execute it")
 
         # Enable autocompletion for the commands and their options.
         #
@@ -221,7 +248,7 @@ class QleverConfig:
 
         # If the command says that we should have a Qleverfile, but we don't,
         # issue a warning.
-        if command_classes[args.command].should_have_qleverfile():
+        if command_objects[args.command].should_have_qleverfile():
             if not qleverfile_exists:
                 log.warning(f"Invoking command `{args.command}` without a "
                             "Qleverfile. You have to specify all required "

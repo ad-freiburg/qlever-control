@@ -5,6 +5,8 @@
 # Chair of Algorithms and Data Structures
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
 
+import traceback
+
 from termcolor import colored
 
 from qlever import command_objects
@@ -19,6 +21,8 @@ def main():
         args = qlever_config.parse_args()
     except ConfigException as e:
         log.error(e)
+        log.info("")
+        log.info(traceback.format_exc())
         exit(1)
 
     # Execute the command.
@@ -30,6 +34,7 @@ def main():
         command_object.execute(args)
         log.info("")
     except Exception as e:
-        log.error(f"An unexpected error occurred: {e}")
+        log.error(f"An unexpected error occurred, traceback follows")
         log.info("")
+        log.info(traceback.format_exc())
         exit(1)

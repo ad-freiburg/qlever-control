@@ -23,8 +23,3 @@ for command_name in command_names:
     # Create an object of the class and store it in the dictionary.
     command_class = getattr(module, class_name)
     command_objects[command_name] = command_class()
-
-# print(f"Package path: {package_path}")
-# print(f"Command names: {command_names}")
-# print(f"Command classes: {command_classes}")
-# print

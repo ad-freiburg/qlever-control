@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-from pathlib import Path
 
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import get_total_file_size, run_command
+from qlever.util import (get_existing_index_files, get_total_file_size,
+                         run_command)
 
 
 class IndexCommand(QleverCommand):
@@ -98,12 +98,13 @@ class IndexCommand(QleverCommand):
         # Check if index files (name.index.*) already exist.
         #
         # TODO: Have an addtional option --overwrite-existing.
-        search_dir = Path.cwd()
-        if search_dir.glob(f"{args.name}.index.*") \
-                and not args.overwrite_existing:
+        existing_index_files = get_existing_index_files(args.name)
+        if len(existing_index_files) > 0 and not args.overwrite_existing:
             log.error(
-                    f"Index files \"{args.name}.index.*\" already exist, "
-                    f"if you want to overwrite them, use --overwrite-existing")
+                    f"Index files for basename \"{args.name}\" found, if you "
+                    f"want to overwrite them, use --overwrite-existing")
+            log.info("")
+            log.info(f"Index files found: {existing_index_files}")
             return False
 
         # Write settings.json file.

@@ -1,4 +1,6 @@
-from qlever.command import CommandException, QleverCommand
+from __future__ import annotations
+
+from qlever.command import QleverCommand
 
 
 class SehrDoofCommand(QleverCommand):
@@ -9,8 +11,8 @@ class SehrDoofCommand(QleverCommand):
     def __init__(self):
         pass
 
-    def help_text(self) -> str:
-        return "Sehr doofes command"
+    def description(self) -> str:
+        return "Das ist einfach nur doof"
 
     def should_have_qleverfile(self) -> bool:
         return False
@@ -26,4 +28,4 @@ class SehrDoofCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         self.show(f"Executing command `doof` with args: {args}")
-        raise CommandException("This command is not yet implemented")
+        log.error("This command will never be implemented ... doof")

@@ -16,7 +16,7 @@ class SetupConfigCommand(QleverCommand):
             [p.name.split(".")[1]
              for p in self.qleverfiles_path.glob("Qleverfile.*")]
 
-    def help_text(self) -> str:
+    def description(self) -> str:
         return "Create a pre-configured Qleverfile"
 
     def should_have_qleverfile(self) -> bool:

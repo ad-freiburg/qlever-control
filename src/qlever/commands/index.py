@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import shlex
 import subprocess
 from pathlib import Path
 
 from qlever.command import QleverCommand
+from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import get_total_file_size
+from qlever.util import get_total_file_size, run_command
 
 
 class IndexCommand(QleverCommand):
@@ -15,8 +18,8 @@ class IndexCommand(QleverCommand):
     def __init__(self):
         pass
 
-    def help_text(self) -> str:
-        return "Building an index"
+    def description(self) -> str:
+        return ("Build the index for a given RDF dataset")
 
     def should_have_qleverfile(self) -> bool:
         return True
@@ -27,8 +30,8 @@ class IndexCommand(QleverCommand):
                           "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "with_text_index", "stxxl_memory"],
-                "runtime": ["runtime_environment",
-                            "index_image", "index_container"]}
+                "containerize": ["container_system",
+                                 "image_name", "index_container_name"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -64,18 +67,15 @@ class IndexCommand(QleverCommand):
         if total_file_size > 1e10:
             index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
 
-        # If we are using Docker or Podman, run the command in a container.
-        if args.runtime_environment in ["docker", "podman"]:
-            container_cmd = f"{args.runtime_environment}"
-            user_option = ("-u $(id -u):$(id -g)"
-                           if container_cmd == "docker" else "-u root")
-            index_cmd = (f"{container_cmd} run -it --rm {user_option}"
-                         f" -v /etc/localtime:/etc/localtime:ro"
-                         f" -v $(pwd):/index -w /index"
-                         f" --entrypoint bash"
-                         f" --name {args.index_container}"
-                         f" {args.index_image}"
-                         f" -c {shlex.quote(index_cmd)}")
+        # Run the command in a container (if so desired).
+        if args.container_system in Containerize.supported_systems():
+            index_cmd = Containerize().containerize_command(
+                    index_cmd,
+                    args.container_system, "run --rm",
+                    args.image_name,
+                    args.index_container_name,
+                    volumes=[("$(pwd)", "/index")],
+                    working_directory="/index")
 
         # Command for writing the settings JSON to a file.
         settings_json_cmd = (f"echo {shlex.quote(args.settings_json)} "
@@ -86,18 +86,14 @@ class IndexCommand(QleverCommand):
         if args.show:
             return False
 
-        # When running the index binary natively, check if it exists and works.
-        if args.runtime_environment == "native":
+        # When running natively, check if the binary exists and works.
+        if args.container_system == "native":
             try:
-                check_binary_cmd = f"{args.index_binary} --help"
-                subprocess.run(check_binary_cmd, shell=True, check=True,
-                               stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
+                run_command(f"{args.index_binary} --help")
             except Exception as e:
-                log.error(f"Running \"{check_binary_cmd}\" failed ({e}), "
-                          f"set index.BINARY to a different binary or set "
-                          f"runtime.ENVIRONMENT to \"docker\" or \"podman\"")
-                return False
+                log.error(f"Running \"{args.index_binary}\" failed ({e}), "
+                          f"set `--index-binary` to a different binary or "
+                          f"use `--container_system`")
 
         # Check if index files (name.index.*) already exist.
         #

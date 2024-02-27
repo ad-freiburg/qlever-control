@@ -14,7 +14,7 @@ class GetDataCommand(QleverCommand):
     def __init__(self):
         pass
 
-    def help_text(self) -> str:
+    def description(self) -> str:
         return "Get data using the GET_DATA_CMD in the Qleverfile"
 
     def should_have_qleverfile(self) -> bool:

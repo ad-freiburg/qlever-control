@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import subprocess
 from pathlib import Path
 
 
@@ -13,3 +16,27 @@ def get_total_file_size(patterns: list[str]) -> int:
         for file in search_dir.glob(pattern):
             total_size += file.stat().st_size
     return total_size
+
+
+def run_command(cmd: str) -> bool:
+    """
+    Run the given command and throw an exception if something goes wrong or the
+    command returns a non-zero exit code.
+    """
+    subprocess.run(cmd, shell=True, check=True,
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL)
+
+
+def is_qlever_server_alive(port: str) -> bool:
+    """
+    Helper function that checks if a QLever server is running on the given
+    port.
+    """
+
+    message = "from the qlever script".replace(" ", "%20")
+    curl_cmd = f"curl -s http://localhost:{port}/ping?msg={message}"
+    exit_code = subprocess.call(curl_cmd, shell=True,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+    return exit_code == 0

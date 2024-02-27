@@ -8,7 +8,6 @@
 from termcolor import colored
 
 from qlever import command_objects
-from qlever.command import CommandException
 from qlever.config import ConfigException, QleverConfig
 from qlever.log import log
 
@@ -30,7 +29,7 @@ def main():
         log.info("")
         command_object.execute(args)
         log.info("")
-    except CommandException as e:
-        log.error(e)
+    except Exception as e:
+        log.error(f"An unexpected error occurred: {e}")
         log.info("")
         exit(1)

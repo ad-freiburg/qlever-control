@@ -22,9 +22,8 @@ ACCESS_TOKEN       = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES = 5G
 CACHE_MAX_SIZE     = 2G
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[containerize]
+CONTAINER_SYSTEM = docker
 
 [ui]
 PORT   = 7000

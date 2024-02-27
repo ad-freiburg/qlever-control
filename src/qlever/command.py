@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 from termcolor import colored
@@ -22,9 +24,10 @@ class QleverCommand(ABC):
         pass
 
     @abstractmethod
-    def help_text(self) -> str:
+    def description(self) -> str:
         """
-        Return the help text that will be shown upon `qlever <command> --help`.
+        A concise description of the command, which will be shown when the user
+        types `qlever --help` or `qlever <command> --help`.
         """
         pass
 
@@ -81,7 +84,3 @@ class QleverCommand(ABC):
             log.info("You called \"qlever ... --show\", therefore the command "
                      "is only shown, but not executed (omit the \"--show\" to "
                      "execute it)")
-
-
-class CommandException(Exception):
-    pass

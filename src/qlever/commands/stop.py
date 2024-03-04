@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import re
+
+import psutil
+
+from qlever.command import QleverCommand
+from qlever.containerize import Containerize
+from qlever.log import log
+from qlever.util import show_process_info
+
+
+class StopCommand(QleverCommand):
+    """
+    Class for executing the `stop` command.
+    """
+
+    def __init__(self):
+        pass
+
+    def description(self) -> str:
+        return ("Stop the QLever server (if it is running)")
+
+    def should_have_qleverfile(self) -> bool:
+        return True
+
+    def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
+        return {"data": ["name"],
+                "server": ["port"],
+                "containerize": ["server_container_name"]}
+
+    def additional_arguments(self, subparser) -> None:
+        subparser.add_argument("--cmdline-regex",
+                               default="ServerMain.* -i [^ ]*%%NAME%%",
+                               help="Show only processes where the command "
+                                    "line matches this regex")
+        subparser.add_argument("--no-containers", action="store_true",
+                               default=False,
+                               help="Do not look for containers, only for "
+                                    "native processes")
+
+    def execute(self, args) -> bool:
+        # Show action description.
+        cmdline_regex = args.cmdline_regex.replace("%%NAME%%", args.name)
+        description = f"Checking for processes matching \"{cmdline_regex}\""
+        if not args.no_containers:
+            description += (f" and for Docker container with name "
+                            f"\"{args.server_container_name}\"")
+        self.show(description, only_show=args.show)
+        if args.show:
+            return False
+
+        # First check if there is container running and if yes, stop and remove
+        # it (unless the user has specified `--no-containers`).
+        if not args.no_containers:
+            for container_system in Containerize.supported_systems():
+                if Containerize.stop_and_remove_container(
+                        container_system, args.server_container_name):
+                    log.info(f"{container_system.capitalize()} container with "
+                             f"name \"{args.server_container_name}\" stopped "
+                             f" and removed")
+                    return True
+
+        # Check if there is a process running on the server port using psutil.
+        #
+        # NOTE: On MacOS, some of the proc's returned by psutil.process_iter()
+        # no longer exist when we try to access them, so we just skip them.
+        for proc in psutil.process_iter():
+            try:
+                pinfo = proc.as_dict(
+                        attrs=['pid', 'username', 'create_time',
+                               'memory_info', 'cmdline'])
+                cmdline = " ".join(pinfo['cmdline'])
+            except Exception as e:
+                log.debug(f"Error getting process info: {e}")
+            if re.match(cmdline_regex, cmdline):
+                log.info(f"Found process {pinfo['pid']} from user "
+                         f"{pinfo['username']} with command line: {cmdline}")
+                log.info("")
+                try:
+                    proc.kill()
+                    log.info(f"Killed process {pinfo['pid']}")
+                except Exception as e:
+                    log.error(f"Could not kill process with PID "
+                              f"{pinfo['pid']} ({e}) ... try to kill it "
+                              f"manually")
+                    log.info("")
+                    show_process_info(proc, "", show_heading=True)
+                    return False
+                return True
+
+        # No matching process found.
+        message = "No matching process found" if args.no_containers else \
+                  "No matching process or container found"
+        log.error(message)
+        return False
+        # if fail_if_not_running:
+        #     raise ActionException(message)
+        # else:
+        #     log.info(f"{message}, so nothing to stop")

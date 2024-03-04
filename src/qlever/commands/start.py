@@ -69,6 +69,8 @@ class StartCommand(QleverCommand):
         # Run the command in a container (if so desired). Otherwise run with
         # `nohup` so that it keeps running after the shell is closed.
         if args.container_system in Containerize.supported_systems():
+            if not args.server_container_name:
+                args.server_container_name = f"qlever.server.{args.name}"
             start_cmd = Containerize().containerize_command(
                     start_cmd,
                     args.container_system, "run -d --restart=unless-stopped",

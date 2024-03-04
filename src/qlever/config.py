@@ -78,6 +78,7 @@ class QleverConfig:
                     argument_error(f"Argument `{arg_name}` of section "
                                    f"`{section}` not found")
                 args, kwargs = all_qleverfile_args[section][arg_name]
+                kwargs_copy = kwargs.copy()
                 # If `qleverfile_config` is given, add info about default
                 # values to the help string.
                 if qleverfile_config is not None:
@@ -85,13 +86,13 @@ class QleverConfig:
                     qleverfile_value = qleverfile_config.get(
                             section, arg_name, fallback=None)
                     if qleverfile_value is not None:
-                        kwargs["default"] = qleverfile_value
-                        kwargs["required"] = False
-                        kwargs["help"] += (f" [default, from Qleverfile:"
-                                           f" {qleverfile_value}]")
+                        kwargs_copy["default"] = qleverfile_value
+                        kwargs_copy["required"] = False
+                        kwargs_copy["help"] += (f" [default, from Qleverfile:"
+                                                f" {qleverfile_value}]")
                     else:
-                        kwargs["help"] += f" [default: {default_value}]"
-                subparser.add_argument(*args, **kwargs)
+                        kwargs_copy["help"] += f" [default: {default_value}]"
+                subparser.add_argument(*args, **kwargs_copy)
 
         # Additional arguments for the command.
         command_object.additional_arguments(subparser)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from configparser import ConfigParser, ExtendedInterpolation
 
 from qlever.containerize import Containerize
@@ -88,6 +89,10 @@ class Qleverfile:
                 "--server-binary", type=str, default="ServerMain",
                 help="The binary for starting the server (this requires "
                      "that you have compiled QLever on your machine)")
+        server_args["host_name"] = arg(
+                "--host-name", type=str, default=f"{socket.getfqdn()}",
+                help="The name of the host on which the server listens for "
+                     "requests")
         server_args["port"] = arg(
                 "--port", type=int, required=True,
                 help="The port on which the server listens for requests")
@@ -144,15 +149,33 @@ class Qleverfile:
                 default="docker.io/adfreiburg/qlever",
                 help="The name of the image used for containerization")
         containerize_args["index_container_name"] = arg(
-                "--index-container-name", type=str, default="qlever-index",
+                "--index-container-name", type=str,
                 help="The name of the container used by `qlever index`")
         containerize_args["server_container_name"] = arg(
-                "--server-container-name", type=str, default="qlever-server",
+                "--server-container-name", type=str,
                 help="The name of the container used by `qlever start`")
+        containerize_args["ui_container_system"] = arg(
+                "--ui-container-system", type=str,
+                choices=Containerize.supported_systems(),
+                default="docker",
+                help="The container system to use for the QLever UI"
+                     " (unlike for index building or for the server,"
+                     " this cannot be \"native\")")
+        containerize_args["ui_image_name"] = arg(
+                "--ui-image-name", type=str,
+                default="docker.io/adfreiburg/qlever-ui",
+                help="The name of the image used for the Qlever UI")
+        containerize_args["ui_container_name"] = arg(
+                "--ui-container-name", type=str,
+                help="The name of the container used by `qlever ui`")
 
         ui_args["ui_port"] = arg(
                 "--ui_port", type=int, default=7000,
                 help="The port of the Qlever UI when running `qlever ui`")
+        ui_args["ui_config"] = arg(
+                "--ui-config", type=str, default="default",
+                help="The name of the backend configuration for the QLever UI"
+                     " (this determines AC queries and example queries)")
 
         return all_args
 
@@ -168,9 +191,30 @@ class Qleverfile:
         to define other options, but cannot be accessed by the commands later.
         """
 
+        # Read the Qleverfile.
         config = ConfigParser(interpolation=ExtendedInterpolation())
         try:
             config.read(qleverfile_path)
-            return config
         except Exception as e:
             raise QleverfileException(f"Error parsing {qleverfile_path}: {e}")
+
+        # Make sure that all the sections are there.
+        for section in ["data", "index", "server", "containerize", "ui"]:
+            if section not in config:
+                config[section] = {}
+
+        # Add "inherited" values. For example, if `name` is defined, but
+        # `server_container_name` is not, then set `server_container_name`
+        # to `qlever.server.<name>`.
+        if "name" in config["data"]:
+            name = config["data"]["name"]
+            containerize = config["containerize"]
+            if "server_container_name" not in containerize:
+                containerize["server_container_name"] = f"qlever.server.{name}"
+            if "index_container_name" not in containerize:
+                containerize["index_container_name"] = f"qlever.index.{name}"
+            if "ui_container_name" not in config["ui"]:
+                containerize["ui_container_name"] = f"qlever.ui.{name}"
+
+        # Return the parsed Qleverfile with the added inherited values.
+        return config

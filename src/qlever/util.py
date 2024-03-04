@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from qlever.log import log
+import re
+from datetime import datetime, date
 
 
 def get_total_file_size(patterns: list[str]) -> int:
@@ -41,6 +44,7 @@ def is_qlever_server_alive(port: str) -> bool:
                                 stderr=subprocess.DEVNULL)
     return exit_code == 0
 
+
 def get_existing_index_files(basename: str) -> list[str]:
     """
     Helper function that returns a list of all index files for `basename` in
@@ -54,3 +58,39 @@ def get_existing_index_files(basename: str) -> list[str]:
     existing_index_files.extend(Path.cwd().glob(f"{basename}.prefixes"))
     # Return only the file names, not the full paths.
     return [path.name for path in existing_index_files]
+
+
+def show_process_info(psutil_process, cmdline_regex, show_heading=True):
+    """
+    Helper function that shows information about a process if information
+    about the process can be retrieved and the command line matches the
+    given regex (in which case the function returns `True`). The heading is
+    only shown if `show_heading` is `True` and the function returns `True`.
+    """
+
+    # Helper function that shows a line of the process table.
+    def show_table_line(pid, user, start_time, rss, cmdline):
+        log.info(f"{pid:<8} {user:<8} {start_time:>5}  {rss:>5} {cmdline}")
+
+    try:
+        pinfo = psutil_process.as_dict(
+                attrs=['pid', 'username', 'create_time',
+                       'memory_info', 'cmdline'])
+        cmdline = " ".join(pinfo['cmdline'])
+        if not re.search(cmdline_regex, cmdline):
+            return False
+        pid = pinfo['pid']
+        user = pinfo['username'] if pinfo['username'] else ""
+        start_time = datetime.fromtimestamp(pinfo['create_time'])
+        if start_time.date() == date.today():
+            start_time = start_time.strftime("%H:%M")
+        else:
+            start_time = start_time.strftime("%b%d")
+        rss = f"{pinfo['memory_info'].rss / 1e9:.0f}G"
+        if show_heading:
+            show_table_line("PID", "USER", "START", "RSS", "COMMAND")
+        show_table_line(pid, user, start_time, rss, cmdline)
+        return True
+    except Exception as e:
+        log.error(f"Could not get process info: {e}")
+        return False

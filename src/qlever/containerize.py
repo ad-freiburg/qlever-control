@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 import shlex
+import subprocess
 from typing import Optional
+
+from qlever.log import log
 
 
 class ContainerizeException(Exception):
@@ -74,3 +77,32 @@ class Containerize:
                              f" --name {container_name} {image_name}"
                              f" -c {shlex.quote(cmd)}")
         return containerized_cmd
+
+    @staticmethod
+    def stop_and_remove_container(container_system: str,
+                                  container_name: str) -> bool:
+        """
+        Stop the container with the given name using the given system. Return
+        `True` if a container with that name was found and stopped, `False`
+        otherwise.
+        """
+
+        # Check that `container_system` is supported.
+        if container_system not in Containerize.supported_systems():
+            return ContainerizeException(
+                    f"Invalid container system \"{container_system}\""
+                    f" (must be one of {Containerize.supported_systems()})")
+
+        # Construct the command that stops the container.
+        stop_cmd = f"{container_system} stop {container_name} && " \
+                   f"{container_system} rm {container_name}"
+
+        # Run the command.
+        try:
+            subprocess.run(stop_cmd, shell=True, check=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            return True
+        except Exception as e:
+            log.debug(f"Error running \"{stop_cmd}\": {e}")
+            return False

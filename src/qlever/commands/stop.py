@@ -5,6 +5,7 @@ import re
 import psutil
 
 from qlever.command import QleverCommand
+from qlever.commands.status import StatusCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import show_process_info
@@ -73,7 +74,7 @@ class StopCommand(QleverCommand):
                 cmdline = " ".join(pinfo['cmdline'])
             except Exception as e:
                 log.debug(f"Error getting process info: {e}")
-            if re.match(cmdline_regex, cmdline):
+            if re.search(cmdline_regex, cmdline):
                 log.info(f"Found process {pinfo['pid']} from user "
                          f"{pinfo['username']} with command line: {cmdline}")
                 log.info("")
@@ -93,8 +94,10 @@ class StopCommand(QleverCommand):
         message = "No matching process found" if args.no_containers else \
                   "No matching process or container found"
         log.error(message)
+
+        # Show output of status command.
+        args.cmdline_regex = "^ServerMain.* -i [^ ]*"
+        log.info("")
+        StatusCommand().execute(args)
+
         return False
-        # if fail_if_not_running:
-        #     raise ActionException(message)
-        # else:
-        #     log.info(f"{message}, so nothing to stop")

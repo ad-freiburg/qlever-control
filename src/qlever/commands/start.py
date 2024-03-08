@@ -4,6 +4,8 @@ import subprocess
 import time
 
 from qlever.command import QleverCommand
+from qlever.commands.status import StatusCommand
+from qlever.commands.stop import StopCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import is_qlever_server_alive, run_command
@@ -36,13 +38,34 @@ class StartCommand(QleverCommand):
                                  "server_container_name"]}
 
     def additional_arguments(self, subparser) -> None:
-        subparser.add_argument("--kill-existing", action="store_true",
+        subparser.add_argument("--kill-existing-with-same-name",
+                               action="store_true",
+                               default=False,
+                               help="If a QLever server is already running "
+                                    "with the same name, kill it before "
+                                    "starting a new server")
+        subparser.add_argument("--kill-existing-with-same-port",
+                               action="store_true",
                                default=False,
                                help="If a QLever server is already running "
                                     "on the same port, kill it before "
                                     "starting a new server")
 
     def execute(self, args) -> bool:
+        # Kill existing server with the same name if so desired.
+        if args.kill_existing_with_same_name:
+            args.cmdline_regex = f"^ServerMain.* -i {args.name}"
+            args.no_containers = True
+            StopCommand().execute(args)
+            log.info("")
+
+        # Kill existing server on the same port if so desired.
+        if args.kill_existing_with_same_port:
+            args.cmdline_regex = f"^ServerMain.* -p {args.port}"
+            args.no_containers = True
+            StopCommand().execute(args)
+            log.info("")
+
         # Construct the command line based on the config file.
         start_cmd = (f"{args.server_binary}"
                      f" -i {args.name}"
@@ -98,12 +121,15 @@ class StartCommand(QleverCommand):
                 return False
 
         # Check if a QLever server is already running on this port.
-        #
-        # TODO: If a server is already running and `--kill-existing` is set,
-        # kill it.
         port = args.port
         if is_qlever_server_alive(port):
             log.error(f"QLever server already running on port {port}")
+
+            # Show output of status command.
+            args.cmdline_regex = "^ServerMain.* -i [^ ]*"
+            log.info("")
+            StatusCommand().execute(args)
+
             return False
 
         # Check if another process is already listening.

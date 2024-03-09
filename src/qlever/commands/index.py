@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import glob
 import shlex
 import subprocess
 
@@ -26,12 +27,11 @@ class IndexCommand(QleverCommand):
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
-                "index": ["file_names", "cat_files", "settings_json",
+                "index": ["input_files", "cat_input_files", "settings_json",
                           "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "with_text_index", "stxxl_memory"],
-                "containerize": ["container_system",
-                                 "image_name", "index_container_name"]}
+                "runtime": ["system", "image", "index_container"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -41,7 +41,7 @@ class IndexCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Construct the command line.
-        index_cmd = (f"{args.cat_files} | {args.index_binary}"
+        index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
                      f" -F ttl -f -"
                      f" -i {args.name}"
                      f" -s {args.name}.settings.json")
@@ -63,17 +63,17 @@ class IndexCommand(QleverCommand):
         # If the total file size is larger than 10 GB, set ulimit (such that a
         # large number of open files is allowed).
         total_file_size = get_total_file_size(
-                shlex.split(args.file_names))
+                shlex.split(args.input_files))
         if total_file_size > 1e10:
             index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
 
         # Run the command in a container (if so desired).
-        if args.container_system in Containerize.supported_systems():
+        if args.system in Containerize.supported_systems():
             index_cmd = Containerize().containerize_command(
                     index_cmd,
-                    args.container_system, "run --rm",
-                    args.image_name,
-                    args.index_container_name,
+                    args.system, "run --rm",
+                    args.image,
+                    args.index_container,
                     volumes=[("$(pwd)", "/index")],
                     working_directory="/index")
 
@@ -87,13 +87,22 @@ class IndexCommand(QleverCommand):
             return False
 
         # When running natively, check if the binary exists and works.
-        if args.container_system == "native":
+        if args.system == "native":
             try:
                 run_command(f"{args.index_binary} --help")
             except Exception as e:
                 log.error(f"Running \"{args.index_binary}\" failed ({e}), "
                           f"set `--index-binary` to a different binary or "
-                          f"use `--container_system`")
+                          f"set `--system to a container system`")
+
+        # Check if all of the input files exist.
+        for pattern in shlex.split(args.input_files):
+            if len(glob.glob(pattern)) == 0:
+                log.error(f"No file matching \"{pattern}\" found")
+                log.info("")
+                log.info(f"Did you call `qlever get-data`? If you did, check "
+                         f"GET_DATA_CMD and INPUT_FILES in the QLeverfile")
+                return False
 
         # Check if index files (name.index.*) already exist.
         #

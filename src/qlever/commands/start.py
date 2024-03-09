@@ -34,8 +34,7 @@ class StartCommand(QleverCommand):
                            "cache_max_num_entries", "num_threads",
                            "timeout", "only_pso_and_pos_permutations",
                            "use_patterns", "with_text_index"],
-                "containerize": ["container_system", "image_name",
-                                 "server_container_name"]}
+                "runtime": ["system", "image", "server_container"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--kill-existing-with-same-name",
@@ -91,14 +90,14 @@ class StartCommand(QleverCommand):
 
         # Run the command in a container (if so desired). Otherwise run with
         # `nohup` so that it keeps running after the shell is closed.
-        if args.container_system in Containerize.supported_systems():
-            if not args.server_container_name:
-                args.server_container_name = f"qlever.server.{args.name}"
+        if args.system in Containerize.supported_systems():
+            if not args.server_container:
+                args.server_container = f"qlever.server.{args.name}"
             start_cmd = Containerize().containerize_command(
                     start_cmd,
-                    args.container_system, "run -d --restart=unless-stopped",
-                    args.image_name,
-                    args.server_container_name,
+                    args.system, "run -d --restart=unless-stopped",
+                    args.image,
+                    args.server_container,
                     volumes=[("$(pwd)", "/index")],
                     ports=[(args.port, args.port)],
                     working_directory="/index")
@@ -111,22 +110,26 @@ class StartCommand(QleverCommand):
             return False
 
         # When running natively, check if the binary exists and works.
-        if args.container_system == "native":
+        if args.system == "native":
             try:
                 run_command(f"{args.server_binary} --help")
             except Exception as e:
                 log.error(f"Running \"{args.server_binary}\" failed ({e}), "
                           f"set `--server-binary` to a different binary or "
-                          f"use `--container_system`")
+                          f"set `--system to a container system`")
                 return False
 
         # Check if a QLever server is already running on this port.
         port = args.port
         if is_qlever_server_alive(port):
             log.error(f"QLever server already running on port {port}")
+            log.info("")
+            log.info("To kill the existing server, use `qlever stop` "
+                     "or `qlever start` with option "
+                     "--kill-existing-with-same-port`")
 
             # Show output of status command.
-            args.cmdline_regex = "^ServerMain.* -i [^ ]*"
+            args.cmdline_regex = f"^ServerMain.* -p *{port}"
             log.info("")
             StatusCommand().execute(args)
 

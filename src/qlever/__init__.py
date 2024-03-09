@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 # Helper function to turn "snake_case" into "CamelCase".
 def snake_to_camel(str):
@@ -23,3 +24,6 @@ for command_name in command_names:
     # Create an object of the class and store it in the dictionary.
     command_class = getattr(module, class_name)
     command_objects[command_name] = command_class()
+
+# Get the name of the script (without the path and without the extension).
+script_name = Path(sys.argv[0]).stem

@@ -15,9 +15,9 @@ class CustomFormatter(logging.Formatter):
         if record.levelno == logging.DEBUG:
             return colored(f"DEBUG: {message}", "magenta")
         elif record.levelno == logging.WARNING:
-            return colored(f"WARNING: {message}", "yellow")
+            return colored(f"{message}", "yellow")
         elif record.levelno in [logging.CRITICAL, logging.ERROR]:
-            return colored(f"ERROR: {message}", "red")
+            return colored(f"{message}", "red")
         else:
             return message
 

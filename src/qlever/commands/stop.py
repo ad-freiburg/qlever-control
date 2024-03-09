@@ -20,7 +20,7 @@ class StopCommand(QleverCommand):
         pass
 
     def description(self) -> str:
-        return ("Stop the QLever server (if it is running)")
+        return ("Stop QLever server for a given datasedataset or port")
 
     def should_have_qleverfile(self) -> bool:
         return True
@@ -28,7 +28,7 @@ class StopCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
                 "server": ["port"],
-                "containerize": ["server_container_name"]}
+                "runtime": ["server_container"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--cmdline-regex",
@@ -46,7 +46,7 @@ class StopCommand(QleverCommand):
         description = f"Checking for processes matching \"{cmdline_regex}\""
         if not args.no_containers:
             description += (f" and for Docker container with name "
-                            f"\"{args.server_container_name}\"")
+                            f"\"{args.server_container}\"")
         self.show(description, only_show=args.show)
         if args.show:
             return False
@@ -56,9 +56,9 @@ class StopCommand(QleverCommand):
         if not args.no_containers:
             for container_system in Containerize.supported_systems():
                 if Containerize.stop_and_remove_container(
-                        container_system, args.server_container_name):
+                        container_system, args.server_container):
                     log.info(f"{container_system.capitalize()} container with "
-                             f"name \"{args.server_container_name}\" stopped "
+                             f"name \"{args.server_container}\" stopped "
                              f" and removed")
                     return True
 

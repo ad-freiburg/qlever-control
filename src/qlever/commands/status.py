@@ -15,7 +15,7 @@ class StatusCommand(QleverCommand):
         pass
 
     def description(self) -> str:
-        return ("Show all QLever processes running on this machine")
+        return ("Show QLever processes running on this machine")
 
     def should_have_qleverfile(self) -> bool:
         return False

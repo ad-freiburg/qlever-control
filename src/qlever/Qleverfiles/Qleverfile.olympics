@@ -12,19 +12,21 @@ INDEX_DESCRIPTION = 120 Years of Olympics, data from ${BASE_URL}
 TEXT_DESCRIPTION  = All literals, search with FILTER CONTAINS(?var, "...")
 
 [index]
-FILE_NAMES    = olympics.nt
-CAT_FILES     = cat ${FILE_NAMES}
-SETTINGS_JSON = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
+INPUT_FILES     = olympics.nt
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 100000 }
 
 [server]
 PORT               = 7019
 ACCESS_TOKEN       = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES = 5G
 CACHE_MAX_SIZE     = 2G
+TIMEOUT            = 30s
 
-[containerize]
-CONTAINER_SYSTEM = docker
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
+UI_PORT   = 7000
 CONFIG = olympics

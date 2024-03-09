@@ -24,9 +24,8 @@ class UiCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
                 "server": ["host_name", "port"],
-                "containerize": ["ui_container_system", "ui_image_name",
-                                 "ui_container_name"],
-                "ui": ["ui_port", "ui_config"]}
+                "ui": ["ui_port", "ui_config",
+                       "ui_system", "ui_image", "ui_container"]}
 
     def additional_arguments(self, subparser) -> None:
         pass
@@ -35,13 +34,13 @@ class UiCommand(QleverCommand):
         # Construct commands and show them.
         server_url = f"http://{args.host_name}:{args.port}"
         ui_url = f"http://{args.host_name}:{args.ui_port}"
-        pull_cmd = f"{args.ui_container_system} pull -q {args.ui_image_name}"
-        run_cmd = f"{args.ui_container_system} run -d " \
+        pull_cmd = f"{args.ui_system} pull -q {args.ui_image_name}"
+        run_cmd = f"{args.ui_system} run -d " \
                   f"--publish {args.ui_port}:7000 " \
                   f"--name {args.ui_container_name} " \
-                  f"{args.ui_image_name}"
-        exec_cmd = f"{args.ui_container_system} exec -it " \
-                   f"{args.ui_container_name} " \
+                  f"{args.ui_image}"
+        exec_cmd = f"{args.ui_system} exec -it " \
+                   f"{args.ui_container} " \
                    f"bash -c \"python manage.py configure " \
                    f"{args.ui_config} {server_url}\""
         self.show("\n".join(["Stop running containers",
@@ -52,7 +51,7 @@ class UiCommand(QleverCommand):
         # Stop running containers.
         for container_system in Containerize.supported_systems():
             Containerize.stop_and_remove_container(
-                    container_system, args.ui_container_name)
+                    container_system, args.ui_container)
 
         # Try to start the QLever UI.
         try:

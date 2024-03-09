@@ -21,7 +21,7 @@ class GetDataCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name", "get_data_cmd"], "index": ["file_names"]}
+        return {"data": ["name", "get_data_cmd"], "index": ["input_files"]}
 
     def additional_arguments(self, subparser) -> None:
         pass
@@ -41,8 +41,8 @@ class GetDataCommand(QleverCommand):
             return False
 
         # Show the total file size in GB and return.
-        patterns = shlex.split(args.file_names)
+        patterns = shlex.split(args.input_files)
         total_file_size = get_total_file_size(patterns)
         print(f"Download successful, total file size: "
-              f"{total_file_size/1e9:.1f} GB")
+              f"{total_file_size:,} bytes")
         return True

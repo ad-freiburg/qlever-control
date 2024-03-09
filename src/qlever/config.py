@@ -8,6 +8,7 @@ from pathlib import Path
 import argcomplete
 
 from qlever import command_objects
+from qlever import script_name
 from qlever.log import log
 from qlever.qleverfile import Qleverfile
 
@@ -105,17 +106,39 @@ class QleverConfig:
         # Determine whether we are in autocomplete mode or not.
         autocomplete_mode = "COMP_LINE" in os.environ
 
+        # Check if the user has registered this script for argcomplete.
+        argcomplete_check_off = os.environ.get("QLEVER_ARGCOMPLETE_CHECK_OFF")
+        argcomplete_enabled = os.environ.get("QLEVER_ARGCOMPLETE_ENABLED")
+        if not argcomplete_enabled and not argcomplete_check_off:
+            log.info("")
+            log.warn(f"Autocompletion is not enabled for this script, run "
+                     f"the following command, and consider adding it to your "
+                     f"`.bashrc` or `.zshrc`:"
+                     f"\n\n"
+                     f"eval \"$(register-python-argcomplete {script_name})\""
+                     f" && export QLEVER_ARGCOMPLETE_ENABLED=1"
+                     f"\n\n"
+                     f"If autocompletion does not work for you or you don't "
+                     f"want to use it, disable this warning as follows:"
+                     f"\n\n"
+                     f"export QLEVER_ARGCOMPLETE_CHECK_OFF")
+
         # Create a temporary parser only to parse the `--qleverfile` option, in
-        # case it is given. This is because in the actual parser below we want
-        # the values from the Qleverfile to be shown in the help strings.
+        # case it is given, and to determine whether a command was given that
+        # requires a Qleverfile. This is because in the actual parser below we
+        # want the values from the Qleverfile to be shown in the help strings,
+        # but only if this is actually necessary.
         def add_qleverfile_option(parser):
-            parser.add_argument(
-                    "--qleverfile", "-q", type=str, default="Qleverfile",
-                    help="The Qleverfile to use (default: Qleverfile)")
+            parser.add_argument("--qleverfile", "-q", type=str,
+                                default="Qleverfile")
         qleverfile_parser = argparse.ArgumentParser(add_help=False)
         add_qleverfile_option(qleverfile_parser)
+        qleverfile_parser.add_argument("command", type=str, nargs="?")
         qleverfile_args, _ = qleverfile_parser.parse_known_args()
         qleverfile_path_name = qleverfile_args.qleverfile
+        command = qleverfile_args.command
+        parse_qleverfile = command in command_objects \
+            and command_objects[command].should_have_qleverfile()
 
         # Check if the Qleverfile exists and if we are using the default name.
         # We need this again further down in the code, so remember it.
@@ -133,8 +156,15 @@ class QleverConfig:
         #
         # IMPORTANT: No need to parse the Qleverfile in autocompletion mode and
         # it would be unnecessarily expensive to do so.
-        if qleverfile_exists and not autocomplete_mode:
-            qleverfile_config = Qleverfile.read(qleverfile_path)
+        if qleverfile_exists and parse_qleverfile and not autocomplete_mode:
+            try:
+                qleverfile_config = Qleverfile.read(qleverfile_path)
+            except Exception as e:
+                log.info("")
+                log.error(f"Error parsing Qleverfile `{qleverfile_path}`"
+                          f": {e}")
+                log.info("")
+                exit(1)
         else:
             qleverfile_config = None
 

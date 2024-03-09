@@ -34,7 +34,7 @@ class Qleverfile:
         data_args = all_args["data"] = {}
         index_args = all_args["index"] = {}
         server_args = all_args["server"] = {}
-        containerize_args = all_args["containerize"] = {}
+        runtime_args = all_args["runtime"] = {}
         ui_args = all_args["ui"] = {}
 
         data_args["name"] = arg(
@@ -50,12 +50,12 @@ class Qleverfile:
                 "--text-description", type=str, default=None,
                 help="A description of the indexed text if any")
 
-        index_args["file_names"] = arg(
-                "--file-names", type=str, required=True,
+        index_args["input_files"] = arg(
+                "--input-files", type=str, required=True,
                 help="A space-separated list of patterns that match "
                      "all the files of the dataset")
-        index_args["cat_files"] = arg(
-                "--cat-files", type=str, required=True,
+        index_args["cat_input_files"] = arg(
+                "--cat-input-files", type=str, required=True,
                 help="The command that produces the input")
         index_args["settings_json"] = arg(
                 "--settings-json", type=str, default="{}",
@@ -137,37 +137,23 @@ class Qleverfile:
                 help="Whether to the text index if one was precomputed"
                      " (see `qlever index --help` for details)")
 
-        containerize_args["container_system"] = arg(
-                "--container_system", type=str,
+        runtime_args["system"] = arg(
+                "--system", type=str,
                 choices=Containerize.supported_systems() + ["native"],
                 default="docker",
-                help=("The container system to use for certain commands "
-                      "like `index` or `start`. If `native` is chosen, "
-                      "the commands are executed without a container"))
-        containerize_args["image_name"] = arg(
-                "--image-name", type=str,
+                help=("Whether to run commands like `index` or `start` "
+                      "natively or in a container, and if in a container, "
+                      "which system to use"))
+        runtime_args["image"] = arg(
+                "--image", type=str,
                 default="docker.io/adfreiburg/qlever",
-                help="The name of the image used for containerization")
-        containerize_args["index_container_name"] = arg(
-                "--index-container-name", type=str,
+                help="The name of the image when running in a container")
+        runtime_args["index_container"] = arg(
+                "--index-container", type=str,
                 help="The name of the container used by `qlever index`")
-        containerize_args["server_container_name"] = arg(
-                "--server-container-name", type=str,
+        runtime_args["server_container"] = arg(
+                "--server-container", type=str,
                 help="The name of the container used by `qlever start`")
-        containerize_args["ui_container_system"] = arg(
-                "--ui-container-system", type=str,
-                choices=Containerize.supported_systems(),
-                default="docker",
-                help="The container system to use for the QLever UI"
-                     " (unlike for index building or for the server,"
-                     " this cannot be \"native\")")
-        containerize_args["ui_image_name"] = arg(
-                "--ui-image-name", type=str,
-                default="docker.io/adfreiburg/qlever-ui",
-                help="The name of the image used for the Qlever UI")
-        containerize_args["ui_container_name"] = arg(
-                "--ui-container-name", type=str,
-                help="The name of the container used by `qlever ui`")
 
         ui_args["ui_port"] = arg(
                 "--ui_port", type=int, default=7000,
@@ -176,6 +162,20 @@ class Qleverfile:
                 "--ui-config", type=str, default="default",
                 help="The name of the backend configuration for the QLever UI"
                      " (this determines AC queries and example queries)")
+        ui_args["ui_system"] = arg(
+                "--ui-system", type=str,
+                choices=Containerize.supported_systems(),
+                default="docker",
+                help="Which container system to use for `qlever ui`"
+                     " (unlike for `qlever index` and `qlever start`, "
+                     " \"native\" is not yet supported here)")
+        ui_args["ui_image"] = arg(
+                "--ui-image", type=str,
+                default="docker.io/adfreiburg/qlever-ui",
+                help="The name of the image used for `qlever ui`")
+        ui_args["ui_container"] = arg(
+                "--ui-container", type=str,
+                help="The name of the container used for `qlever ui`")
 
         return all_args
 
@@ -199,7 +199,7 @@ class Qleverfile:
             raise QleverfileException(f"Error parsing {qleverfile_path}: {e}")
 
         # Make sure that all the sections are there.
-        for section in ["data", "index", "server", "containerize", "ui"]:
+        for section in ["data", "index", "server", "runtime", "ui"]:
             if section not in config:
                 config[section] = {}
 
@@ -208,13 +208,13 @@ class Qleverfile:
         # to `qlever.server.<name>`.
         if "name" in config["data"]:
             name = config["data"]["name"]
-            containerize = config["containerize"]
-            if "server_container_name" not in containerize:
-                containerize["server_container_name"] = f"qlever.server.{name}"
-            if "index_container_name" not in containerize:
-                containerize["index_container_name"] = f"qlever.index.{name}"
-            if "ui_container_name" not in config["ui"]:
-                containerize["ui_container_name"] = f"qlever.ui.{name}"
+            runtime = config["runtime"]
+            if "server_container" not in runtime:
+                runtime["server_container"] = f"qlever.server.{name}"
+            if "index_container" not in runtime:
+                runtime["index_container"] = f"qlever.index.{name}"
+            if "ui_container" not in config["ui"]:
+                config["ui"]["ui_container"] = f"qlever.ui.{name}"
 
         # Return the parsed Qleverfile with the added inherited values.
         return config

@@ -36,6 +36,14 @@ class IndexStatsCommand(QleverCommand):
         subparser.add_argument("--ignore-text-index", action="store_true",
                                default=False,
                                help="Ignore the text index")
+        subparser.add_argument("--time-unit",
+                               choices=["s", "min", "h", "auto"],
+                               default="auto",
+                               help="The time unit")
+        subparser.add_argument("--size-unit",
+                               choices=["B", "MB", "GB", "TB", "auto"],
+                               default="auto",
+                               help="The size unit")
 
     def execute_time(self, args, log_file_name) -> bool:
         """
@@ -134,7 +142,7 @@ class IndexStatsCommand(QleverCommand):
         # Helper function that shows the duration for a phase (if the start and
         # end timestamps are available).
         def show_duration(heading, start_end_pairs):
-            nonlocal unit
+            nonlocal time_unit
             num_start_end_pairs = 0
             diff_seconds = 0
             for start, end in start_end_pairs:
@@ -142,23 +150,25 @@ class IndexStatsCommand(QleverCommand):
                     diff_seconds += (end - start).total_seconds()
                     num_start_end_pairs += 1
             if num_start_end_pairs > 0:
-                if unit == "h":
+                if time_unit == "h":
                     diff = diff_seconds / 3600
-                elif unit == "min":
+                elif time_unit == "min":
                     diff = diff_seconds / 60
                 else:
                     diff = diff_seconds
-                log.info(f"{heading:<21} : {diff:>6.1f} {unit}")
+                log.info(f"{heading:<21} : {diff:>6.1f} {time_unit}")
 
         # Get the times of the various phases (hours or minutes, depending on
         # how long the first phase took).
-        unit = "h"
-        if merge_begin and overall_begin:
-            parse_duration = (merge_begin - overall_begin).total_seconds()
-            if parse_duration < 200:
-                unit = "s"
-            elif parse_duration < 3600:
-                unit = "min"
+        time_unit = args.time_unit
+        if time_unit == "auto":
+            time_unit = "h"
+            if merge_begin and overall_begin:
+                parse_duration = (merge_begin - overall_begin).total_seconds()
+                if parse_duration < 200:
+                    time_unit = "s"
+                elif parse_duration < 3600:
+                    time_unit = "min"
         show_duration("Parse input", [(overall_begin, merge_begin)])
         show_duration("Build vocabularies", [(merge_begin, convert_begin)])
         show_duration("Convert to global IDs", [(convert_begin, convert_end)])
@@ -196,20 +206,29 @@ class IndexStatsCommand(QleverCommand):
         total_size = index_size + vocab_size + text_size
 
         # Determing the proper unit for the size.
-        unit = "GB"
-        if total_size < 1e6:
-            unit = "B"
-        elif total_size < 1e9:
-            unit = "MB"
+        size_unit = args.size_unit
+        if size_unit == "auto":
+            size_unit = "TB"
+            if total_size < 1e6:
+                size_unit = "B"
+            elif total_size < 1e9:
+                size_unit = "MB"
+            elif total_size < 1e12:
+                size_unit = "GB"
 
         # Helper function for showing the size in a uniform way.
         def show_size(heading, size):
-            nonlocal unit
-            if unit == "GB":
+            nonlocal size_unit
+            if size_unit == "GB":
                 size /= 1e9
-            elif unit == "MB":
+            elif size_unit == "MB":
                 size /= 1e6
-            log.info(f"{heading:<21} : {size:>6.1f} {unit}")
+            elif size_unit == "TB":
+                size /= 1e12
+            if size_unit == "B":
+                log.info(f"{heading:<21} :  {size:,} {size_unit}")
+            else:
+                log.info(f"{heading:<21} : {size:>6.1f} {size_unit}")
 
         show_size("Files index.*", index_size)
         show_size("Files vocabulary.*", vocab_size)

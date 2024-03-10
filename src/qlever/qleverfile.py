@@ -64,6 +64,10 @@ class Qleverfile:
                 "--index-binary", type=str, default="IndexBuilderMain",
                 help="The binary for building the index (this requires "
                      "that you have compiled QLever on your machine)")
+        index_args["stxxl_memory"] = arg(
+                "--stxxl-memory", type=str, default="5G",
+                help="The amount of memory to use for the index build "
+                     "(the name of the option has historical reasons)")
         index_args["only_pso_and_pos_permutations"] = arg(
                 "--only-pso-and-pos-permutations", action="store_true",
                 default=False,
@@ -80,10 +84,14 @@ class Qleverfile:
                 default="none",
                 help="Whether to also build an index for text search"
                      "and for which texts")
-        index_args["stxxl_memory"] = arg(
-                "--stxxl-memory", type=str, default="5G",
-                help="The amount of memory to use for the index build "
-                     "(the name of the option has historical reasons)")
+        index_args["text_words_file"] = arg(
+                "--text-words-file", type=str, default=None,
+                help="File with the words for the text index (one line "
+                     "per word, format: `word or IRI\t0 or 1\tdoc id\t1`)")
+        index_args["text_docs_file"] = arg(
+                "--text-docs-file", type=str, default=None,
+                help="File with the documents for the text index (one line "
+                     "per document, format: `id\tdocument text`)")
 
         server_args["server_binary"] = arg(
                 "--server-binary", type=str, default="ServerMain",
@@ -203,9 +211,7 @@ class Qleverfile:
             if section not in config:
                 config[section] = {}
 
-        # Add "inherited" values. For example, if `name` is defined, but
-        # `server_container_name` is not, then set `server_container_name`
-        # to `qlever.server.<name>`.
+        # Add default values that are based on the dataset name.
         if "name" in config["data"]:
             name = config["data"]["name"]
             runtime = config["runtime"]
@@ -215,6 +221,11 @@ class Qleverfile:
                 runtime["index_container"] = f"qlever.index.{name}"
             if "ui_container" not in config["ui"]:
                 config["ui"]["ui_container"] = f"qlever.ui.{name}"
+            index = config["index"]
+            if "text_words_file" not in index:
+                index["text_words_file"] = f"{name}.wordsfile.tsv"
+            if "text_docs_file" not in index:
+                index["text_docs_file"] = f"{name}.docsfile.tsv"
 
         # Return the parsed Qleverfile with the added inherited values.
         return config

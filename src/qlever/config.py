@@ -7,8 +7,7 @@ from pathlib import Path
 
 import argcomplete
 
-from qlever import command_objects
-from qlever import script_name
+from qlever import command_objects, script_name
 from qlever.log import log
 from qlever.qleverfile import Qleverfile
 
@@ -136,9 +135,9 @@ class QleverConfig:
         qleverfile_parser.add_argument("command", type=str, nargs="?")
         qleverfile_args, _ = qleverfile_parser.parse_known_args()
         qleverfile_path_name = qleverfile_args.qleverfile
-        command = qleverfile_args.command
-        parse_qleverfile = command in command_objects \
-            and command_objects[command].should_have_qleverfile()
+        # command = qleverfile_args.command
+        # should_have_qleverfile = command in command_objects \
+        #     and command_objects[command].should_have_qleverfile()
 
         # Check if the Qleverfile exists and if we are using the default name.
         # We need this again further down in the code, so remember it.
@@ -156,7 +155,10 @@ class QleverConfig:
         #
         # IMPORTANT: No need to parse the Qleverfile in autocompletion mode and
         # it would be unnecessarily expensive to do so.
-        if qleverfile_exists and parse_qleverfile and not autocomplete_mode:
+        #
+        # TODO: What if `command.should_have_qleverfile()` is `False`, should
+        # we then parse the Qleverfile or not.
+        if qleverfile_exists and not autocomplete_mode:
             try:
                 qleverfile_config = Qleverfile.read(qleverfile_path)
             except Exception as e:

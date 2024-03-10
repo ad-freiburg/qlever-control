@@ -36,7 +36,7 @@ class AddTextIndexCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Check that there is actually something to add.
-        if args.with_text_index is None:
+        if args.with_text_index == "none":
             log.error("You specified `--with_text_index none`, nothing to add")
             return False
 
@@ -49,7 +49,7 @@ class AddTextIndexCommand(QleverCommand):
         if args.with_text_index in \
                 ["from_literals", "from_text_records_and_literals"]:
             add_text_index_cmd += " --text-words-from-literals"
-        add_text_index_cmd += f" | tee {args.name}.add-text-index-log.txt"
+        add_text_index_cmd += f" | tee {args.name}.text-index-log.txt"
 
         # Run the command in a container (if so desired).
         if args.system in Containerize.supported_systems():

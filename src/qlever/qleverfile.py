@@ -222,7 +222,7 @@ class Qleverfile:
                     try:
                         value = subprocess.check_output(
                                 match.group(1), shell=True, text=True,
-                                stderr=subprocess.STDOUT)
+                                stderr=subprocess.STDOUT).strip()
                     except Exception as e:
                         log.info("")
                         log.error(f"Error evaluating {value} for option "
@@ -232,7 +232,6 @@ class Qleverfile:
                         log.info(e.output if hasattr(e, "output") else e)
                         exit(1)
                     config[section][option] = value
-                    log.info(f"Set {section}.{option} to {value}")
 
         # Make sure that all the sections are there.
         for section in ["data", "index", "server", "runtime", "ui"]:

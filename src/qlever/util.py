@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-import subprocess
-from pathlib import Path
-from qlever.log import log
+import random
 import re
-from datetime import datetime, date
+import string
+import subprocess
+from datetime import date, datetime
+from pathlib import Path
+
+from qlever.log import log
 
 
 def get_total_file_size(patterns: list[str]) -> int:
@@ -94,3 +97,13 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
     except Exception as e:
         log.error(f"Could not get process info: {e}")
         return False
+
+
+def get_random_string(length: int) -> str:
+    """
+    Helper function that returns a randomly chosen string of the given
+    length. Take the current time as seed.
+    """
+    random.seed(datetime.now())
+    return "".join(random.choices(string.ascii_letters + string.digits,
+                                  k=length))

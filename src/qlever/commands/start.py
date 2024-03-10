@@ -27,7 +27,7 @@ class StartCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name", "index_description", "text_description"],
+        return {"data": ["name", "description", "text_description"],
                 "server": ["server_binary", "port", "access_token",
                            "memory_for_queries", "cache_max_size",
                            "cache_max_size_single_entry",
@@ -163,8 +163,8 @@ class StartCommand(QleverCommand):
 
         # Set the access token if specified.
         access_arg = f"--data-urlencode \"access-token={args.access_token}\""
-        if args.index_description:
-            desc = args.index_description
+        if args.description:
+            desc = args.description
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                         f" --data-urlencode \"index-description={desc}\""
                         f" {access_arg} > /dev/null")
@@ -174,9 +174,9 @@ class StartCommand(QleverCommand):
             except Exception as e:
                 log.error(f"Setting the index description failed ({e})")
         if args.text_description:
-            desc = args.text_description
+            text_desc = args.text_description
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
-                        f" --data-urlencode \"text-description={desc}\""
+                        f" --data-urlencode \"text-description={text_desc}\""
                         f" {access_arg} > /dev/null")
             log.debug(curl_cmd)
             try:

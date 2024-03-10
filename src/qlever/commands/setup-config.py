@@ -3,6 +3,7 @@ from pathlib import Path
 
 from qlever.command import QleverCommand
 from qlever.log import log
+from qlever.util import get_random_string
 
 
 class SetupConfigCommand(QleverCommand):
@@ -35,7 +36,10 @@ class SetupConfigCommand(QleverCommand):
         # Construct the command line and show it.
         qleverfile_path = (self.qleverfiles_path
                            / f"Qleverfile.{args.config_name}")
-        setup_config_cmd = f"cp -a {qleverfile_path} Qleverfile"
+        setup_config_cmd = (
+                f"cat {qleverfile_path}"
+                f" | sed -E 's/(^ACCESS_TOKEN.*)/\\1_{get_random_string(12)}/'"
+                f"> Qleverfile")
         self.show(setup_config_cmd, only_show=args.show)
         if args.show:
             return False

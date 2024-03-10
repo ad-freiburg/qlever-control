@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import re
 import socket
+import subprocess
 from configparser import ConfigParser, ExtendedInterpolation
 
 from qlever.containerize import Containerize
+from qlever.log import log
 
 
 class QleverfileException(Exception):
@@ -43,12 +46,13 @@ class Qleverfile:
         data_args["get_data_cmd"] = arg(
                 "--get-data-cmd", type=str, required=True,
                 help="The command to get the data")
-        data_args["index_description"] = arg(
-                "--index-description", type=str, required=True,
-                help="A concise description of the indexed dataset")
+        data_args["description"] = arg(
+                "--description", type=str, required=True,
+                help="A concise description of the dataset")
         data_args["text_description"] = arg(
                 "--text-description", type=str, default=None,
-                help="A description of the indexed text if any")
+                help="A concice description of the addtional text data"
+                     " if any")
 
         index_args["input_files"] = arg(
                 "--input-files", type=str, required=True,
@@ -200,11 +204,35 @@ class Qleverfile:
         """
 
         # Read the Qleverfile.
-        config = ConfigParser(interpolation=ExtendedInterpolation())
+        defaults = {"random": "83724324hztz", "version": "01.01.01"}
+        config = ConfigParser(interpolation=ExtendedInterpolation(),
+                              defaults=defaults)
         try:
             config.read(qleverfile_path)
         except Exception as e:
             raise QleverfileException(f"Error parsing {qleverfile_path}: {e}")
+
+        # Iterate over all sections and options and check if there are any
+        # values of the form $$(...) that need to be replaced.
+        for section in config.sections():
+            for option in config[section]:
+                value = config[section][option]
+                match = re.match(r"^\$\((.*)\)$", value)
+                if match:
+                    try:
+                        value = subprocess.check_output(
+                                match.group(1), shell=True, text=True,
+                                stderr=subprocess.STDOUT)
+                    except Exception as e:
+                        log.info("")
+                        log.error(f"Error evaluating {value} for option "
+                                  f"{section}.{option.upper()} in "
+                                  f"{qleverfile_path}:")
+                        log.info("")
+                        log.info(e.output if hasattr(e, "output") else e)
+                        exit(1)
+                    config[section][option] = value
+                    log.info(f"Set {section}.{option} to {value}")
 
         # Make sure that all the sections are there.
         for section in ["data", "index", "server", "runtime", "ui"]:

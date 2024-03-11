@@ -34,10 +34,10 @@ class UiCommand(QleverCommand):
         # Construct commands and show them.
         server_url = f"http://{args.host_name}:{args.port}"
         ui_url = f"http://{args.host_name}:{args.ui_port}"
-        pull_cmd = f"{args.ui_system} pull -q {args.ui_image_name}"
+        pull_cmd = f"{args.ui_system} pull -q {args.ui_image}"
         run_cmd = f"{args.ui_system} run -d " \
                   f"--publish {args.ui_port}:7000 " \
-                  f"--name {args.ui_container_name} " \
+                  f"--name {args.ui_container} " \
                   f"{args.ui_image}"
         exec_cmd = f"{args.ui_system} exec -it " \
                    f"{args.ui_container} " \

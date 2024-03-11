@@ -8,7 +8,7 @@
 NAME              = olympics
 BASE_URL          = https://github.com/wallscope/olympics-rdf
 GET_DATA_CMD      = curl -sLo olympics.zip -C - ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip -q -o olympics.zip && rm olympics.zip
-INDEX_DESCRIPTION = 120 Years of Olympics, data from ${BASE_URL}
+DESCRIPTION       = 120 Years of Olympics, data from ${BASE_URL}
 TEXT_DESCRIPTION  = All literals, search with FILTER CONTAINS(?var, "...")
 
 [index]

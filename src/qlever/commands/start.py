@@ -6,6 +6,8 @@ import time
 from qlever.command import QleverCommand
 from qlever.commands.status import StatusCommand
 from qlever.commands.stop import StopCommand
+from qlever.commands.warmup import WarmupCommand
+from qlever.commands.cache_stats import CacheStatsCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import is_qlever_server_alive, run_command
@@ -28,12 +30,13 @@ class StartCommand(QleverCommand):
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name", "description", "text_description"],
-                "server": ["server_binary", "port", "access_token",
-                           "memory_for_queries", "cache_max_size",
-                           "cache_max_size_single_entry",
+                "server": ["server_binary", "host_name", "port",
+                           "access_token", "memory_for_queries",
+                           "cache_max_size", "cache_max_size_single_entry",
                            "cache_max_num_entries", "num_threads",
                            "timeout", "only_pso_and_pos_permutations",
-                           "use_patterns", "with_text_index"],
+                           "use_patterns", "with_text_index",
+                           "warmup_cmd"],
                 "runtime": ["system", "image", "server_container"]}
 
     def additional_arguments(self, subparser) -> None:
@@ -49,6 +52,10 @@ class StartCommand(QleverCommand):
                                help="If a QLever server is already running "
                                     "on the same port, kill it before "
                                     "starting a new server")
+        subparser.add_argument("--no-warmup",
+                               action="store_true",
+                               default=False,
+                               help="Do not execute the warmup command")
 
     def execute(self, args) -> bool:
         # Kill existing server with the same name if so desired.
@@ -186,3 +193,15 @@ class StartCommand(QleverCommand):
 
         # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
         tail_proc.terminate()
+
+        # Execute the warmup command.
+        if args.warmup_cmd and not args.no_warmup:
+            log.info("")
+            WarmupCommand().execute(args)
+
+        # Show cache stats.
+        log.info("")
+        args.brief = True
+        CacheStatsCommand().execute(args)
+
+        return True

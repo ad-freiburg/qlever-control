@@ -4,6 +4,7 @@ import random
 import re
 import string
 import subprocess
+import shlex
 from datetime import date, datetime
 from pathlib import Path
 
@@ -47,6 +48,28 @@ def is_qlever_server_alive(port: str) -> bool:
                                 stderr=subprocess.DEVNULL)
     return exit_code == 0
 
+def get_curl_cmd_for_sparql_query(
+        query: str, port: int,
+        host: str = "localhost",
+        media_type: str = "application/sparql-results+qlever",
+        verbose: bool = False,
+        pinresult: bool = False,
+        access_token: Optional[str] = None,
+        send: Optional[int] = None) -> str:
+    """
+    Get curl command for given SPARQL query.
+    """
+    curl_cmd = (f"curl -s http::{host}:{port}"
+                f" -H \"Accept: {media_type}\" "
+                f" --data-urlencode query={shlex.quote(query)}")
+    if pinresult and access_token is not None:
+        curl_cmd += " --data-urlencode pinresult=true"
+        curl_cmd += f" --data-urlencode access_token={access_token}"
+    if send is not None:
+        curl_cmd += f" --data-urlencode send={send}"
+    if verbose:
+        curl_cmd += " --verbose"
+    return curl_cmd
 
 def get_existing_index_files(basename: str) -> list[str]:
     """

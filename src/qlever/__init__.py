@@ -21,9 +21,10 @@ for command_name in command_names:
     except ImportError as e:
         raise Exception(f"Could not import class {class_name} from module "
                         f"{module_path} for command {command_name}: {e}")
-    # Create an object of the class and store it in the dictionary.
+    # Create an object of the class and store it in the dictionary. For the
+    # commands, take - instead of _.
     command_class = getattr(module, class_name)
-    command_objects[command_name] = command_class()
+    command_objects[command_name.replace("_", "-")] = command_class()
 
 # Get the name of the script (without the path and without the extension).
 script_name = Path(sys.argv[0]).stem

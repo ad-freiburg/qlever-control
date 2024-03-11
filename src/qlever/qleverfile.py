@@ -148,6 +148,12 @@ class Qleverfile:
                 "--with-text-index", action="store_true", default=False,
                 help="Whether to the text index if one was precomputed"
                      " (see `qlever index --help` for details)")
+        server_args["warmup_cmd"] = arg(
+                "--warmup-cmd", type=str,
+                help="Command executed after the server has started "
+                     " (executed as part of `qlever start` unless "
+                     " `--no-warmup` is specified, or with `qlever warmup`)")
+
 
         runtime_args["system"] = arg(
                 "--system", type=str,

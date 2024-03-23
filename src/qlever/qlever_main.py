@@ -34,6 +34,11 @@ def main():
         log.info("")
         command_object.execute(args)
         log.info("")
+    except KeyboardInterrupt:
+        log.info("")
+        log.info("Ctrl-C pressed, exiting ...")
+        log.info("")
+        exit(0)
     except Exception as e:
         # Check if it's a certain kind of `AttributeError` and give a hint in
         # that case.

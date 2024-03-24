@@ -3,6 +3,8 @@
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
 
 import logging
+from contextlib import contextmanager
+
 from termcolor import colored
 
 
@@ -28,3 +30,16 @@ log.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 handler.setFormatter(CustomFormatter())
 log.addHandler(handler)
+
+
+@contextmanager
+def mute_log(level=logging.ERROR):
+    """
+    Temporarily mute the log.
+    """
+    original_level = log.getEffectiveLevel()
+    log.setLevel(level)
+    try:
+        yield
+    finally:
+        log.setLevel(original_level)

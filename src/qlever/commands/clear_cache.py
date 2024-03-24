@@ -23,8 +23,7 @@ class ClearCacheCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name"],
-                "server": ["port", "access_token"]}
+        return {"server": ["port", "access_token"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--server-url",

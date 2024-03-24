@@ -36,7 +36,7 @@ class CacheStatsCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Construct the two curl commands.
-        server_url = (args.server_url if hasattr(args, "server_url")
+        server_url = (args.server_url if args.server_url
                       else f"localhost:{args.port}")
         cache_stats_cmd = (f"curl -s {server_url} "
                            f"--data-urlencode \"cmd=cache-stats\"")

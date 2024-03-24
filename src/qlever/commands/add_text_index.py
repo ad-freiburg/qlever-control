@@ -24,7 +24,7 @@ class AddTextIndexCommand(QleverCommand):
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
-                "index": ["index_binary", "with_text_index",
+                "index": ["index_binary", "text_index",
                           "text_words_file", "text_docs_file"],
                 "runtime": ["system", "image", "index_container"]}
 
@@ -36,17 +36,17 @@ class AddTextIndexCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Check that there is actually something to add.
-        if args.with_text_index == "none":
-            log.error("You specified `--with_text_index none`, nothing to add")
+        if args.text_index == "none":
+            log.error("You specified `--text_index none`, nothing to add")
             return False
 
         # Construct the command line.
         add_text_index_cmd = f"{args.index_binary} -A -i {args.name}"
-        if args.with_text_index in \
+        if args.text_index in \
                 ["from_text_records", "from_text_records_and_literals"]:
             add_text_index_cmd += (f" -w {args.text_words_file}"
                                    f" -d {args.text_docs_file}")
-        if args.with_text_index in \
+        if args.text_index in \
                 ["from_literals", "from_text_records_and_literals"]:
             add_text_index_cmd += " --text-words-from-literals"
         add_text_index_cmd += f" | tee {args.name}.text-index-log.txt"

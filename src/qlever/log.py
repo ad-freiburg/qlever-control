@@ -8,14 +8,14 @@ from contextlib import contextmanager
 from termcolor import colored
 
 
-class CustomFormatter(logging.Formatter):
+class QleverLogFormatter(logging.Formatter):
     """
     Custom formatter for logging.
     """
     def format(self, record):
         message = record.getMessage()
         if record.levelno == logging.DEBUG:
-            return colored(f"DEBUG: {message}", "magenta")
+            return colored(f"{message}", "magenta")
         elif record.levelno == logging.WARNING:
             return colored(f"{message}", "yellow")
         elif record.levelno in [logging.CRITICAL, logging.ERROR]:
@@ -28,14 +28,24 @@ class CustomFormatter(logging.Formatter):
 log = logging.getLogger("qlever")
 log.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter())
+handler.setFormatter(QleverLogFormatter())
 log.addHandler(handler)
+log_levels = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
 
 
 @contextmanager
 def mute_log(level=logging.ERROR):
     """
-    Temporarily mute the log.
+    Temporarily mute the log, simply works as follows:
+
+    with mute_log():
+       ...
     """
     original_level = log.getEffectiveLevel()
     log.setLevel(level)

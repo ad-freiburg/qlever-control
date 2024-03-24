@@ -7,10 +7,10 @@
 # Limitations: does not include the ontologies (WP, GPML, ChEBI, PW, CLO, ...) yet
 
 [data]
-NAME              = wikipathways
-RELEASE           = 20231210
-GET_DATA_URL      = https://data.wikipathways.org/${RELEASE}/rdf
-GET_DATA_CMD      = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-void.ttl && \
+NAME             = wikipathways
+RELEASE          = 20231210
+GET_DATA_URL     = https://data.wikipathways.org/${RELEASE}/rdf
+GET_DATA_CMD     = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-void.ttl && \
                     wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-wp.zip && \
                       unzip -qq -c wikipathways-${RELEASE}-rdf-wp.zip -x wp/wpOntology.ttl > wikipathways-rdf-wp.ttl && \
                     wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-gpml.zip && 
@@ -18,25 +18,23 @@ GET_DATA_CMD      = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathwa
                     wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-authors.zip && \
                       unzip -qq -c wikipathways-${RELEASE}-rdf-authors.zip > wikipathways-rdf-authors.ttl && \
                     cat wikipathways-rdf-*.ttl | grep ^@prefix | tr -s ' ' | sort -u > ${NAME}.prefix-definitions
-INDEX_DESCRIPTION = WikiPathways RDF, from ${GET_DATA_URL}
-TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
+DESCRIPTION      = WikiPathways RDF, from ${GET_DATA_URL}
+TEXT_DESCRIPTION = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
-FILE_NAMES        = ${data:NAME}.prefix-definitions wikipathways-rdf-wp.ttl wikipathways-rdf-gpml.ttl wikipathways-rdf-void.ttl wikipathways-rdf-authors.ttl
-CAT_FILES         = cat ${FILE_NAMES}
-SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
-WITH_TEXT_INDEX   = from_literals
+INPUT_FILES     = ${data:NAME}.prefix-definitions wikipathways-rdf-wp.ttl wikipathways-rdf-gpml.ttl wikipathways-rdf-void.ttl wikipathways-rdf-authors.ttl
+CAT_INPUT_FILES = cat ${FILE_NAMES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
+TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7040
 ACCESS_TOKEN       = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES = 5G
-WITH_TEXT_INDEX    = from_literals
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = wikipathways
+UI_CONFIG = wikipathways

@@ -17,7 +17,6 @@ DESCRIPTION  = OSM Planet, data from ${DATA_URL} version ${VERSION} (complete OS
 [index]
 INPUT_FILES     = ${data:NAME}.ttl.bz2
 CAT_INPUT_FILES = lbzcat -f -n 2 ${INPUT_FILES}
-WITH_TEXT       = false
 STXXL_MEMORY    = 20G
 SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
 
@@ -31,8 +30,7 @@ TIMEOUT                     = 300s
 
 [runtime]
 SYSTEM = docker
-IMAGE = docker.io/adfreiburg/qlever:latest
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-UI_PORT   = 7000
 UI_CONFIG = osm-planet

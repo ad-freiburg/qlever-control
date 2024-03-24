@@ -35,17 +35,17 @@ class StartCommand(QleverCommand):
                            "cache_max_size", "cache_max_size_single_entry",
                            "cache_max_num_entries", "num_threads",
                            "timeout", "only_pso_and_pos_permutations",
-                           "use_patterns", "with_text_index",
+                           "use_patterns", "use_text_index",
                            "warmup_cmd"],
                 "runtime": ["system", "image", "server_container"]}
 
     def additional_arguments(self, subparser) -> None:
-        subparser.add_argument("--kill-existing-with-same-name",
-                               action="store_true",
-                               default=False,
-                               help="If a QLever server is already running "
-                                    "with the same name, kill it before "
-                                    "starting a new server")
+        # subparser.add_argument("--kill-existing-with-same-name",
+        #                        action="store_true",
+        #                        default=False,
+        #                        help="If a QLever server is already running "
+        #                             "with the same name, kill it before "
+        #                             "starting a new server")
         subparser.add_argument("--kill-existing-with-same-port",
                                action="store_true",
                                default=False,
@@ -59,7 +59,10 @@ class StartCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Kill existing server with the same name if so desired.
-        if args.kill_existing_with_same_name:
+        #
+        # TODO: This is currently disabled because I never used it once over
+        # the past weeks and it is not clear to me what the use case is.
+        if False:  # or args.kill_existing_with_same_name:
             args.cmdline_regex = f"^ServerMain.* -i {args.name}"
             args.no_containers = True
             StopCommand().execute(args)
@@ -89,9 +92,7 @@ class StartCommand(QleverCommand):
             start_cmd += " --only-pso-and-pos-permutations"
         if not args.use_patterns:
             start_cmd += " --no-patterns"
-        if args.with_text_index in \
-                ["from_text_records", "from_literals",
-                 "from_text_records_and_literals"]:
+        if args.use_text_index == "yes":
             start_cmd += " -t"
         start_cmd += f" > {args.name}.server-log.txt 2>&1"
 
@@ -121,9 +122,11 @@ class StartCommand(QleverCommand):
             try:
                 run_command(f"{args.server_binary} --help")
             except Exception as e:
-                log.error(f"Running \"{args.server_binary}\" failed ({e}), "
+                log.error(f"Running \"{args.server_binary}\" failed, "
                           f"set `--server-binary` to a different binary or "
                           f"set `--system to a container system`")
+                log.info("")
+                log.info(f"The error message was: {e}")
                 return False
 
         # Check if a QLever server is already running on this port.
@@ -141,6 +144,15 @@ class StartCommand(QleverCommand):
             StatusCommand().execute(args)
 
             return False
+
+        # Remove already existing container.
+        if args.system in Containerize.supported_systems() \
+                and args.kill_existing_with_same_port:
+            try:
+                run_command(f"{args.system} rm -f {args.server_container}")
+            except Exception as e:
+                log.error(f"Removing existing container failed: {e}")
+                return False
 
         # Check if another process is already listening.
         # if self.net_connections_enabled:

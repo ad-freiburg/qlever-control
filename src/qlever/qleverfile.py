@@ -81,8 +81,8 @@ class Qleverfile:
                 help="Precompute so-called patterns needed for fast processing"
                      " of queries like SELECT ?p (COUNT(DISTINCT ?s) AS ?c) "
                      "WHERE { ?s ?p [] ... } GROUP BY ?p")
-        index_args["with_text_index"] = arg(
-                "--with-text-index",
+        index_args["text_index"] = arg(
+                "--text-index",
                 choices=["none", "from_text_records", "from_literals",
                          "from_text_records_and_literals"],
                 default="none",
@@ -144,16 +144,15 @@ class Qleverfile:
                 "--use-patterns", action="store_true", default=True,
                 help="Use the patterns precomputed during the index build"
                      " (see `qlever index --help` for their utility)")
-        server_args["with_text_index"] = arg(
-                "--with-text-index", action="store_true", default=False,
-                help="Whether to the text index if one was precomputed"
-                     " (see `qlever index --help` for details)")
+        server_args["use_text_index"] = arg(
+                "--use-text-index", choices=["yes", "no"], default="no",
+                help="Whether to use the text index (requires that one was "
+                "built, see `qlever index`)")
         server_args["warmup_cmd"] = arg(
                 "--warmup-cmd", type=str,
                 help="Command executed after the server has started "
                      " (executed as part of `qlever start` unless "
                      " `--no-warmup` is specified, or with `qlever warmup`)")
-
 
         runtime_args["system"] = arg(
                 "--system", type=str,
@@ -244,7 +243,7 @@ class Qleverfile:
             if section not in config:
                 config[section] = {}
 
-        # Add default values that are based on the dataset name.
+        # Add default values that are based on other values.
         if "name" in config["data"]:
             name = config["data"]["name"]
             runtime = config["runtime"]
@@ -259,6 +258,9 @@ class Qleverfile:
                 index["text_words_file"] = f"{name}.wordsfile.tsv"
             if "text_docs_file" not in index:
                 index["text_docs_file"] = f"{name}.docsfile.tsv"
+            server = config["server"]
+            if index.get("text_index", "none") != "none":
+                server["use_text_index"] = "yes"
 
         # Return the parsed Qleverfile with the added inherited values.
         return config

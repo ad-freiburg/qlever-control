@@ -10,6 +10,7 @@ from termcolor import colored
 from qlever.command import QleverCommand
 from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.log import log, mute_log
+from qlever.util import run_command
 
 
 class ExampleQueriesCommand(QleverCommand):
@@ -47,6 +48,9 @@ class ExampleQueriesCommand(QleverCommand):
                                default="1-$",
                                help="Query IDs as comma-separated list of "
                                "ranges (e.g., 1-5,7,12-$)")
+        subparser.add_argument("--query-regex", type=str,
+                               help="Only consider example queries matching "
+                               "this regex (using grep -Pi)")
         subparser.add_argument("--download-or-count",
                                choices=["download", "count"], default="count",
                                help="Whether to download the full result "
@@ -78,10 +82,12 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Show what the command will do.
         get_queries_cmd = (args.get_queries_cmd if args.get_queries_cmd
-                           else f"curl -s https://qlever.cs.uni-freiburg.de/"
+                           else f"curl -sv https://qlever.cs.uni-freiburg.de/"
                                 f"api/examples/{args.ui_config}")
         sed_arg = args.query_ids.replace(",", "p;").replace("-", ",") + "p"
         get_queries_cmd += f" | sed -n '{sed_arg}'"
+        if args.query_regex:
+            get_queries_cmd += f" | grep -Pi {shlex.quote(args.query_regex)}"
         sparql_endpoint = (args.sparql_endpoint if args.sparql_endpoint
                            else f"localhost:{args.port}")
         self.show(f"Obtain queries via: {get_queries_cmd}\n"
@@ -97,18 +103,14 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Get the example queries.
         try:
-            # log.info(f"get_queries_cmd: {get_queries_cmd}")
-            example_query_lines = subprocess.run(
-                    get_queries_cmd, shell=True, check=True,
-                    text=True, stdout=subprocess.PIPE).stdout.splitlines()
+            example_query_lines = run_command(get_queries_cmd, return_output=True)
+            if len(example_query_lines) == 0:
+                log.error("No example queries matching the criteria found")
+                return False
+            example_query_lines = example_query_lines.splitlines()
         except Exception as e:
-            log.error(f"Failed to get example queries ({e})")
+            log.error(f"Failed to get example queries: {e}")
             return False
-        # for i, line in enumerate(lines.splitlines()):
-        #     try:
-        #         description, query = line.split("\t")
-        #         example_queries.append((description, query))
-        # num_example_queries = len(example_queries)
 
         # Launch the queries one after the other and for each print: the
         # description, the result size, and the query processing time.
@@ -153,7 +155,7 @@ class ExampleQueriesCommand(QleverCommand):
                           + f" }} LIMIT {args.limit}"
 
             # Launch query.
-            query_cmd = (f"curl -s {sparql_endpoint}"
+            query_cmd = (f"curl -sv {sparql_endpoint}"
                          f" -H \"Accept: text/tab-separated-values\""
                          f" --data-urlencode query={shlex.quote(query)}")
             if args.download_or_count == "count":
@@ -163,9 +165,8 @@ class ExampleQueriesCommand(QleverCommand):
             try:
                 log.debug(query_cmd)
                 start_time = time.time()
-                result_size = int(subprocess.run(
-                        query_cmd, shell=True, check=True, text=True,
-                        stdout=subprocess.PIPE).stdout)
+                result_size = run_command(query_cmd, return_output=True)
+                result_size = int(result_size.strip())
                 time_seconds = time.time() - start_time
                 time_string = f"{time_seconds:.2f}"
                 result_string = f"{result_size:>14,}"

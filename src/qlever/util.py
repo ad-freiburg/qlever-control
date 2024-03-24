@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import random
 import re
+import shlex
+import shutil
 import string
 import subprocess
-import shlex
 from datetime import date, datetime
 from pathlib import Path
+from typing import Optional
 
 from qlever.log import log
 
@@ -25,14 +27,45 @@ def get_total_file_size(patterns: list[str]) -> int:
     return total_size
 
 
-def run_command(cmd: str) -> bool:
+def run_command(cmd: str, return_output: bool = False,
+                show_output: bool = False) -> Optional[str]:
     """
-    Run the given command and throw an exception if something goes wrong or the
-    command returns a non-zero exit code.
+    Run the given command and throw an exception if the exit code is non-zero.
+    If `get_output` is `True`, return what the command wrote to `stdout`.
+
+    NOTE: The `set -o pipefail` ensures that the exit code of the command is
+    non-zero if any part of the pipeline fails (not just the last part).
+
+    TODO: Find the executable for `bash` in `__init__.py`.
     """
-    subprocess.run(cmd, shell=True, check=True,
-                   stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL)
+    subprocess_args = {
+        "executable": shutil.which("bash"),
+        "shell": True,
+        "text": True,
+        "stdout": None if show_output else subprocess.PIPE,
+        "stderr": subprocess.PIPE
+    }
+    result = subprocess.run(f"set -o pipefail; {cmd}", **subprocess_args)
+    # If the exit code is non-zero, throw an exception. If something was
+    # written to `stderr`, use that as the exception message. Otherwise, use a
+    # generic message (which is also what `subprocess.run` does with
+    # `check=True`).
+    # log.debug(f"Command `{cmd}` returned the following result")
+    # log.debug("")
+    # log.debug(f"exit code: {result.returncode}")
+    # log.debug(f"stdout: {result.stdout}")
+    # log.debug(f"stderr: {result.stderr}")
+    # log.debug("")
+    if result.returncode != 0:
+        if len(result.stderr) > 0:
+            raise Exception(result.stderr.replace("\n", " ").strip())
+        else:
+            raise Exception(
+                    f"Command failed with exit code {result.returncode}"
+                    f" but nothing written to stderr")
+    # Optionally, return what was written to `stdout`.
+    if return_output:
+        return result.stdout
 
 
 def is_qlever_server_alive(port: str) -> bool:
@@ -47,6 +80,7 @@ def is_qlever_server_alive(port: str) -> bool:
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL)
     return exit_code == 0
+
 
 def get_curl_cmd_for_sparql_query(
         query: str, port: int,
@@ -70,6 +104,7 @@ def get_curl_cmd_for_sparql_query(
     if verbose:
         curl_cmd += " --verbose"
     return curl_cmd
+
 
 def get_existing_index_files(basename: str) -> list[str]:
     """

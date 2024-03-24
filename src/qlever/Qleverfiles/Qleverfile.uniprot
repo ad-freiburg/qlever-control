@@ -13,30 +13,29 @@
 # the uniprot.index.???.meta files can be on HDD.
 
 [data]
-NAME              = uniprot
-DATE              = 2024-01-24
-DOWNLOAD_URL      = https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf
-GET_RDFXML_CMD    = mkdir -p rdf.${DATE} && curl -s ${DOWNLOAD_URL}/RELEASE.meta4 | sed "s/<metalink.*/<metalink>/" | xmllint --xpath "/metalink/files/file/url[@location=\"ch\"]/text()" - | while read URL; do wget --no-verbose -P rdf.${DATE} $$URL 2>&1 | tee -a uniprot.download-log; done
-RDFXML2NT_CMD     = mkdir -p nt.${DATE} && for RDFXML in rdf.${DATE}/*.{owl,owl.xz,rdf,rdf.xz}; do echo "xzcat -f $$RDFXML | rdfxml --output=nt 2> /dev/null | xz -c > nt.${DATE}/$$(basename $$RDFXML | sed 's/\(rdf\|rdf.xz\|owl\|owl.xz\)$$/nt.xz/') && echo 'DONE converting $$RDFXML'"; done | parallel
-GET_DATA_CMD      = rdfxml --help && date > ${NAME}.get-data.begin-date && ${GET_RDFXML_CMD} && ${RDFXML2NT_CMD} && date > ${NAME}.get-data.end-date
-INDEX_DESCRIPTION = Complete UniProt data from ${DOWNLOAD_URL}, version ${DATE}
+NAME           = uniprot
+DATE           = 2024-01-24
+DOWNLOAD_URL   = https://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf
+GET_RDFXML_CMD = mkdir -p rdf.${DATE} && curl -s ${DOWNLOAD_URL}/RELEASE.meta4 | sed "s/<metalink.*/<metalink>/" | xmllint --xpath "/metalink/files/file/url[@location=\"ch\"]/text()" - | while read URL; do wget --no-verbose -P rdf.${DATE} $$URL 2>&1 | tee -a uniprot.download-log; done
+RDFXML2NT_CMD  = mkdir -p nt.${DATE} && for RDFXML in rdf.${DATE}/*.{owl,owl.xz,rdf,rdf.xz}; do echo "xzcat -f $$RDFXML | rdfxml --output=nt 2> /dev/null | xz -c > nt.${DATE}/$$(basename $$RDFXML | sed 's/\(rdf\|rdf.xz\|owl\|owl.xz\)$$/nt.xz/') && echo 'DONE converting $$RDFXML'"; done | parallel
+GET_DATA_CMD   = rdfxml --help && date > ${NAME}.get-data.begin-date && ${GET_RDFXML_CMD} && ${RDFXML2NT_CMD} && date > ${NAME}.get-data.end-date
+DESCRIPTION    = Complete UniProt data from ${DOWNLOAD_URL}, version ${DATE}
 
 [index]
-FILE_NAMES        = nt.${data:DATE}/*.nt.xz
-CAT_FILES         = parallel --tmpdir . -j 4 'xzcat -f {}' ::: nt.${data:DATE}/*.nt.xz | pv -q -B 5G 
-STXXL_MEMORY      = 60G
-SETTINGS_JSON     = { "languages-internal": [], "prefixes-external": [""], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }
+INPUT_FILES     = nt.${data:DATE}/*.nt.xz
+CAT_INPUT_FILES = parallel --tmpdir . -j 4 'xzcat -f {}' ::: nt.${data:DATE}/*.nt.xz | pv -q -B 5G 
+SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": true, "num-triples-per-batch": 25000000 }
+STXXL_MEMORY    = 60G
 
 [server]
 PORT               = 7018
 ACCESS_TOKEN       = ${data:NAME}_1369924040
-MEMORY_FOR_QUERIES = 100G
-CACHE_MAX_SIZE     = 70G
+MEMORY_FOR_QUERIES = 20G
+CACHE_MAX_SIZE     = 10G
 
-[docker]
-USE_DOCKER  = true
-IMAGE       = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = uniprot
+UI_CONFIG = uniprot

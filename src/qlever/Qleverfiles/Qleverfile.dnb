@@ -14,26 +14,24 @@
 NAME              = dnb
 BASE_URL          = https://data.dnb.de/opendata
 GET_DATA_CMD      = curl -L -C - --remote-name-all ${BASE_URL}/authorities-gnd_lds.nt.gz ${BASE_URL}/dnb-all_lds.nt.gz ${BASE_URL}/dnb-all_ldsprov.nt.gz ${BASE_URL}/zdb_lds.nt.gz
-INDEX_DESCRIPTION = DNB data from ${BASE_ULR} (authoritities-gnd_lds, dnb_all_lds, dnb-all_ldsprov, zdb_lds)
+DESCRIPTION       = DNB data from ${BASE_ULR} (authoritities-gnd_lds, dnb_all_lds, dnb-all_ldsprov, zdb_lds)
 TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?var, "...")
 
 [index]
-FILE_NAMES      = *.nt.gz
-CAT_FILES       = zcat ${FILE_NAMES}
+INPUT_FILES     = *.nt.gz
+CAT_INPUT_FILES = zcat ${FILE_NAMES}
 SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }
-WITH_TEXT_INDEX = from_literals
+TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7035
 ACCESS_TOKEN       = ${data:NAME}_284732743
 MEMORY_FOR_QUERIES = 10G
 CACHE_MAX_SIZE     = 2G
-WITH_TEXT_INDEX    = from_literals
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = true
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = dnb
+UI_CONFIG = dnb

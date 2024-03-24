@@ -12,7 +12,7 @@ from termcolor import colored
 
 from qlever import command_objects
 from qlever.config import ConfigException, QleverConfig
-from qlever.log import log
+from qlever.log import log, log_levels
 
 
 def main():
@@ -28,6 +28,7 @@ def main():
 
     # Execute the command.
     command_object = command_objects[args.command]
+    log.setLevel(log_levels[args.log_level])
     try:
         log.info("")
         log.info(colored(f"Command: {args.command}", attrs=["bold"]))

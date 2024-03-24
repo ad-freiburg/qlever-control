@@ -28,5 +28,4 @@ SYSTEM = docker
 IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-UI_PORT   = 7000
-CONFIG = olympics
+UI_CONFIG = olympics

@@ -10,25 +10,25 @@
 
 # As a minimum, each dataset needs a name. If you want `qlever get-data` to do
 # something meaningful, you need to define GET_DATA_CMD. If you want to use the
-# QLever UI, you should define INDEX_DESCRIPTION (and if you have a text index,
+# QLever UI, you should define DESCRIPTION (and if you have a text index,
 # also TEXT_DESCRIPTION).
 [data]
-# NAME              =
+NAME              =
 # GET_DATA_CMD      =
-# INDEX_DESCRIPTION = 
+# DESCRIPTION = 
 # TEXT_DESCRIPTION  =
 
-# As a minimum, you need to define CAT_FILES, which is the command that produces
-# the TTL that will be piped into QLever's index builder. Use SETTINGS_JSON for
-# more advanced configuration settings.
+# CAT_INPUT_FILES produces the data that is piped into QLever's index builder.
+# Use SETTINGS_JSON for more advanced configuration settings (see the other
+# Qleverfiles for examples).
 [index]
-# FILE_NAMES    = 
-# CAT_FILES     = cat ${FILE_NAMES}
-# SETTINGS_JSON =
+# INPUT_FILES     = 
+# CAT_INPUT_FILES = cat ${INPUT_FILES}
+# SETTINGS_JSON   = {}
 
 # As a minimum, you need to specify the PORT, where QLever will listen for
 # SPARQL queries. If you want to send priviledged commands to the server, you
-# need to specify ACCESS_TOKEN (modify the random number below).
+# need to specify an ACCESS_TOKEN (modify the random number below).
 [server]
 PORT = 7001
 # ACCESS_TOKEN = ${data:NAME}_1234567890
@@ -36,12 +36,12 @@ PORT = 7001
 # With USE_DOCKER = true, the qlever script will download the docker image for
 # you and run QLever inside docker containers. With USE_DOCKER = false, you need 
 # the QLever binaries in the PATH of your sheel.
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = true
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
-# If you want to use the QLever UI, as a minimum you need to specify the PORT
-# where the UI is running. The UI is run inside a docker container.
+# The UI_CONFIG must be one of the slugs from http://qlever.cs.uni-freiburg.de
+# (see the dropdown menu on the top right, the slug is the last part of the URL).
+# In partiular, this determines the example queries.
 [ui]
-PORT  = 7000
-IMAGE = adfreiburg/qlever-ui
+UI_CONFIG = default

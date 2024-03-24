@@ -44,25 +44,23 @@ DATE = 2024-02-03
 GET_DATA_URL      = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
 MAKE_GET_DATA_CMD = curl -s ${GET_DATA_URL}/void.ttl | grep -oP '${GET_DATA_URL}/.*?\.ttl\.gz' | grep -v "nbr[23]d" | while read URL; do echo "echo \"Processing $$URL ...\"; curl --silent --remote-time --output ttl.${DATE}/$$(basename $$URL) $$URL && docker run --rm -v $$(pwd)/ttl.${DATE}:/data stain/jena turtle --output=NT /data/$$(basename $$URL) | sed 's/> />\t/1; s/> />\t/1; s/ \.\$$/\t./' | awk 'BEGIN{FS=OFS=\"\t\"} {for (i = 1; i <= 3; i++) if (\$$i ~ /^<.*>\$$/) { gsub(/ /, \"%20\", \$$i); gsub(/\[/, \"%5B\", \$$i); gsub(/\]/, \"%5D\", \$$i); gsub(/{/, \"%7B\", \$$i); gsub(/}/, \"%7D\", \$$i); } print }' | sed 's/\t/ /g' | gzip -c > nt.${DATE}/$$(basename -s .ttl.gz $$URL).nt.gz"; done > pubchem.get-data-cmds.txt
 GET_DATA_CMD      = mkdir -p ttl.${DATE} && mkdir -p nt.${DATE} && ${MAKE_GET_DATA_CMD} && cat pubchem.get-data-cmds.txt | parallel --line-buffer
-INDEX_DESCRIPTION = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folders except nbr2d and nbr3d)
+DESCRIPTION       = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folders except nbr2d and nbr3d)
 
 [index]
-FILE_NAMES        = pubchem.additional-ontologies.nt.gz nt.${DATE}/*.nt.gz
-CAT_FILES         = zcat ${FILE_NAMES}
-WITH_TEXT_INDEX   = false
-STXXL_MEMORY      = 10G
-SETTINGS_JSON     = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+INPUT_FILES     = pubchem.additional-ontologies.nt.gz nt.${DATE}/*.nt.gz
+CAT_INPUT_FILES = zcat ${FILE_NAMES}
+SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+STXXL_MEMORY    = 10G
 
 [server]
-PORT                   = 7023
-ACCESS_TOKEN           = ${NAME}_310129823
-MEMORY_FOR_QUERIES     = 20G
-TIMEOUT                = 120s
+PORT               = 7023
+ACCESS_TOKEN       = ${NAME}_310129823
+MEMORY_FOR_QUERIES = 20G
+TIMEOUT            = 120s
 
-[docker]
-USE_DOCKER              = false
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = pubchem
+UI_CONFIG = pubchem

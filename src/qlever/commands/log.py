@@ -26,7 +26,10 @@ class LogCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--tail-num-lines", type=int, default=20,
                                help="Show this many of the last lines of the "
-                                    "log file (0 to show all lines)")
+                                    "log file")
+        subparser.add_argument("--from-beginning", action="store_true",
+                               default=False,
+                               help="Show all lines of the log file")
         subparser.add_argument("--no-follow", action="store_true",
                                default=False,
                                help="Don't follow the log file")
@@ -34,10 +37,10 @@ class LogCommand(QleverCommand):
     def execute(self, args) -> bool:
         # Construct the command and show it.
         log_cmd = "tail"
-        if args.tail_num_lines > 0:
-            log_cmd += f" -n {args.tail_num_lines}"
-        else:
+        if args.from_beginning:
             log_cmd += " -n +1"
+        else:
+            log_cmd += f" -n {args.tail_num_lines}"
         if not args.no_follow:
             log_cmd += " -f"
         log_file = f"{args.name}.server-log.txt"

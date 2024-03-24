@@ -8,7 +8,7 @@ from pathlib import Path
 import argcomplete
 
 from qlever import command_objects, script_name
-from qlever.log import log
+from qlever.log import log, log_levels
 from qlever.qleverfile import Qleverfile
 
 
@@ -94,12 +94,16 @@ class QleverConfig:
                         kwargs_copy["help"] += f" [default: {default_value}]"
                 subparser.add_argument(*args, **kwargs_copy)
 
-        # Additional arguments for the command.
+        # Additional arguments that are shared by all commands.
         command_object.additional_arguments(subparser)
         subparser.add_argument("--show", action="store_true",
                                default=False,
                                help="Only show what would be executed"
                                     ", but don't execute it")
+        subparser.add_argument("--log-level",
+                               choices=log_levels.keys(),
+                               default="INFO",
+                               help="Set the log level")
 
     def parse_args(self):
         # Determine whether we are in autocomplete mode or not.

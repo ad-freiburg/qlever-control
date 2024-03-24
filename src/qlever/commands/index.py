@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import glob
 import shlex
-import subprocess
 
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
@@ -30,7 +29,7 @@ class IndexCommand(QleverCommand):
                 "index": ["input_files", "cat_input_files", "settings_json",
                           "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
-                          "with_text_index", "stxxl_memory"],
+                          "text_index", "stxxl_memory"],
                 "runtime": ["system", "image", "index_container"]}
 
     def additional_arguments(self, subparser) -> None:
@@ -49,11 +48,11 @@ class IndexCommand(QleverCommand):
             index_cmd += " --only-pso-and-pos-permutations --no-patterns"
         if not args.use_patterns:
             index_cmd += " --no-patterns"
-        if args.with_text_index in \
+        if args.text_index in \
                 ["from_text_records", "from_text_records_and_literals"]:
             index_cmd += (f" -w {args.name}.wordsfile.tsv"
                           f" -d {args.name}.docsfile.tsv")
-        if args.with_text_index in \
+        if args.text_index in \
                 ["from_literals", "from_text_records_and_literals"]:
             index_cmd += " --text-words-from-literals"
         if args.stxxl_memory:
@@ -91,22 +90,23 @@ class IndexCommand(QleverCommand):
             try:
                 run_command(f"{args.index_binary} --help")
             except Exception as e:
-                log.error(f"Running \"{args.index_binary}\" failed ({e}), "
+                log.error(f"Running \"{args.index_binary}\" failed, "
                           f"set `--index-binary` to a different binary or "
                           f"set `--system to a container system`")
+                log.info("")
+                log.info(f"The error message was: {e}")
+                return False
 
         # Check if all of the input files exist.
         for pattern in shlex.split(args.input_files):
             if len(glob.glob(pattern)) == 0:
                 log.error(f"No file matching \"{pattern}\" found")
                 log.info("")
-                log.info(f"Did you call `qlever get-data`? If you did, check "
-                         f"GET_DATA_CMD and INPUT_FILES in the QLeverfile")
+                log.info("Did you call `qlever get-data`? If you did, check "
+                         "GET_DATA_CMD and INPUT_FILES in the QLeverfile")
                 return False
 
         # Check if index files (name.index.*) already exist.
-        #
-        # TODO: Have an addtional option --overwrite-existing.
         existing_index_files = get_existing_index_files(args.name)
         if len(existing_index_files) > 0 and not args.overwrite_existing:
             log.error(
@@ -116,20 +116,27 @@ class IndexCommand(QleverCommand):
             log.info(f"Index files found: {existing_index_files}")
             return False
 
+        # Remove already existing container.
+        if args.system in Containerize.supported_systems() \
+                and args.overwrite_existing:
+            try:
+                run_command(f"{args.system} rm -f {args.index_container}")
+            except Exception as e:
+                log.error(f"Removing existing container failed: {e}")
+                return False
+
         # Write settings.json file.
         try:
-            subprocess.run(settings_json_cmd, shell=True, check=True,
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
+            run_command(settings_json_cmd)
         except Exception as e:
-            log.error(f"Running \"{settings_json_cmd}\" failed ({e})")
+            log.error(f"Writing the settings.json file failed: {e}")
             return False
 
         # Run the index command.
         try:
-            subprocess.run(index_cmd, shell=True, check=True)
+            run_command(index_cmd, show_output=True)
         except Exception as e:
-            log.error(f"Running \"{index_cmd}\" failed ({e})")
+            log.error(f"Building the index failed: {e}")
             return False
 
         return True

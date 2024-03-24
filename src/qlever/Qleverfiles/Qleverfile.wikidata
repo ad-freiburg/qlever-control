@@ -5,28 +5,26 @@
 # qlever start       starts the server (takes around 30 seconds)
 
 [data]
-NAME              = wikidata
-GET_DATA_URL      = https://dumps.wikimedia.org/wikidatawiki/entities
-GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}/latest-all.ttl.bz2 ${GET_DATA_URL}/latest-lexemes.ttl.bz2
-INDEX_DESCRIPTION = "Full Wikidata dump from ${GET_DATA_URL} (latest-all.ttl.bz2 and latest-lexemes.ttl.bz2)"
+NAME         = wikidata
+GET_DATA_URL = https://dumps.wikimedia.org/wikidatawiki/entities
+GET_DATA_CMD = curl -LO -C - ${GET_DATA_URL}/latest-all.ttl.bz2 ${GET_DATA_URL}/latest-lexemes.ttl.bz2
+DESCRIPTION  = "Full Wikidata dump from ${GET_DATA_URL} (latest-all.ttl.bz2 and latest-lexemes.ttl.bz2)"
 
 [index]
-FILE_NAMES      = latest-lexemes.ttl.bz2 latest-all.ttl.bz2 
-CAT_FILES       = bzcat ${FILE_NAMES}
-SETTINGS_JSON   = { "languages-internal": ["en"], "prefixes-external": [ "<http://www.wikidata.org/entity/statement", "<http://www.wikidata.org/value", "<http://www.wikidata.org/reference" ], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
-WITH_TEXT_INDEX = false
-STXXL_MEMORY    = 10g
+INPUT_FILES     = latest-lexemes.ttl.bz2 latest-all.ttl.bz2 
+CAT_INPUT_FILES = bzcat ${FILE_NAMES}
+SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
+STXXL_MEMORY    = 10G
 
 [server]
-PORT                  = 7001
-ACCESS_TOKEN          = ${data:NAME}_372483264
-MEMORY_FOR_QUERIES    = 50G
-CACHE_MAX_SIZE        = 30G
+PORT               = 7001
+ACCESS_TOKEN       = ${data:NAME}_372483264
+MEMORY_FOR_QUERIES = 20G
+CACHE_MAX_SIZE     = 10G
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = wikidata
+UI_CONFIG = wikidata

@@ -22,8 +22,8 @@ dependencies = [ "psutil", "termcolor" ]
 Github = "https://github.com/ad-freiburg/qlever-control"
 
 [project.scripts]
-"qlever-new" = "qlever.qlever_main:main"
-"qlever" = "qlever.__main__:main"
+"qlever" = "qlever.qlever_main:main"
+"qlever-old" = "qlever.__main__:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

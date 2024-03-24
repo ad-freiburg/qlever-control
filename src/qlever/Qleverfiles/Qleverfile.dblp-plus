@@ -8,16 +8,15 @@
 
 [data]
 NAME              = dblp-plus
-WITH_TEXT_INDEX   = from_literals
 GET_DATA_CMD      = wget -nc -O dblp.ttl.gz https://dblp.org/rdf/dblp.ttl.gz
-INDEX_DESCRIPTION = Publication data from https://dblp.org, with affiliations from https://www.wikidata.org and citations from https://opencitations.net, version 21.12.2022
+INDEX_DESCRIPTION = Publication data from https://dblp.org, with affiliations from https://www.wikidata.org and citations from https://opencitations.net
 TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
-RDF_FILES         = "dblp.ttl.gz affiliations.nt affiliations.additions.nt citations.nt"
-CAT_FILES         = "zcat -f ${RDF_FILES}"
+INPUT_FILES       = dblp.ttl.gz affiliations.nt affiliations.additions.nt citations.nt
+CAT_INPUT_FILES   = zcat -f ${RDF_FILES}
 SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [ "<https://w3id.org", "<https://doi.org", "<http://dx.doi.org" ] }
-WITH_TEXT_INDEX   = from_literals
+TEXT_INDEX        = from_literals
 
 [server]
 PORT                        = 7027
@@ -26,10 +25,9 @@ MEMORY_FOR_QUERIES          = 20G
 CACHE_MAX_SIZE              = 10G
 CACHE_MAX_SIZE_SINGLE_ENTRY = 2G
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = dblp-plus
+UI_CONFIG = dblp-plus

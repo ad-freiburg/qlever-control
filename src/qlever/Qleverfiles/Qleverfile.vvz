@@ -7,27 +7,25 @@
 # Also builds a text index for fast kewyword search in literals.
 
 [data]
-NAME              = vvz
-GET_DATA_CMD      = echo "This requires a separate tool"
-INDEX_DESCRIPTION = VVZ Uni Freiburg, selected faculties
-TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
+NAME             = vvz
+GET_DATA_CMD     = echo "This requires a separate tool"
+DESCRIPTION      = VVZ Uni Freiburg, selected faculties
+TEXT_DESCRIPTION = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
-FILE_NAMES      = vvz.ttl
-CAT_FILES       = cat ${FILE_NAMES}
+INPUT_FILES     = vvz.ttl
+CAT_INPUT_FILES = cat ${FILE_NAMES}
 SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }
-WITH_TEXT_INDEX = from_literals
+TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7041
 ACCESS_TOKEN       = ${data:NAME}_8736426534
 MEMORY_FOR_QUERIES = 10G
-WITH_TEXT_INDEX    = from_literals
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = vvz
+UI_CONFIG = vvz

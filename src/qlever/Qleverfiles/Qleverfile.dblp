@@ -9,28 +9,26 @@
 
 [data]
 NAME              = dblp
-GET_DATA_URL      = https://dblp.org/rdf/${index:FILE_NAMES}
+GET_DATA_URL      = https://dblp.org/rdf/${index:INPUT_FILES}
 GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}
-INDEX_DESCRIPTION = DBLP computer science bibliography, data from ${GET_DATA_URL}
+DESCRIPTION       = DBLP computer science bibliography, data from ${GET_DATA_URL}
 TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
-FILE_NAMES      = dblp.ttl.gz
-CAT_FILES       = zcat ${FILE_NAMES}
+INPUT_FILES     = dblp.ttl.gz
+CAT_INPUT_FILES = zcat ${INPUT_FILES}
 SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
-WITH_TEXT_INDEX = from_literals
+TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7015
 ACCESS_TOKEN       = ${data:NAME}_7643543846
 MEMORY_FOR_QUERIES = 30G
 CACHE_MAX_SIZE     = 5G
-WITH_TEXT_INDEX    = from_literals
 
-[docker]
-USE_DOCKER = true
-IMAGE      = adfreiburg/qlever
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-PORT   = 7000
-CONFIG = dblp
+UI_CONFIG = dblp

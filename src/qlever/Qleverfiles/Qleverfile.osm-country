@@ -19,7 +19,7 @@ WITH_TEXT         = false
 STXXL_MEMORY   = 10
 SETTINGS_JSON     = '{ "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(", "\"POLYGON(" ], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }'
 GET_DATA_CMD      = "wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${DB}.*.bz2; ( time /local/data/osm2rdf/build/apps/osm2rdf ${PBF} -o ${DB}.ttl --cache . --write-geometric-relation-statistics ) 2>&1 | tee ${DB}.osm2rdf-log.txt; rm -f spatial-*"
-INDEX_DESCRIPTION = "OSM ${COUNTRY^}, dump from $(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6) with ogc:contains"
+DESCRIPTION = "OSM ${COUNTRY^}, dump from $(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6) with ogc:contains"
 
 # Server settings
 HOSTNAME                    = $(hostname -f)

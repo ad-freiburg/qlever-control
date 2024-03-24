@@ -4,10 +4,10 @@ import subprocess
 import time
 
 from qlever.command import QleverCommand
+from qlever.commands.cache_stats import CacheStatsCommand
 from qlever.commands.status import StatusCommand
 from qlever.commands.stop import StopCommand
 from qlever.commands.warmup import WarmupCommand
-from qlever.commands.cache_stats import CacheStatsCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import is_qlever_server_alive, run_command
@@ -201,7 +201,6 @@ class StartCommand(QleverCommand):
 
         # Show cache stats.
         log.info("")
-        args.brief = True
+        args.detailed = False
         CacheStatsCommand().execute(args)
-
         return True

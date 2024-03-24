@@ -106,7 +106,7 @@ class Qleverfile:
                 help="The name of the host on which the server listens for "
                      "requests")
         server_args["port"] = arg(
-                "--port", type=int, required=True,
+                "--port", type=int,
                 help="The port on which the server listens for requests")
         server_args["access_token"] = arg(
                 "--access-token", type=str, default=None,

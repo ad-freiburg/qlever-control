@@ -20,23 +20,27 @@ class CacheStatsCommand(QleverCommand):
         return ("Show how much of the cache is currently being used")
 
     def should_have_qleverfile(self) -> bool:
-        return True
+        return False
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"server": ["host_name", "port"]}
 
     def additional_arguments(self, subparser) -> None:
-        subparser.add_argument("--brief",
+        subparser.add_argument("--server-url",
+                               help="URL of the QLever server, default is "
+                               "localhost:{port}")
+        subparser.add_argument("--detailed",
                                action="store_true",
                                default=False,
-                               help="Show only how much of the cache is "
-                                    "currently being used")
+                               help="Show detailed statistics and settings")
 
     def execute(self, args) -> bool:
         # Construct the two curl commands.
-        cache_stats_cmd = (f"curl -s {args.host_name}:{args.port} "
+        server_url = (args.server_url if hasattr(args, "server_url")
+                      else f"localhost:{args.port}")
+        cache_stats_cmd = (f"curl -s {server_url} "
                            f"--data-urlencode \"cmd=cache-stats\"")
-        cache_settings_cmd = (f"curl -s {args.host_name}:{args.port} "
+        cache_settings_cmd = (f"curl -s {server_url} "
                               f"--data-urlencode \"cmd=get-settings\"")
 
         # Show them.
@@ -57,7 +61,7 @@ class CacheStatsCommand(QleverCommand):
             return False
 
         # Brief version.
-        if args.brief:
+        if not args.detailed:
             cache_size = cache_settings_dict["cache-max-size"]
             if not cache_size.endswith(" GB"):
                 log.error(f"Cache size {cache_size} is not in GB, "

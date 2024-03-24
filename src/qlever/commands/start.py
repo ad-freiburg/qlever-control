@@ -202,5 +202,6 @@ class StartCommand(QleverCommand):
         # Show cache stats.
         log.info("")
         args.detailed = False
+        args.server_url = None
         CacheStatsCommand().execute(args)
         return True

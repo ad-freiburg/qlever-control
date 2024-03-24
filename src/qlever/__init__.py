@@ -1,15 +1,18 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 
 # Helper function to turn "snake_case" into "CamelCase".
 def snake_to_camel(str):
     # Split by _ and - and capitalize each word.
     return "".join([w.capitalize() for w in str.replace("-", "_").split("_")])
 
+
 # Each module in `qlever/commands` corresponds to a command. The name
 # of the command is the base name of the module file.
 package_path = Path(__file__).parent
-command_names = [Path(p).stem for p in package_path.glob("commands/*.py")]
+command_names = [Path(p).stem for p in package_path.glob("commands/*.py")
+                 if p.name != "__init__.py"]
 
 # Dynamically load all the command classes and create an object for each.
 command_objects = {}

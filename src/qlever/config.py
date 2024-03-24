@@ -125,6 +125,7 @@ class QleverConfig:
                      f"want to use it, disable this warning as follows:"
                      f"\n\n"
                      f"export QLEVER_ARGCOMPLETE_CHECK_OFF")
+            log.info("")
 
         # Create a temporary parser only to parse the `--qleverfile` option, in
         # case it is given, and to determine whether a command was given that

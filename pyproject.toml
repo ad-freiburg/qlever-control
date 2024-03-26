@@ -29,3 +29,6 @@ Github = "https://github.com/ad-freiburg/qlever-control"
 package-dir = { "" = "src" }
 packages = [ "qlever", "qlever.commands", "qlever.Qleverfiles" ]
 package-data = { "qlever" = ["Qleverfiles/*"] }
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import random
+import secrets
 import re
 import shlex
 import shutil
@@ -138,7 +138,8 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
                 attrs=['pid', 'username', 'create_time',
                        'memory_info', 'cmdline'])
         cmdline = " ".join(pinfo['cmdline'])
-        if not re.search(cmdline_regex, cmdline):
+        # Note: `cmdline` can be empty if the process is a zombie.
+        if len(cmdline) == 0 or not re.search(cmdline_regex, cmdline):
             return False
         pid = pinfo['pid']
         user = pinfo['username'] if pinfo['username'] else ""
@@ -162,6 +163,5 @@ def get_random_string(length: int) -> str:
     Helper function that returns a randomly chosen string of the given
     length. Take the current time as seed.
     """
-    random.seed(datetime.now())
-    return "".join(random.choices(string.ascii_letters + string.digits,
-                                  k=length))
+    characters = string.ascii_letters + string.digits
+    return "".join(secrets.choice(characters) for _ in range(length))

@@ -1,7 +1,7 @@
 [project]
 name = "qlever"
 description = "Script for using the QLever SPARQL engine."
-version = "0.4.0"
+version = "0.4.1"
 authors = [
     { name = "Hannah Bast", email = "bast@cs.uni-freiburg.de" }
 ]
@@ -16,7 +16,7 @@ classifiers = [
  "Topic :: Database :: Front-Ends"
 ]
 
-dependencies = [ "psutil", "termcolor" ]
+dependencies = [ "psutil", "termcolor", "argcomplete" ]
 
 [project.urls]
 Github = "https://github.com/ad-freiburg/qlever-control"
@@ -28,4 +28,4 @@ Github = "https://github.com/ad-freiburg/qlever-control"
 [tool.setuptools]
 package-dir = { "" = "src" }
 packages = [ "qlever", "qlever.commands", "qlever.Qleverfiles" ]
-# package-data = { "qlever" = ["Qleverfiles/*"] }
+package-data = { "qlever" = ["Qleverfiles/*"] }

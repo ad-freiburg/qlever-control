@@ -93,7 +93,7 @@ def get_curl_cmd_for_sparql_query(
     """
     Get curl command for given SPARQL query.
     """
-    curl_cmd = (f"curl -s http::{host}:{port}"
+    curl_cmd = (f"curl -s http://{host}:{port}"
                 f" -H \"Accept: {media_type}\" "
                 f" --data-urlencode query={shlex.quote(query)}")
     if pinresult and access_token is not None:

@@ -137,8 +137,8 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
         pinfo = psutil_process.as_dict(
                 attrs=['pid', 'username', 'create_time',
                        'memory_info', 'cmdline'])
-        cmdline = " ".join(pinfo['cmdline'])
-        # Note: `cmdline` can be empty if the process is a zombie.
+        # Note: pinfo[`cmdline`] is `None` if the process is a zombie.
+        cmdline = " ".join(pinfo['cmdline'] or [])
         if len(cmdline) == 0 or not re.search(cmdline_regex, cmdline):
             return False
         pid = pinfo['pid']

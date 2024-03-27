@@ -4,6 +4,7 @@ import argparse
 import os
 import traceback
 from pathlib import Path
+from importlib.metadata import version
 
 import argcomplete
 
@@ -180,6 +181,8 @@ class QleverConfig:
         # are defined in the modules in `qlever/commands`. In `__init__.py`
         # an object of each class is created and stored in `command_objects`.
         parser = argparse.ArgumentParser()
+        parser.add_argument("--version", action="version",
+                            version=f"%(prog)s {version('qlever')}")
         add_qleverfile_option(parser)
         subparsers = parser.add_subparsers(dest='command')
         subparsers.required = True

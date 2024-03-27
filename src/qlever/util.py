@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import random
+import secrets
 import re
 import shlex
 import shutil
@@ -93,7 +93,7 @@ def get_curl_cmd_for_sparql_query(
     """
     Get curl command for given SPARQL query.
     """
-    curl_cmd = (f"curl -s http::{host}:{port}"
+    curl_cmd = (f"curl -s http://{host}:{port}"
                 f" -H \"Accept: {media_type}\" "
                 f" --data-urlencode query={shlex.quote(query)}")
     if pinresult and access_token is not None:
@@ -137,8 +137,9 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
         pinfo = psutil_process.as_dict(
                 attrs=['pid', 'username', 'create_time',
                        'memory_info', 'cmdline'])
-        cmdline = " ".join(pinfo['cmdline'])
-        if not re.search(cmdline_regex, cmdline):
+        # Note: pinfo[`cmdline`] is `None` if the process is a zombie.
+        cmdline = " ".join(pinfo['cmdline'] or [])
+        if len(cmdline) == 0 or not re.search(cmdline_regex, cmdline):
             return False
         pid = pinfo['pid']
         user = pinfo['username'] if pinfo['username'] else ""
@@ -162,6 +163,5 @@ def get_random_string(length: int) -> str:
     Helper function that returns a randomly chosen string of the given
     length. Take the current time as seed.
     """
-    random.seed(datetime.now())
-    return "".join(random.choices(string.ascii_letters + string.digits,
-                                  k=length))
+    characters = string.ascii_letters + string.digits
+    return "".join(secrets.choice(characters) for _ in range(length))

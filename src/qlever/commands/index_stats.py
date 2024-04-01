@@ -71,14 +71,17 @@ class IndexStatsCommand(QleverCommand):
 
         # Helper function that finds the next line matching the given `regex`,
         # starting from `current_line`, and extracts the time. Returns a tuple
-        # of the time and the regex match object. If a match is found,
-        # `current_line` is updated to the line after the match. Otherwise,
-        # `current_line` will be one beyond the last line, unless
-        # `line_is_optional` is true, in which case it will be the same as when
-        # the function was entered.
+        # of the time and the regex match object.
+        #
+        # If `update_current_line` is `False`, then `current_line` will not be
+        # updated by this call.
+        #
+        # Otherwise, and this is the default behavior, `current_line` will be
+        # updated to the line after the first match, or one beyond the last
+        # line if no match is found.
         current_line = 0
 
-        def find_next_line(regex, line_is_optional=False):
+        def find_next_line(regex, update_current_line=True):
             nonlocal lines
             nonlocal current_line
             current_line_backup = current_line
@@ -99,7 +102,7 @@ class IndexStatsCommand(QleverCommand):
                                   f"\"{timestamp_regex}\" from line "
                                   f" \"{line.rstrip()}\" ({e})")
             # If we get here, we did not find a matching line.
-            if line_is_optional:
+            if not update_current_line:
                 current_line = current_line_backup
             return None, None
 
@@ -110,24 +113,34 @@ class IndexStatsCommand(QleverCommand):
         convert_begin, _ = find_next_line(r"INFO:\s*Converting triples")
         perm_begin_and_info = []
         while True:
-            perm_begin, _ = find_next_line(r"INFO:\s*Creating a pair", True)
+            # Find the next line that starts a permutation.
+            #
+            # NOTE: Should work for the old and new format of the index log
+            # file (old format: "Creating a pair" + names of permutations in
+            # line "Writing meta data for ..."; new format: name of
+            # permutations already in line "Creating permutations ...").
+            perm_begin, _ = find_next_line(r"INFO:\s*Creating a pair",
+                                           update_current_line=False)
             if perm_begin is None:
+                perm_begin, perm_info = find_next_line(
+                    r"INFO:\s*Creating permutations ([A-Z]+ and [A-Z]+)",
+                    update_current_line=False)
+            else:
+                _, perm_info = find_next_line(
+                    r"INFO:\s*Writing meta data for ([A-Z]+ and [A-Z]+)",
+                    update_current_line=False)
+            if perm_info is None:
                 break
-            _, perm_info = find_next_line(r"INFO:\s*Writing meta data for"
-                                          r" ([A-Z]+ and [A-Z]+)", True)
-            # if perm_info is None:
-            #     break
             perm_begin_and_info.append((perm_begin, perm_info))
         convert_end = (perm_begin_and_info[0][0] if
                        len(perm_begin_and_info) > 0 else None)
         normal_end, _ = find_next_line(r"INFO:\s*Index build completed")
-        text_begin, _ = find_next_line(r"INFO:\s*Adding text index", True)
-        text_end, _ = find_next_line(r"INFO:\s*Text index build comp", True)
+        text_begin, _ = find_next_line(r"INFO:\s*Adding text index",
+                                       update_current_line=False)
+        text_end, _ = find_next_line(r"INFO:\s*Text index build comp",
+                                     update_current_line=False)
         if args.ignore_text_index:
             text_begin = text_end = None
-        # print("DEBUG:", len(perm_begin_and_info), perm_begin_and_info)
-        # print("DEBUG:", overall_begin)
-        # print("DEBUG:", normal_end)
 
         # Check whether at least the first phase is done.
         if overall_begin is None:

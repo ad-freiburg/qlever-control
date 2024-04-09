@@ -1,7 +1,7 @@
 [project]
 name = "qlever"
 description = "Script for using the QLever SPARQL engine."
-version = "0.4.1"
+version = "0.4.2"
 authors = [
     { name = "Hannah Bast", email = "bast@cs.uni-freiburg.de" }
 ]

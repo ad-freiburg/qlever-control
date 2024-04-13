@@ -199,7 +199,7 @@ class QleverConfig:
         # If called without arguments, show the help message.
         if len(os.sys.argv) == 1:
             parser.print_help()
-            exit(1)
+            exit(0)
 
         # Parse the command line arguments.
         args = parser.parse_args()

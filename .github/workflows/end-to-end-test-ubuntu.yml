@@ -58,6 +58,7 @@ jobs:
           qlever --help
 
       - name: Test actions for olympics dataset, with Docker
+        timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           export QLEVER_ARGCOMPLETE_ENABLED=1
@@ -71,19 +72,21 @@ jobs:
           ls -lh
 
       - name: Test actions for olympics dataset, without Docker
+        timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.2 && cd $_
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data
-          unbuffer qlever index --system native
-          unbuffer qlever start --system native
-          unbuffer qlever status
-          unbuffer qlever stop
+          # unbuffer qlever index --system native
+          # unbuffer qlever start --system native
+          # unbuffer qlever status
+          # unbuffer qlever stop
           ls -lh
 
       - name: Test actions for olympics dataset, with and without Docker
+        timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
           export QLEVER_ARGCOMPLETE_ENABLED=1

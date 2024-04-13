@@ -37,7 +37,7 @@ jobs:
           cache-name: qlever-code
         with:
           path: ${{github.workspace}}/qlever-code
-          key: ${{runner.os}}-${{env.cache-name}}-
+          key: ${{matrix.os}}-${{env.cache-name}}
 
       - name: Get QLever binaries and docker image
         run: |

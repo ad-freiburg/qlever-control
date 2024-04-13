@@ -5,6 +5,8 @@
 # Chair of Algorithms and Data Structures
 # Author: Hannah Bast <bast@cs.uni-freiburg.de>
 
+from __future__ import annotations
+
 import re
 import traceback
 

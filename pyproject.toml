@@ -1,15 +1,19 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "qlever"
 description = "Script for using the QLever SPARQL engine."
-version = "0.4.2"
+version = "0.4.4"
 authors = [
     { name = "Hannah Bast", email = "bast@cs.uni-freiburg.de" }
 ]
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
 
-keywords = ["SPARQL", "RDF", "knowledge graphs", "triple store"]
+keywords = ["SPARQL", "RDF", "Knowledge Graphs", "Triple Store"]
 
 classifiers = [
  "Topic :: Database :: Database Engines/Servers",
@@ -19,15 +23,14 @@ classifiers = [
 dependencies = [ "psutil", "termcolor", "argcomplete" ]
 
 [project.urls]
-Github = "https://github.com/ad-freiburg/qlever-control"
+Github = "https://github.com/ad-freiburg/qlever"
 
 [project.scripts]
 "qlever" = "qlever.qlever_main:main"
-"qlever-old" = "qlever.__main__:main"
+"qlever-old" = "qlever.qlever_old:main"
 
 [tool.setuptools]
-package-dir = { "" = "src" }
-packages = [ "qlever", "qlever.commands", "qlever.Qleverfiles" ]
+license-files = ["LICENSE"]
 package-data = { "qlever" = ["Qleverfiles/*"] }
 
 [tool.pytest.ini_options]

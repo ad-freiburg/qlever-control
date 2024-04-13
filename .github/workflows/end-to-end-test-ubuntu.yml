@@ -31,13 +31,13 @@ jobs:
           pip3 install -e .
           sudo apt update && sudo apt install unzip expect
 
-      - name: Cache for QLever code (only recompile if necessary)
+      - name: Cache for QLever code and binaries
         uses: actions/cache@v3
         env:
           cache-name: qlever-code
         with:
           path: ${{github.workspace}}/qlever-code
-          key: ${{runner.os}}-${{env.cache-name}}-${{hashFiles('**/*.cpp', '**/*.h', '**/CMakeLists.txt')}}
+          key: ${{runner.os}}-${{env.cache-name}}-
 
       - name: Get QLever binaries and docker image
         run: |
@@ -45,14 +45,17 @@ jobs:
           sudo apt install -y software-properties-common
           sudo add-apt-repository -y ppa:mhier/libboost-latest
           sudo apt install -y build-essential cmake libicu-dev tzdata pkg-config uuid-runtime uuid-dev git libjemalloc-dev ninja-build libzstd-dev libssl-dev libboost1.81-dev libboost-program-options1.81-dev libboost-iostreams1.81-dev libboost-url1.81-dev
-          # Install depencies needed for running the binaries.
+          # Install dependencies needed for running the binaries.
           # curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
           # cat INSTALL
           # source ./INSTALL
-          git clone https://github.com/ad-freiburg/qlever.git qlever-code
-          mkdir -p qlever-code/build && cd $_
+          if [ ! -d qlever-code ]; then
+            git clone https://github.com/ad-freiburg/qlever.git qlever-code; fi
+          cd qlever-code
+          git pull
+          mkdir -p build && cd $_
           cmake -DCMAKE_BUILD_TYPE=Release -DLOGLEVEL=INFO -DUSE_PARALLEL=true -GNinja ..
-          ninja
+          ninja ServerMain IndexBuilderMain
           docker pull adfreiburg/qlever
 
       - name: Check that everything is found and runs

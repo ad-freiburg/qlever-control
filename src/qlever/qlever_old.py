@@ -5,14 +5,11 @@
 # convenient command-line tool for all things QLever.  See the `README.md` file
 # for how to use it.
 
-from configparser import ConfigParser, ExtendedInterpolation
-from datetime import datetime, date
-import os
 import glob
 import inspect
 import json
 import logging
-import psutil
+import os
 import re
 import shlex
 import shutil
@@ -20,16 +17,20 @@ import socket
 import subprocess
 import sys
 import time
-import pkg_resources
-from termcolor import colored
 import traceback
+from configparser import ConfigParser, ExtendedInterpolation
+from datetime import date, datetime
+
+import pkg_resources
+import psutil
+
+from qlever.log import log
 
 BLUE = "\033[34m"
 RED = "\033[31m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
 
-from qlever.log import log
 # # Custom formatter for log messages.
 # class CustomFormatter(logging.Formatter):
 #     def format(self, record):
@@ -42,8 +43,8 @@ from qlever.log import log
 #             return colored(message, "red")
 #         else:
 #             return message
-# 
-# 
+#
+#
 # # Custom logger.
 # log = logging.getLogger("qlever")
 # log.setLevel(logging.INFO)

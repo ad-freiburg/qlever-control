@@ -1,5 +1,5 @@
-import pytest
 from qlever.util import get_random_string
+
 
 def test_get_random_string():
     random_string_1 = get_random_string(20)

@@ -5,9 +5,9 @@ import os
 import traceback
 from importlib.metadata import version
 from pathlib import Path
-from termcolor import colored
 
 import argcomplete
+from termcolor import colored
 
 from qlever import command_objects, script_name
 from qlever.log import log, log_levels

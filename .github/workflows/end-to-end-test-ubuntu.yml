@@ -21,17 +21,11 @@ jobs:
         with:
           path: qlever-control
 
-      - name: Install dependencies needed for checking
-        run: |
-          sudo apt update
-          sudo apt install unzip flake8 expect
-          pip install isort
-
-      - name: Format and compile check of all .py files
+      - name: Install locally + install dependencies needed for testing
         working-directory: ${{github.workspace}}/qlever-control
         run: |
-          for PY in $(find . -name "*.py"); do flake8 $PY; python3 -m py_compile $PY; isort -c $PY; done 
           pip install -e .
+          sudo apt update && sudo apt install unzip expect
 
       - name: Download QLever binaries and docker image and install dependencies
         run: |

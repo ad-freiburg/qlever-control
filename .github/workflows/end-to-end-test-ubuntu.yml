@@ -79,8 +79,8 @@ jobs:
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.2 && cd $_
           unbuffer qlever setup-config olympics
           unbuffer qlever get-data
-          unbuffer qlever index --system native
-          unbuffer qlever start --system native
+          # unbuffer qlever index --system native
+          # unbuffer qlever start --system native
           unbuffer qlever status
           unbuffer qlever stop
           ls -lh

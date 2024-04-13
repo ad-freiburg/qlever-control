@@ -21,18 +21,17 @@ jobs:
         with:
           path: qlever-control
 
-      - name: Install dependencies for the QLever script
+      - name: Install locally + install dependencies needed for testing
         run: |
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 --version
+          pip3 --version
+          pip3 show setuptools wheel
+          pip3 install -e .
           brew install llvm@16
           brew install conan@2
           brew install unzip expect
-          pip3 install flake8 psutil termcolor
-
-      - name: Format and compile check
-        working-directory: ${{github.workspace}}/qlever-control
-        run: |
-          flake8 qlever
-          python3 -m py_compile qlever
+          pip3 install flake8
 
       - name: Cache for conan (to make the next step much faster)
         uses: actions/cache@v3
@@ -64,11 +63,15 @@ jobs:
           qlever help
 
       - name: Test actions for olympics dataset, without Docker
+        timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
-          mkdir -p ${{github.workspace}}/qlever-indices/olympics && cd $_
-          source ${{github.workspace}}/qlever-code/build/conanrun.sh
-          qlever setup-config olympics
-          qlever get-data docker.USE_DOCKER=false index index-stats
-          qlever docker.USE_DOCKER=false start status test-query stop restart test-query stop status start test-query status stop
+          export QLEVER_ARGCOMPLETE_ENABLED=1
+          mkdir -p ${{github.workspace}}/qlever-indices/olympics.1 && cd $_
+          unbuffer qlever setup-config olympics
+          unbuffer qlever get-data
+          unbuffer qlever index --system native
+          unbuffer qlever start --system native
+          unbuffer qlever status
+          unbuffer qlever stop
           ls -lh

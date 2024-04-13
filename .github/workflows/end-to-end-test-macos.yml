@@ -50,8 +50,7 @@ jobs:
           path: ${{github.workspace}}/qlever-code
           key: ${{matrix.os}}-${{env.cache-name}}
 
-      - name: Compile QLever using conan
-        working-directory: ${{github.workspace}}/qlever-code
+      - name: Compile QLever using Conan
         run: |
           # Fetch or update QLever.
           if [ ! -d qlever-code ]; then

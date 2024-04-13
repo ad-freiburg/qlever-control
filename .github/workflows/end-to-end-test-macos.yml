@@ -22,6 +22,7 @@ jobs:
           path: qlever-control
 
       - name: Install locally + install dependencies needed for testing
+        working-directory: ${{github.workspace}}/qlever-control
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
           python3 --version

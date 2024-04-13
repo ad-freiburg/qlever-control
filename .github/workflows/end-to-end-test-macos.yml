@@ -34,29 +34,42 @@ jobs:
           brew install unzip expect
           pip3 install flake8
 
-      - name: Cache for conan (to make the next step much faster)
+      - name: Cache for Qlever code and dependencies
         uses: actions/cache@v3
         env:
-          cache-name: cache-conan-modules
+          cache-name: conan-modules
         with:
           path: ~/.conan2
-          key: ${{runner.os}}-build-${{env.cache-name}}-${{hashFiles('conanfile.txt')}}
+          key: ${{matrix.os}}-${{env.cache-name}}
 
-      - name: Download QLever binaries and install dependencies
+      - name: Cache for QLever code and binaries
+        uses: actions/cache@v3
+        env:
+          cache-name: qlever-code
+        with:
+          path: ${{github.workspace}}/qlever-code
+          key: ${{matrix.os}}-${{env.cache-name}}
+
+      - name: Compile QLever using conan
+        working-directory: ${{github.workspace}}/qlever-code
         run: |
-          git clone https://github.com/ad-freiburg/qlever.git qlever-code
-          mkdir -p qlever-code/build && cd $_
-          conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing
-          cd ../..
-          mkdir qlever-binaries && cd $_
-          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/ServerMain
-          wget -q https://ad-research.cs.uni-freiburg.de/downloads/qlever/macos-12/IndexBuilderMain
-          chmod 755 ServerMain IndexBuilderMain
+          # Fetch or update QLever.
+          if [ ! -d qlever-code ]; then
+            git clone https://github.com/ad-freiburg/qlever.git qlever-code; fi
+          cd qlever-code
+          git pull
+          # Install dependencies using Conan.
+          mkdir -p build && cd $_
+          conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing;
+          cd ..
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$(pwd)/build/conan_toolchain.cmake" -DUSE_PARALLEL=true -DRUN_EXPENSIVE_TESTS=false -DENABLE_EXPENSIVE_CHECKS=true -DCMAKE_CXX_COMPILER=clang++ -DADDITIONAL_COMPILER_FLAGS="-fexperimental-library" -DADDITIONAL_LINKER_FLAGS="-L$(brew --prefix llvm)/lib/c++"
+          # Compile QLever.
+          source build/conanrun.sh
+          make -C build ServerMain IndexBuilderMain
 
       - name: Check that everything is found and runs
         run: |
-          pwd && ls -lh
-          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          export PATH="$PATH:$(pwd)/qlever-code/build"
           source qlever-code/build/conanrun.sh
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
@@ -66,13 +79,13 @@ jobs:
       - name: Test actions for olympics dataset, without Docker
         timeout-minutes: 1
         run: |
-          export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-binaries"
+          export PATH="$PATH:$(pwd)/qlever-code/build"
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.1 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data
-          unbuffer qlever index --system native
-          unbuffer qlever start --system native
-          unbuffer qlever status
-          unbuffer qlever stop
+          qlever setup-config olympics
+          qlever get-data
+          qlever index --system native
+          qlever start --system native
+          qlever status
+          qlever stop
           ls -lh

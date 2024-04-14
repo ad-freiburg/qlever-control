@@ -83,6 +83,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$(pwd)/build/conan_toolchain.cmake" -DUSE_PARALLEL=true -DRUN_EXPENSIVE_TESTS=false -DENABLE_EXPENSIVE_CHECKS=true -DCMAKE_CXX_COMPILER=clang++ -DADDITIONAL_COMPILER_FLAGS="-fexperimental-library" -DADDITIONAL_LINKER_FLAGS="-L$(brew --prefix llvm)/lib/c++"
 
       - name: Compile QLever
+        working-directory: ${{github.workspace}}/qlever-code
         run: |
           source build/conanrun.sh
           make -C build ServerMain IndexBuilderMain

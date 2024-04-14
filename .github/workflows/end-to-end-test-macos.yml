@@ -90,9 +90,10 @@ jobs:
           qlever --help
 
       - name: Test actions for olympics dataset, without Docker
-        timeout-minutes: 1
+        timeout-minutes: 5
         run: |
           export PATH="$PATH:$(pwd)/qlever-code/build"
+          source qlever-code/build/conanrun.sh
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p qlever-indices/olympics && cd $_
           qlever setup-config olympics

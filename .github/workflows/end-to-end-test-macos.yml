@@ -48,7 +48,7 @@ jobs:
           cache-name: conan-modules
         with:
           path: ~/.conan2
-          key: ${{matrix.os}}-${{env.cache-name}}
+          key: ${{matrix.os}}-${{env.cache-name}}-2
 
       - name: Cache for QLever code and binaries
         uses: actions/cache@v3

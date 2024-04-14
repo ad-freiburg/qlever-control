@@ -69,11 +69,13 @@ jobs:
           git pull
 
       - name: Install dependencies using Conan 1/2
+        working-directory: ${{github.workspace}}/qlever-code
         run: |
           mkdir -p build && cd $_
           conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing;
 
       - name: Install dependencies using Conan 2/2
+        working-directory: ${{github.workspace}}/qlever-code
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$(pwd)/build/conan_toolchain.cmake" -DUSE_PARALLEL=true -DRUN_EXPENSIVE_TESTS=false -DENABLE_EXPENSIVE_CHECKS=true -DCMAKE_CXX_COMPILER=clang++ -DADDITIONAL_COMPILER_FLAGS="-fexperimental-library" -DADDITIONAL_LINKER_FLAGS="-L$(brew --prefix llvm)/lib/c++"
 

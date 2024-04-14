@@ -16,12 +16,12 @@ jobs:
         os: [ubuntu-22.04]
 
     steps:
-      - name: Checkout the repository
+      - name: Checkout the repository for the qlever script
         uses: actions/checkout@v3
         with:
           path: qlever-control
 
-      - name: Install locally + install dependencies needed for testing
+      - name: Install qlever script locally + dependencies needed for testing
         working-directory: ${{github.workspace}}/qlever-control
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
@@ -31,7 +31,7 @@ jobs:
           pip3 install -e .
           sudo apt update && sudo apt install unzip expect
 
-      - name: Cache for QLever code and binaries
+      - name: Cache for qlever code and binaries
         uses: actions/cache@v3
         env:
           cache-name: qlever-code
@@ -39,16 +39,12 @@ jobs:
           path: ${{github.workspace}}/qlever-code
           key: ${{matrix.os}}-${{env.cache-name}}
 
-      - name: Get QLever binaries and docker image
+      - name: Build qlever binaries from source + download docker image
         run: |
           sudo apt update
           sudo apt install -y software-properties-common
           sudo add-apt-repository -y ppa:mhier/libboost-latest
           sudo apt install -y build-essential cmake libicu-dev tzdata pkg-config uuid-runtime uuid-dev git libjemalloc-dev ninja-build libzstd-dev libssl-dev libboost1.81-dev libboost-program-options1.81-dev libboost-iostreams1.81-dev libboost-url1.81-dev
-          # Install dependencies needed for running the binaries.
-          # curl -Gs https://raw.githubusercontent.com/ad-freiburg/qlever/master/Dockerfile | sed -En 's/(add-apt|apt|tee)/sudo \1/g; s/^RUN //p' | sed '/^cmake/q' | sed -E 's/^(cmake.*)/mkdir -p build \&\& cd build\n\1\ncd ../' | sed -n '/^sudo/p' > INSTALL
-          # cat INSTALL
-          # source ./INSTALL
           if [ ! -d qlever-code ]; then
             git clone https://github.com/ad-freiburg/qlever.git qlever-code; fi
           cd qlever-code
@@ -58,56 +54,54 @@ jobs:
           ninja ServerMain IndexBuilderMain
           docker pull adfreiburg/qlever
 
-      - name: Check that everything is found and runs
+      - name: Check that qlever binaries, docker image, and qlever script are found and work
         run: |
           mkdir qlever-indices
-          pwd && ls -lh
           export PATH="$PATH:$(pwd)/qlever-control:$(pwd)/qlever-code/build"
-          docker run --entrypoint bash adfreiburg/qlever -c "ServerMain --help" > /dev/null
-          docker run --entrypoint bash adfreiburg/qlever -c "IndexBuilderMain --help" > /dev/null
-          ServerMain --help > /dev/null
-          IndexBuilderMain --help > /dev/null
-          qlever
+          docker run --entrypoint bash adfreiburg/qlever -c "ServerMain --help" | head -3
+          docker run --entrypoint bash adfreiburg/qlever -c "IndexBuilderMain --help" | head -3
+          ServerMain --help | head -3; echo "..."
+          IndexBuilderMain --help | head -3; echo "..."
           qlever --help
 
-      - name: Test actions for olympics dataset, with Docker
+      - name: Test qlever script for olympics dataset, with docker
         timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-code/build"
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.1 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data
+          qlever setup-config olympics
+          qlever get-data
           unbuffer qlever index
           unbuffer qlever start
-          unbuffer qlever status
-          unbuffer qlever stop
+          qlever status
+          qlever stop
           ls -lh
 
-      - name: Test actions for olympics dataset, without Docker
+      - name: Test qlever script for olympics dataset, without docker
         timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-code/build"
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.2 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data
-          unbuffer qlever index --system native
-          unbuffer qlever start --system native
-          unbuffer qlever status
-          unbuffer qlever stop
+          qlever setup-config olympics
+          qlever get-data
+          qlever index --system native
+          qlever start --system native
+          qlever status
+          qlever stop
           ls -lh
 
-      - name: Test actions for olympics dataset, with and without Docker
+      - name: Test qlever script for olympics dataset, with and without docker
         timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-code/build"
           export QLEVER_ARGCOMPLETE_ENABLED=1
           mkdir -p ${{github.workspace}}/qlever-indices/olympics.3 && cd $_
-          unbuffer qlever setup-config olympics
-          unbuffer qlever get-data
+          qlever setup-config olympics
+          qlever get-data
           unbuffer qlever index
-          unbuffer qlever start --system native
-          unbuffer qlever status
-          unbuffer qlever stop
+          qlever start --system native
+          qlever status
+          qlever stop
           ls -lh

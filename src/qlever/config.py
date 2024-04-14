@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import os
 import traceback
+from importlib.metadata import version
 from pathlib import Path
 
 import argcomplete
+from termcolor import colored
 
 from qlever import command_objects, script_name
 from qlever.log import log, log_levels
@@ -114,17 +116,11 @@ class QleverConfig:
         argcomplete_enabled = os.environ.get("QLEVER_ARGCOMPLETE_ENABLED")
         if not argcomplete_enabled and not argcomplete_check_off:
             log.info("")
-            log.warn(f"Autocompletion is not enabled for this script, run "
-                     f"the following command, and consider adding it to your "
-                     f"`.bashrc` or `.zshrc`:"
+            log.warn(f"To enable autocompletion, run the following command, "
+                     f"and consider adding it to your `.bashrc` or `.zshrc`:"
                      f"\n\n"
                      f"eval \"$(register-python-argcomplete {script_name})\""
-                     f" && export QLEVER_ARGCOMPLETE_ENABLED=1"
-                     f"\n\n"
-                     f"If autocompletion does not work for you or you don't "
-                     f"want to use it, disable this warning as follows:"
-                     f"\n\n"
-                     f"export QLEVER_ARGCOMPLETE_CHECK_OFF")
+                     f" && export QLEVER_ARGCOMPLETE_ENABLED=1")
             log.info("")
 
         # Create a temporary parser only to parse the `--qleverfile` option, in
@@ -179,7 +175,12 @@ class QleverConfig:
         # command. We have a dedicated class for each command. These classes
         # are defined in the modules in `qlever/commands`. In `__init__.py`
         # an object of each class is created and stored in `command_objects`.
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(
+                description=colored("This is the qlever command line tool, "
+                                    "it's all you need to work with QLever",
+                                    attrs=["bold"]))
+        parser.add_argument("--version", action="version",
+                            version=f"%(prog)s {version('qlever')}")
         add_qleverfile_option(parser)
         subparsers = parser.add_subparsers(dest='command')
         subparsers.required = True
@@ -194,6 +195,11 @@ class QleverConfig:
         # NOTE: All code executed before this line should be relatively cheap
         # because it is executed whenever the user triggers the autocompletion.
         argcomplete.autocomplete(parser, always_complete_options="long")
+
+        # If called without arguments, show the help message.
+        if len(os.sys.argv) == 1:
+            parser.print_help()
+            exit(0)
 
         # Parse the command line arguments.
         args = parser.parse_args()

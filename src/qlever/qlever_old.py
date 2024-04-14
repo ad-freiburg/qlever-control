@@ -5,14 +5,11 @@
 # convenient command-line tool for all things QLever.  See the `README.md` file
 # for how to use it.
 
-from configparser import ConfigParser, ExtendedInterpolation
-from datetime import datetime, date
-import os
 import glob
 import inspect
 import json
 import logging
-import psutil
+import os
 import re
 import shlex
 import shutil
@@ -20,16 +17,20 @@ import socket
 import subprocess
 import sys
 import time
-import pkg_resources
-from termcolor import colored
 import traceback
+from configparser import ConfigParser, ExtendedInterpolation
+from datetime import date, datetime
+
+import pkg_resources
+import psutil
+
+from qlever.log import log
 
 BLUE = "\033[34m"
 RED = "\033[31m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
 
-from qlever.log import log
 # # Custom formatter for log messages.
 # class CustomFormatter(logging.Formatter):
 #     def format(self, record):
@@ -42,8 +43,8 @@ from qlever.log import log
 #             return colored(message, "red")
 #         else:
 #             return message
-# 
-# 
+#
+#
 # # Custom logger.
 # log = logging.getLogger("qlever")
 # log.setLevel(logging.INFO)
@@ -94,14 +95,14 @@ def show_available_config_names():
 def show_available_action_names():
     log.info("You can now execute a sequence of actions, for example:")
     log.info("")
-    log.info(f"{BLUE}qlever get-data index restart test-query ui {NORMAL}")
+    log.info(f"{BLUE}qlever-old get-data index restart test-query ui {NORMAL}")
     log.info("")
     log.info(f"Available action names are: {', '.join(action_names)}")
     log.info("")
     log.info("To get autocompletion for these, run the following or "
              "add it to your `.bashrc`:")
     log.info("")
-    log.info(f"{BLUE}eval \"$(qlever setup-autocompletion)\"{NORMAL}")
+    log.info(f"{BLUE}eval \"$(qlever-old setup-autocompletion)\"{NORMAL}")
 
 
 # We want to distinguish between exception that we throw intentionally and all
@@ -122,7 +123,7 @@ class Actions:
             log.error("The qlever script needs a \"Qleverfile\" "
                       "in the current directory, but I could not find it")
             log.info("")
-            log.info("Run `qlever setup-config <config name>` to create a "
+            log.info("Run `qlever-old setup-config <config name>` to create a "
                      "pre-filled Qleverfile")
             log.info("")
             show_available_config_names()
@@ -325,9 +326,9 @@ class Actions:
         log.info(f"{BLUE}{action_description}{NORMAL}")
         log.info("")
         if only_show:
-            log.info("You called \"qlever ... show\", therefore the action "
-                     "is only shown, but not executed (omit the \"show\" to "
-                     "execute it)")
+            log.info("You called \"qlever-old ... show\", therefore the "
+                     "action is only shown, but not executed (omit the "
+                     "\"show\" to execute it)")
 
     @staticmethod
     @track_action_rank
@@ -344,8 +345,8 @@ class Actions:
             log.error("Qleverfile already exists in current directory")
             log.info("")
             log.info("If you want to create a new Qleverfile using "
-                     "`qlever setup-config`, delete the existing Qleverfile "
-                     "first")
+                     "`qlever-old setup-config`, delete the existing "
+                     "Qleverfile first")
             abort_script()
 
         # Get the directory of this script and copy the Qleverfile for `config`
@@ -1328,11 +1329,11 @@ def setup_autocompletion_cmd():
 
     # Return multiline string with the command for setting up autocompletion.
     return f"""\
-_qlever_completion() {{
+_qlever_old_completion() {{
   local cur=${{COMP_WORDS[COMP_CWORD]}}
   COMPREPLY=( $(compgen -W "{action_names}" -- $cur) )
 }}
-complete -o nosort -F _qlever_completion qlever
+complete -o nosort -F _qlever_old_completion qlever-old
 """
 
 
@@ -1356,7 +1357,7 @@ def main():
             (len(sys.argv) == 2 and sys.argv[1] == "--help") or \
             (len(sys.argv) == 2 and sys.argv[1] == "-h"):
         log.info("")
-        log.info(f"{BOLD}Hello, I am the qlever script"
+        log.info(f"{BOLD}Hello, I am the OLD qlever script"
                  f" (version {version}){NORMAL}")
         log.info("")
         if os.path.exists("Qleverfile"):
@@ -1368,7 +1369,7 @@ def main():
             log.info("You need a Qleverfile in the current directory, which "
                      "you can create as follows:")
             log.info("")
-            log.info(f"{BLUE}qlever setup-config <config name>{NORMAL}")
+            log.info(f"{BLUE}qlever-old setup-config <config name>{NORMAL}")
             log.info("")
             show_available_config_names()
             log.info("")

@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import shlex
-import subprocess
 
 from qlever.command import QleverCommand
 from qlever.log import log
-from qlever.util import get_total_file_size
+from qlever.util import get_total_file_size, run_command
 
 
 class GetDataCommand(QleverCommand):
@@ -34,8 +35,7 @@ class GetDataCommand(QleverCommand):
 
         # Execute the command line.
         try:
-            subprocess.run(args.get_data_cmd, shell=True, check=True,
-                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            run_command(args.get_data_cmd, show_output=True)
         except Exception as e:
             log.error(f"Problem executing \"{args.get_data_cmd}\": {e}")
             return False

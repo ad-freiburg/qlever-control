@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import random
 import re
+import secrets
 import shlex
 import shutil
 import string
@@ -31,7 +31,7 @@ def run_command(cmd: str, return_output: bool = False,
                 show_output: bool = False) -> Optional[str]:
     """
     Run the given command and throw an exception if the exit code is non-zero.
-    If `get_output` is `True`, return what the command wrote to `stdout`.
+    If `return_output` is `True`, return what the command wrote to `stdout`.
 
     NOTE: The `set -o pipefail` ensures that the exit code of the command is
     non-zero if any part of the pipeline fails (not just the last part).
@@ -68,6 +68,45 @@ def run_command(cmd: str, return_output: bool = False,
         return result.stdout
 
 
+def run_curl_command(url: str,
+                     headers: dict[str, str] = {},
+                     params: dict[str, str] = {},
+                     result_file: Optional[str] = None) -> str:
+    """
+    Run `curl` with the given `url`, `headers`, and `params`. If `result_file`
+    is `None`, return the output, otherwise, write the output to the given file
+    and return the HTTP code. If the `curl` command fails, throw an exception.
+
+    """
+    # Construct and run the `curl` command.
+    default_result_file = "/tmp/qlever.curl.result"
+    actual_result_file = result_file if result_file else default_result_file
+    curl_cmd = (f"curl -s -o \"{actual_result_file}\""
+                f" -w \"%{{http_code}}\n\" {url}"
+                + "".join([f" -H \"{key}: {value}\""
+                           for key, value in headers.items()])
+                + "".join([f" --data-urlencode {key}={shlex.quote(value)}"
+                           for key, value in params.items()]))
+    result = subprocess.run(curl_cmd, shell=True, text=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    # Case 1: An error occurred, raise an exception.
+    if result.returncode != 0:
+        if len(result.stderr) > 0:
+            raise Exception(result.stderr)
+        else:
+            raise Exception(f"curl command failed with exit code "
+                            f"{result.returncode}, stderr is empty")
+    # Case 2: Return output (read from `default_result_file`).
+    if result_file is None:
+        result_file_path = Path(default_result_file)
+        result = result_file_path.read_text()
+        result_file_path.unlink()
+        return result
+    # Case 3: Return HTTP code.
+    return result.stdout
+
+
 def is_qlever_server_alive(port: str) -> bool:
     """
     Helper function that checks if a QLever server is running on the given
@@ -80,30 +119,6 @@ def is_qlever_server_alive(port: str) -> bool:
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL)
     return exit_code == 0
-
-
-def get_curl_cmd_for_sparql_query(
-        query: str, port: int,
-        host: str = "localhost",
-        media_type: str = "application/sparql-results+qlever",
-        verbose: bool = False,
-        pinresult: bool = False,
-        access_token: Optional[str] = None,
-        send: Optional[int] = None) -> str:
-    """
-    Get curl command for given SPARQL query.
-    """
-    curl_cmd = (f"curl -s http::{host}:{port}"
-                f" -H \"Accept: {media_type}\" "
-                f" --data-urlencode query={shlex.quote(query)}")
-    if pinresult and access_token is not None:
-        curl_cmd += " --data-urlencode pinresult=true"
-        curl_cmd += f" --data-urlencode access_token={access_token}"
-    if send is not None:
-        curl_cmd += f" --data-urlencode send={send}"
-    if verbose:
-        curl_cmd += " --verbose"
-    return curl_cmd
 
 
 def get_existing_index_files(basename: str) -> list[str]:
@@ -137,8 +152,9 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
         pinfo = psutil_process.as_dict(
                 attrs=['pid', 'username', 'create_time',
                        'memory_info', 'cmdline'])
-        cmdline = " ".join(pinfo['cmdline'])
-        if not re.search(cmdline_regex, cmdline):
+        # Note: pinfo[`cmdline`] is `None` if the process is a zombie.
+        cmdline = " ".join(pinfo['cmdline'] or [])
+        if len(cmdline) == 0 or not re.search(cmdline_regex, cmdline):
             return False
         pid = pinfo['pid']
         user = pinfo['username'] if pinfo['username'] else ""
@@ -162,6 +178,5 @@ def get_random_string(length: int) -> str:
     Helper function that returns a randomly chosen string of the given
     length. Take the current time as seed.
     """
-    random.seed(datetime.now())
-    return "".join(random.choices(string.ascii_letters + string.digits,
-                                  k=length))
+    characters = string.ascii_letters + string.digits
+    return "".join(secrets.choice(characters) for _ in range(length))

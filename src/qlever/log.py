@@ -1,6 +1,4 @@
-# Copyright 2024, University of Freiburg,
-# Chair of Algorithms and Data Structures
-# Author: Hannah Bast <bast@cs.uni-freiburg.de>
+from __future__ import annotations
 
 import logging
 from contextlib import contextmanager

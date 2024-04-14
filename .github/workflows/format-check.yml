@@ -1,0 +1,32 @@
+name: Format check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  merge_group:
+
+jobs:
+  format-check:
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-22.04]
+
+    steps:
+      - name: Checkout the repository for the qlever script
+        uses: actions/checkout@v3
+        with:
+          path: qlever-control
+
+      - name: Install dependencies needed for checking
+        run: |
+          sudo apt update && sudo apt install flake8
+          pip install isort
+
+      - name: Check format, compilation, and imports
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          for PY in $(find src test -name "*.py"); do printf "$PY ... "; flake8 $PY && python3 -m py_compile $PY && isort -c $PY && echo "OK"; done

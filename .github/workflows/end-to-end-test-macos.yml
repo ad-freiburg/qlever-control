@@ -31,16 +31,8 @@ jobs:
           pip3 install -e .
           brew install unzip expect
           pip3 install flake8
-          # Install Clang++ 16 and make sure that it is used.
           brew install llvm@16
           brew install conan@2
-          # echo 'export PATH="/usr/local/opt/llvm@16/bin:$PATH"' >> ~/.bash_profile
-          # echo PATH="/usr/local/opt/llvm@16/bin:$PATH" >> $GITHUB_ENV 
-          # echo 'export LDFLAGS="-L/usr/local/opt/llvm@16/lib -L/usr/local/opt/llvm@16/lib/c++ -Wl,-rpath,/usr/local/opt/llvm@16/lib/c++"' >> ~/.bash_profile
-          # echo LDFLAGS="-L/usr/local/opt/llvm@16/lib -L/usr/local/opt/llvm@16/lib/c++ -Wl,-rpath,/usr/local/opt/llvm@16/lib/c++" >> $GITHUB_ENV 
-          # echo 'export CPPFLAGS="-I/usr/local/opt/llvm@16/include"' >> ~/.bash_profile
-          # echo  CPPFLAGS="/usr/local/opt/llvm@16/include" >> $GITHUB_ENV 
-          # source ~/.bash_profile
 
       - name: Print clang version
         run: clang++ --version
@@ -95,14 +87,14 @@ jobs:
           ServerMain --help > /dev/null
           IndexBuilderMain --help > /dev/null
           qlever
-          qlever help
+          qlever --help
 
       - name: Test actions for olympics dataset, without Docker
         timeout-minutes: 1
         run: |
           export PATH="$PATH:$(pwd)/qlever-code/build"
           export QLEVER_ARGCOMPLETE_ENABLED=1
-          mkdir -p ${{github.workspace}}/qlever-indices/olympics.1 && cd $_
+          mkdir -p qlever-indices/olympics && cd $_
           qlever setup-config olympics
           qlever get-data
           qlever index --system native

@@ -29,11 +29,11 @@ jobs:
           pip3 --version
           pip3 show setuptools wheel
           pip3 install -e .
-          brew install conan@2
           brew install unzip expect
           pip3 install flake8
           # Install Clang++ 16 and make sure that it is used.
           brew install llvm@16
+          brew install conan@2
           echo 'export PATH="/usr/local/opt/llvm@16/bin:$PATH"' >> ~/.bash_profile
           echo PATH="/usr/local/opt/llvm@16/bin:$PATH" >> $GITHUB_ENV 
           echo 'export LDFLAGS="-L/usr/local/opt/llvm@16/lib -L/usr/local/opt/llvm@16/lib/c++ -Wl,-rpath,/usr/local/opt/llvm@16/lib/c++"' >> ~/.bash_profile
@@ -42,7 +42,10 @@ jobs:
           echo  CPPFLAGS="/usr/local/opt/llvm@16/include" >> $GITHUB_ENV 
           source ~/.bash_profile
 
-      - name: Cache for Qlever code and dependencies
+      - name: Print clang version
+        run: clang++ --version
+
+      - name: Cache for Conan modules
         uses: actions/cache@v3
         env:
           cache-name: conan-modules
@@ -58,19 +61,24 @@ jobs:
           path: ${{github.workspace}}/qlever-code
           key: ${{matrix.os}}-${{env.cache-name}}
 
-      - name: Compile QLever using Conan
+      - name: Fetch or update QLever
         run: |
-          # Fetch or update QLever.
           if [ ! -d qlever-code ]; then
             git clone https://github.com/ad-freiburg/qlever.git qlever-code; fi
           cd qlever-code
           git pull
-          # Install dependencies using Conan.
+
+      - name: Install dependencies using Conan 1/2
+        run: |
           mkdir -p build && cd $_
           conan install .. -pr:b=../conanprofiles/clang-16-macos -pr:h=../conanprofiles/clang-16-macos -of=. --build=missing;
-          cd ..
+
+      - name: Install dependencies using Conan 2/2
+        run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$(pwd)/build/conan_toolchain.cmake" -DUSE_PARALLEL=true -DRUN_EXPENSIVE_TESTS=false -DENABLE_EXPENSIVE_CHECKS=true -DCMAKE_CXX_COMPILER=clang++ -DADDITIONAL_COMPILER_FLAGS="-fexperimental-library" -DADDITIONAL_LINKER_FLAGS="-L$(brew --prefix llvm)/lib/c++"
-          # Compile QLever.
+
+      - name: Compile QLever
+        run: |
           source build/conanrun.sh
           make -C build ServerMain IndexBuilderMain
 

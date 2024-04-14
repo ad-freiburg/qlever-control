@@ -77,6 +77,9 @@ jobs:
       - name: Install dependencies using Conan 2/2
         working-directory: ${{github.workspace}}/qlever-code
         run: |
+          export PATH="/usr/local/opt/llvm@16/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/llvm@16/lib -L/usr/local/opt/llvm@16/lib/c++ -Wl,-rpath,/usr/local/opt/llvm@16/lib/c++"
+          export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$(pwd)/build/conan_toolchain.cmake" -DUSE_PARALLEL=true -DRUN_EXPENSIVE_TESTS=false -DENABLE_EXPENSIVE_CHECKS=true -DCMAKE_CXX_COMPILER=clang++ -DADDITIONAL_COMPILER_FLAGS="-fexperimental-library" -DADDITIONAL_LINKER_FLAGS="-L$(brew --prefix llvm)/lib/c++"
 
       - name: Compile QLever

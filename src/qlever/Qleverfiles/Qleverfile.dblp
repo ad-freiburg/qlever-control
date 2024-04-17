@@ -1,28 +1,24 @@
 # Qleverfile for DBLP, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads .gz file of size ~3 GB (as of 31.07.2022)
-# qlever index     # takes ~30 minutes and ~20 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (takes around 2 minutes)
-#
-# Also builds a text index for fast kewyword search in literals. Without that
-# (WITH_TEXT_INDEX = false), the index build takes only ~10 minutes.
+# qlever get-data  # takes ~3 mins (downloads .ttl.gz file of size ~3 GB)
+# qlever index     # takes ~3 mins (on an AMD Ryzen 9 5900X)
+# qlever start     # takes a few seconds
 
 [data]
-NAME              = dblp
-GET_DATA_URL      = https://dblp.org/rdf/${index:INPUT_FILES}
-GET_DATA_CMD      = curl -LO -C - ${GET_DATA_URL}
-DESCRIPTION       = DBLP computer science bibliography, data from ${GET_DATA_URL}
-TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
+NAME         = dblp
+GET_DATA_URL = https://dblp.org/rdf/${index:INPUT_FILES}
+GET_DATA_CMD = curl -LRC - O ${GET_DATA_URL} 2>&1 | tee ${data:NAME}.download-log.txt
+VERSION      = $$(date -r dblp.ttl.gz +"%d.%m.%Y %H:%M" || echo "NO_DATE")
+DESCRIPTION  = DBLP computer science bibliography, data from ${GET_DATA_URL} (version ${VERSION})
 
 [index]
 INPUT_FILES     = dblp.ttl.gz
 CAT_INPUT_FILES = zcat ${INPUT_FILES}
-SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
-TEXT_INDEX      = from_literals
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
 
 [server]
 PORT               = 7015
-ACCESS_TOKEN       = ${data:NAME}_7643543846
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 30G
 CACHE_MAX_SIZE     = 5G
 

@@ -1,39 +1,29 @@
-# Qleverfile for Scientists, use with https://github.com/ad-freiburg/qlever-control
+# Qleverfile for "scientists", use with qlever script (pip install qlever)
 #
-# qlever get-data  # download .zip file of size 79 MB, uncompressed to 318 MB 
-# qlever index     # takes ~20 seconds and ~1 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (instant)
-#
-# Also builds a text index for keyword search on the literals AND keyword search
-# in Wikipedia sentences linked to the RDF data; see TEXT_DESCRIPTION below.
+# qlever get-data  # get "scientists" dataset (370M triples, 2.2 M texts records)
+# qlever index     # build index, including text index (takes ~20 seconds)
+# qlever start     # start the server (instant)
 
-# Indexer settings
-DB                = scientists
-RDF_FILES         = "${DB}.nt"
-CAT_FILES         = "cat ${RDF_FILES}"
-WITH_TEXT_INDEX   = from_text_records_and_literals
-STXXL_MEMORY      = 1G
-SETTINGS_JSON     = '{ "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }'
-GET_DATA_CMD      = "wget https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip"
-INDEX_DESCRIPTION = "Scientist collection from QLever's end-to-end test, see https://github.com/ad-freiburg/qlever/tree/master/e2e" 
-TEXT_DESCRIPTION  = "Literals (use FILTER CONTAINS) and Wikipedia articles (use ql:contains-entity and ql:contains-word)"
+[data]
+NAME             = scientists
+GET_DATA_CMD     = curl -LRC - -O https://github.com/ad-freiburg/qlever/raw/master/e2e/scientist-collection.zip && unzip -j scientist-collection.zip && rm -f scientist-collection.zip
+DESCRIPTION      = Test collection from https://github.com/ad-freiburg/qlever/tree/master/e2e (triples and text about scientists)
+TEXT_DESCRIPTION = Text from all literals and Wikipedia articles on scientists (use ql:contains-entity and ql:contains-word)
 
-# Server settings
-HOSTNAME                       = $(hostname -f)
-SERVER_PORT                    = 7020
-ACCESS_TOKEN                   = ${DB}_%RANDOM%
-MEMORY_FOR_QUERIES             = 5G
-CACHE_MAX_SIZE                 = 2G
-CACHE_MAX_SIZE_SINGLE_ENTRY    = 1G
-CACHE_MAX_NUM_ENTRIES          = 100
+[index]
+INPUT_FILES     = ${data:NAME}.nt
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 100000 }
+TEXT_INDEX      = from_text_records_and_literals
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.scientists
+[server]
+PORT               = 7020
+ACCESS_TOKEN       = ${data:NAME}
+MEMORY_FOR_QUERIES = 5G
 
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = default
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
+
+[ui]
+UI_CONFIG = scientists

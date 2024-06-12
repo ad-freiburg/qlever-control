@@ -48,7 +48,7 @@ DESCRIPTION       = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folde
 
 [index]
 INPUT_FILES     = pubchem.additional-ontologies.nt.gz nt.${DATE}/*.nt.gz
-CAT_INPUT_FILES = zcat ${FILE_NAMES}
+CAT_INPUT_FILES = zcat ${INPUT_FILES}
 SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
 STXXL_MEMORY    = 10G
 

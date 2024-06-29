@@ -227,6 +227,10 @@ class ExampleQueriesCommand(QleverCommand):
                 except Exception as e:
                     error_msg = str(e)
 
+            # Remove the result file (unless in debug mode).
+            if args.log_level != "DEBUG":
+                Path(result_file).unlink(missing_ok=True)
+
             # Print description, time, result in tabular form.
             if (len(description) > 60):
                 description = description[:57] + "..."
@@ -262,6 +266,4 @@ class ExampleQueriesCommand(QleverCommand):
                 log.info(colored("All queries failed", "red"))
 
         # Return success (has nothing to do with how many queries failed).
-        if args.log_level != "DEBUG":
-            Path(result_file).unlink(missing_ok=True)
         return True

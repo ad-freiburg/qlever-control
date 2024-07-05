@@ -47,7 +47,7 @@ GET_DATA_CMD      = mkdir -p ttl.${DATE} && mkdir -p nt.${DATE} && ${MAKE_GET_DA
 DESCRIPTION       = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folders except nbr2d and nbr3d)
 
 [index]
-INPUT_FILES     = pubchem.additional-ontologies.nt.gz nt.${DATE}/*.nt.gz
+INPUT_FILES     =  nt.${DATE}/*.nt.gz
 CAT_INPUT_FILES = zcat ${INPUT_FILES}
 SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
 STXXL_MEMORY    = 10G

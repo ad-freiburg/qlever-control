@@ -65,5 +65,5 @@ class UiCommand(QleverCommand):
         # Success.
         log.info(f"The QLever UI should now be up at {ui_url} ..."
                  f"You can log in as QLever UI admin with username and "
-                 f"passwort \"demo\"")
+                 f"password \"demo\"")
         return True

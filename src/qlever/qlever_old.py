@@ -985,7 +985,7 @@ class Actions:
         log.info(f"The QLever UI should now be up at "
                  f"http://{host_name}:{self.config['ui']['port']}")
         log.info("You can log in as QLever UI admin with username and "
-                 "passwort \"demo\"")
+                 "password \"demo\"")
 
     @track_action_rank
     def action_cache_stats_and_settings(self, only_show=False):

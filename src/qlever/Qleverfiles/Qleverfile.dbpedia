@@ -1,0 +1,31 @@
+# Qleverfile for DBpedia, use with https://github.com/ad-freiburg/qlever-control
+#
+# qlever get-data  # ~14 GB, ~850 M triples (as of 30.07.2024)
+# qlever index     # ~20 min (on an AMD Ryzen 9 5900X)
+# qlever start     # ~3 sec
+
+[data]
+NAME         = dbpedia
+DATABUS_URL  = https://databus.dbpedia.org/dbpedia/collections/latest-core
+GET_DATA_CMD = curl -X POST -H "Accept: text/csv" --data-urlencode "query=$$(curl -s -H "Accept:text/sparql" https://databus.dbpedia.org/dbpedia/collections/latest-core)" https://databus.dbpedia.org/sparql | tail -n+2 | sed 's/\r$$//' | sed 's/"//g' | while read -r file; do wget -P rdf-input $$file; done
+DESCRIPTION  = RDF data from ${DATABUS_URL}
+
+[index]
+INPUT_FILES     = rdf-input/*
+CAT_INPUT_FILES = (cat rdf-input/*.nt; lbzcat -n2 rdf-input/*.bzip2 rdf-input/*.bz2)
+SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
+WITH_TEXT_INDEX = false
+
+[server]
+PORT               = 7012
+ACCESS_TOKEN       = ${data:NAME}
+MEMORY_FOR_QUERIES = 10G
+CACHE_MAX_SIZE     = 5G
+
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
+
+[ui]
+UI_PORT   = 7000
+UI_CONFIG = dbpedia

@@ -60,6 +60,14 @@ There are many more commands and options, see `qlever --help` for general help,
 `qlever <command> --help` for help on a specific command, or just the
 autocompletion.
 
+# Use with your own dataset
+
+To use QLever with your own dataset, you should also write a `Qleverfile`, like
+in the example above. The easiest way to write a `Qleverfile` is to get one of
+the existing ones (using `qlever setup-config ...` as explained above) and then
+change it according to your needs (the variable names should be self-explanatory).
+Pick one for a dataset that is similar to yours and when in doubt, pick `olympics`.
+
 # For developers
 
 The (Python) code for the script is in the `*.py` files in `src/qlever`. The

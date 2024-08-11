@@ -47,5 +47,5 @@ IMAGE  = docker.io/adfreiburg/qlever:latest
 # It determines the example queries and which SPARQL queries are launched to
 # obtain suggestions as you type a query.
 [ui]
-UI_PORT   = 7000
+UI_PORT   = 9000
 UI_CONFIG = default

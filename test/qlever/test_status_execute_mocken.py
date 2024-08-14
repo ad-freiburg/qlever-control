@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 import psutil
 from qlever.command import StatusCommand
 from qlever.util import show_process_info
+import qlever.commands.status
 from io import StringIO
 import sys
 

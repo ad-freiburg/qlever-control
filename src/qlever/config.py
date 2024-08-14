@@ -10,6 +10,7 @@ import argcomplete
 from termcolor import colored
 
 from qlever import command_objects, script_name
+from qlever.envvars import Envvars
 from qlever.log import log, log_levels
 from qlever.qleverfile import Qleverfile
 
@@ -40,17 +41,26 @@ class QleverConfig:
 
     def add_subparser_for_command(self, subparsers, command_name,
                                   command_object, all_qleverfile_args,
-                                  qleverfile_config=None):
+                                  qleverfile_config=None,
+                                  envvars_config=None):
         """
         Add subparser for the given command. Take the arguments from
         `command_object.relevant_qleverfile_arguments()` and report an error if
         one of them is not contained in `all_qleverfile_args`. Overwrite the
-        default values with the values from `qleverfile_config` if specified.
+        default values with the values from `qleverfile_config` or
+        `envvars_config` if they are given.
+
+        NOTE: For now, throw an exception if both `qleverfile_config` and
+        `envvars_config` are given. It would be easy to let one override the
+        other, but that might lead to unexpected behavior for a user. For
+        example, the user might write or create `Qleverfile` and is unaware
+        that they also some environment variables set.
         """
 
+        # All argument names for this command.
         arg_names = command_object.relevant_qleverfile_arguments()
 
-        # Helper function that shows a detailed error messahe when an argument
+        # Helper function that shows a detailed error message when an argument
         # from `relevant_qleverfile_arguments` is not contained in
         # `all_qleverfile_args`.
         def argument_error(prefix):
@@ -81,8 +91,8 @@ class QleverConfig:
                                    f"`{section}` not found")
                 args, kwargs = all_qleverfile_args[section][arg_name]
                 kwargs_copy = kwargs.copy()
-                # If `qleverfile_config` is given, add info about default
-                # values to the help string.
+                # If `qleverfile_config` is given, add the corresponding
+                # default values.
                 if qleverfile_config is not None:
                     default_value = kwargs.get("default", None)
                     qleverfile_value = qleverfile_config.get(
@@ -94,6 +104,21 @@ class QleverConfig:
                                                 f" {qleverfile_value}]")
                     else:
                         kwargs_copy["help"] += f" [default: {default_value}]"
+                # If `envvars_config` is given, add the corresponding default
+                # values.
+                if envvars_config is not None:
+                    default_value = kwargs.get("default", None)
+                    envvar_name = Envvars.envvar_name(section, arg_name)
+                    envvars_value = envvars_config[section].get(arg_name, None)
+                    if envvars_value is not None:
+                        kwargs_copy["default"] = envvars_value
+                        kwargs_copy["required"] = False
+                        kwargs_copy["help"] += (f" [default, from environment "
+                                                f"variable `{envvar_name}`: "
+                                                f"{envvars_value}]")
+                    else:
+                        kwargs_copy["help"] += f" [default: {default_value}]"
+                # Now add the argument to the subparser.
                 subparser.add_argument(*args, **kwargs_copy)
 
         # Additional arguments that are shared by all commands.
@@ -170,6 +195,24 @@ class QleverConfig:
                 exit(1)
         else:
             qleverfile_config = None
+            qleverfile_path = None
+
+        # Now also check if the user has set any environment variables.
+        envvars_config = Envvars.read()
+
+        # Check that at most one of `qleverfile_config` and `envvars_config` is
+        # not `None`, unless the command is `config` (which can be used to
+        # produce a `Qleverfile` or unset all environment variables).
+        if qleverfile_args.command != "config" \
+                and qleverfile_config is not None \
+                and envvars_config is not None:
+            raise ConfigException(
+                    "You both have a `Qleverfile` and environment variables "
+                    "of the QLEVER_SECTION_VARIABLE. This is not supported "
+                    "because it is bound to lead to unexpected behavior. "
+                    "Either remove the `Qleverfile` (just delete it), or the "
+                    "environment variables (use `qlever config "
+                    "--unset-envvars`).")
 
         # Now the regular parser with commands and a subparser for each
         # command. We have a dedicated class for each command. These classes
@@ -188,7 +231,7 @@ class QleverConfig:
         for command_name, command_object in command_objects.items():
             self.add_subparser_for_command(
                     subparsers, command_name, command_object,
-                    all_args, qleverfile_config)
+                    all_args, qleverfile_config, envvars_config)
 
         # Enable autocompletion for the commands and their options.
         #
@@ -204,13 +247,4 @@ class QleverConfig:
         # Parse the command line arguments.
         args = parser.parse_args()
 
-        # If the command says that we should have a Qleverfile, but we don't,
-        # issue a warning.
-        if command_objects[args.command].should_have_qleverfile():
-            if not qleverfile_exists:
-                log.warning(f"Invoking command `{args.command}` without a "
-                            "Qleverfile. You have to specify all required "
-                            "arguments on the command line. This is possible, "
-                            "but not recommended.")
-
-        return args
+        return args, qleverfile_path, qleverfile_config, envvars_config

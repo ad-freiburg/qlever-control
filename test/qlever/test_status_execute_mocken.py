@@ -13,6 +13,7 @@ class TestStatusCommand(unittest.TestCase):
     @patch('qlever.util.show_process_info')
     @patch('psutil.process_iter')
     def test_execute_processes_found(self, mock_process_iter, mock_show_process_info):
+        # mocking the input for the execute function
         args = MagicMock()
         args.cmdline_regex = "^(ServerMain|IndexBuilderMain)"
         args.show = False
@@ -32,7 +33,7 @@ class TestStatusCommand(unittest.TestCase):
         assert result
 
     def test_execute_no_processes_found(self, mock_process_iter, mock_show_process_info):
-        # Arrange
+        # mocking the input for the execute function
         args = MagicMock()
         args.cmdline_regex = "^(ServerMain|IndexBuilderMain)"
         args.show = False

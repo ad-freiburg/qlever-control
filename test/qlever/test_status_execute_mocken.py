@@ -60,7 +60,3 @@ class TestStatusCommand(unittest.TestCase):
 
         # Verify the correct output was printed
         self.assertIn("No processes found", captured_output.getvalue())
-
-
-if __name__ == '__main__':
-    unittest.main()

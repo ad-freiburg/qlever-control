@@ -5,6 +5,7 @@ import subprocess
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
+from qlever.util import is_port_used
 
 
 class UiCommand(QleverCommand):
@@ -52,6 +53,10 @@ class UiCommand(QleverCommand):
         for container_system in Containerize.supported_systems():
             Containerize.stop_and_remove_container(
                     container_system, args.ui_container)
+
+        # Check if the UI port is already being used.
+        if is_port_used(args.ui_port):
+            log.warning(f"It looks like the specified port for the UI ({args.ui_port}) is already in use. You can set another port in the Qleverfile in the [ui] section with the UI_PORT variable.")
 
         # Try to start the QLever UI.
         try:

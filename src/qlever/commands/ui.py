@@ -1,30 +1,11 @@
 from __future__ import annotations
 
-import errno
-import socket
 import subprocess
 
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-
-
-def is_port_used(port: int) -> bool:
-    """
-    Try to bind to the port on all interfaces to check if the port is already in use.
-    If the port is already in use, `socket.bind` will raise an `OSError` with errno EADDRINUSE.
-    """
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Ensure that the port is not blocked after the check.
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('', port))
-        sock.close()
-        return False
-    except OSError as err:
-        if err.errno != errno.EADDRINUSE:
-            log.warning(f"Failed to determine if port is used: {err}")
-        return True
+from qlever.util import is_port_used
 
 
 class UiCommand(QleverCommand):
@@ -75,7 +56,7 @@ class UiCommand(QleverCommand):
 
         # Check if the UI port is already being used.
         if is_port_used(args.ui_port):
-            log.warning(f"The port for the UI ({args.ui_port}) may already be in use. You can set another port in the config file in the [UI] section with the UI_PORT key.")
+            log.warning(f"It looks like the specified port for the UI ({args.ui_port}) is already in use. You can set another port in the Qleverfile in the [ui] section with the UI_PORT variable.")
 
         # Try to start the QLever UI.
         try:

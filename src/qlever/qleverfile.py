@@ -173,7 +173,7 @@ class Qleverfile:
                 help="The name of the container used by `qlever start`")
 
         ui_args["ui_port"] = arg(
-                "--ui-port", type=int, default=7000,
+                "--ui-port", type=int, default=8176,
                 help="The port of the Qlever UI when running `qlever ui`")
         ui_args["ui_config"] = arg(
                 "--ui-config", type=str, default="default",

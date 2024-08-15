@@ -33,7 +33,7 @@ class ConfigCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
-                "--get-preconfigured-qleverfile", type=str,
+                "--get-qleverfile", type=str,
                 choices=self.qleverfile_names,
                 help="Get one the many pre-configured Qleverfiles")
         subparser.add_argument(
@@ -152,9 +152,10 @@ class ConfigCommand(QleverCommand):
             return True
 
         # Get one of the pre-configured Qleverfiles.
-        if args.get_preconfigured_qleverfile:
+        if args.get_qleverfile:
+            config_name = args.get_qleverfile
             preconfigured_qleverfile_path = \
-                    self.qleverfiles_path / f"Qleverfile.{args.config_name}"
+                    self.qleverfiles_path / f"Qleverfile.{config_name}"
             random_string = get_random_string(12)
             setup_config_cmd = (
                     f"cat {preconfigured_qleverfile_path}"
@@ -185,7 +186,7 @@ class ConfigCommand(QleverCommand):
                 return False
 
             # If we get here, everything went well.
-            log.info(f"Created Qleverfile for config \"{args.config_name}\""
+            log.info(f"Created Qleverfile for config \"{config_name}\""
                      f" in current directory")
             return True
 

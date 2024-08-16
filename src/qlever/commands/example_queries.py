@@ -61,13 +61,25 @@ class ExampleQueriesCommand(QleverCommand):
                                help="Limit on the number of results")
         subparser.add_argument("--accept", type=str,
                                choices=["text/tab-separated-values",
-                                        "application/sparql-results+json"],
+                                        "text/csv",
+                                        "application/sparql-results+json",
+                                        "text/turtle"],
                                default="text/tab-separated-values",
                                help="Accept header for the SPARQL query")
         subparser.add_argument("--clear-cache",
                                choices=["yes", "no"],
                                default="yes",
                                help="Clear the cache before each query")
+        subparser.add_argument("--width-query-description", type=int,
+                               default=40,
+                               help="Width for printing the query description")
+        subparser.add_argument("--width-error-message", type=int,
+                               default=80,
+                               help="Width for printing the error message "
+                               "(0 = no limit)")
+        subparser.add_argument("--width-result-size", type=int,
+                               default=14,
+                               help="Width for printing the result size")
 
     def execute(self, args) -> bool:
         # If `args.accept` is `application/sparql-results+json`, we need `jq`.
@@ -214,9 +226,15 @@ class ExampleQueriesCommand(QleverCommand):
                                     f" | tonumber\" {result_file}",
                                     return_output=True)
                     else:
-                        if args.accept == "text/tab-separated-values":
+                        if (args.accept == "text/tab-separated-values"
+                                or args.accept == "text/csv"):
                             result_size = run_command(
                                     f"sed 1d {result_file} | wc -l",
+                                    return_output=True)
+                        elif args.accept == "text/turtle":
+                            result_size = run_command(
+                                    f"sed '1d;/^@prefix/d;/^\\s*$/d' "
+                                    f"{result_file} | wc -l",
                                     return_output=True)
                         else:
                             result_size = run_command(
@@ -232,19 +250,25 @@ class ExampleQueriesCommand(QleverCommand):
                 Path(result_file).unlink(missing_ok=True)
 
             # Print description, time, result in tabular form.
-            if (len(description) > 60):
-                description = description[:57] + "..."
+            if len(description) > args.width_query_description:
+                description = description[:args.width_query_description - 3]
+                description += "..."
             if error_msg is None:
-                log.info(f"{description:<60}  {time_seconds:6.2f} s  "
-                         f"{result_size:14,}")
+                log.info(f"{description:<{args.width_query_description}}  "
+                         f"{time_seconds:6.2f} s  "
+                         f"{result_size:>{args.width_result_size},}")
                 count_succeeded += 1
                 total_time_seconds += time_seconds
                 total_result_size += result_size
             else:
                 count_failed += 1
-                if (len(error_msg) > 60) and args.log_level != "DEBUG":
-                    error_msg = error_msg[:57] + "..."
-                log.error(f"{description:<60}    failed   "
+                if (args.width_error_message > 0
+                        and len(error_msg) > args.width_error_message
+                        and args.log_level != "DEBUG"):
+                    error_msg = error_msg[:args.width_error_message - 3]
+                    error_msg += "..."
+                log.error(f"{description:<{args.width_query_description}}    "
+                          f"failed   "
                           f"{colored(error_msg, 'red')}")
 
         # Print total time.
@@ -252,11 +276,11 @@ class ExampleQueriesCommand(QleverCommand):
         if count_succeeded > 0:
             query_or_queries = "query" if count_succeeded == 1 else "queries"
             description = (f"TOTAL   for {count_succeeded} {query_or_queries}")
-            log.info(f"{description:<60}  "
+            log.info(f"{description:<{args.width_query_description}}  "
                      f"{total_time_seconds:6.2f} s  "
                      f"{total_result_size:>14,}")
             description = (f"AVERAGE for {count_succeeded} {query_or_queries}")
-            log.info(f"{description:<60}  "
+            log.info(f"{description:<{args.width_query_description}}  "
                      f"{total_time_seconds / count_succeeded:6.2f} s  "
                      f"{round(total_result_size / count_succeeded):>14,}")
         else:

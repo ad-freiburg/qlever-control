@@ -1,47 +1,51 @@
-# Automatically created by the "qlever" script
+# Default Qleverfile, use with https://github.com/ad-freiburg/qlever-control
 #
-# Modify as you see fit. Beware that some of the values below are executed as
-# commands  by the script.
-#
-# If you have never seen a Qleverfile before, we recommend that you look at the
-# pre-filled Qleverfiles on http://qlever.cs.uni-freiburg.de/qlever-control/
-# Qleverfiles first to get some inspiration. Or execute `qlever setup-config
-# <config name>` with a config name of your choice.
+# If you have never seen a Qleverfile before, we recommend that you first look
+# at the example Qleverfiles on http://qlever.cs.uni-freiburg.de/qlever-control/
+# src/qlever/Qleverfiles . Or execute `qlever setup-config <dataset>` on the
+# command line to obtain the example Qleverfiles for <dataset>.
 
 # As a minimum, each dataset needs a name. If you want `qlever get-data` to do
-# something meaningful, you need to define GET_DATA_CMD. If you want to use the
-# QLever UI, you should define DESCRIPTION (and if you have a text index,
-# also TEXT_DESCRIPTION).
+# something meaningful, you need to define GET_DATA_CMD. Otherwise, you need to 
+# generate (or download or copy from somewhere) the input files yourself. Each
+# dataset should have a short DESCRIPTION, ideally with a date.
 [data]
-NAME              =
-# GET_DATA_CMD      =
-# DESCRIPTION = 
-# TEXT_DESCRIPTION  =
+NAME         =
+GET_DATA_CMD =
+DESCRIPTION  = 
 
-# CAT_INPUT_FILES produces the data that is piped into QLever's index builder.
-# Use SETTINGS_JSON for more advanced configuration settings (see the other
-# Qleverfiles for examples).
+# The format for INPUT_FILES should be such that `ls ${INPUT_FILES}` lists all
+# input files. CAT_INPUT_FILES should write a concatenation of all input files
+# to stdout. For example, if your input files are gzipped, you can write `zcat
+# ${INPUT_FILES}`. Regarding SETTINGS_JSON, look at the other Qleverfiles for
+# examples. Several batches of size `num-triples-per-batch` are kept in RAM at 
+# the same time; increasing this, increases the memory usage but speeds up the
+# loading process.
 [index]
-# INPUT_FILES     = 
-# CAT_INPUT_FILES = cat ${INPUT_FILES}
-# SETTINGS_JSON   = {}
+INPUT_FILES     = *.ttl
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "num-triples-per-batch": 1000000 }
 
-# As a minimum, you need to specify the PORT, where QLever will listen for
-# SPARQL queries. If you want to send priviledged commands to the server, you
-# need to specify an ACCESS_TOKEN (modify the random number below).
+# The server listens on PORT. If you want to send privileged commands to the
+# server, you need to specify an ACCESS_TOKEN, which you then have to set via a
+# URL parameter `access_token`. It should not be easily guessable, unless you
+# don't mind others to get privileged access to your server.
 [server]
-PORT = 7001
-# ACCESS_TOKEN = ${data:NAME}_1234567890
+PORT         =
+ACCESS_TOKEN = 
 
-# With USE_DOCKER = true, the qlever script will download the docker image for
-# you and run QLever inside docker containers. With USE_DOCKER = false, you need 
-# the QLever binaries in the PATH of your sheel.
+# Use SYSTEM = docker to run QLever inside a docker container; the Docker image
+# will be downloaded automatically. Use SYSTEM = native to use self-compiled
+# binaries `IndexBuilderMain` and `ServerMain` (which should be in you PATH).
 [runtime]
-SYSTEM = true
+SYSTEM = docker
 IMAGE  = docker.io/adfreiburg/qlever:latest
 
+# UI_PORT specifies the port of the QLever UI web app, when you run `qlever ui`.
 # The UI_CONFIG must be one of the slugs from http://qlever.cs.uni-freiburg.de
 # (see the dropdown menu on the top right, the slug is the last part of the URL).
-# In partiular, this determines the example queries.
+# It determines the example queries and which SPARQL queries are launched to
+# obtain suggestions as you type a query.
 [ui]
+UI_PORT   = 8176
 UI_CONFIG = default

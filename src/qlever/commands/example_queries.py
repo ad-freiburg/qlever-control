@@ -66,6 +66,10 @@ class ExampleQueriesCommand(QleverCommand):
                                         "text/turtle"],
                                default="text/tab-separated-values",
                                help="Accept header for the SPARQL query")
+        subparser.add_argument("--show-query", action="store_true",
+                               default=False,
+                               help="Show the pretty-printed query (requires "
+                               "`sparql-formatter`, install with `npm`)")
         subparser.add_argument("--clear-cache",
                                choices=["yes", "no"],
                                default="yes",
@@ -167,17 +171,9 @@ class ExampleQueriesCommand(QleverCommand):
 
             # Count query.
             if args.download_or_count == "count":
-                # Find first string matching ?[a-zA-Z0-9_]+ in query.
-                match = re.search(r"\?[a-zA-Z0-9_]+", query)
-                if not match:
-                    log.error("Could not find a variable in this query:")
-                    log.info("")
-                    log.info(query)
-                    return False
-                first_var = match.group(0)
                 query = query.replace(
                         "SELECT ",
-                        f"SELECT (COUNT({first_var}) AS {first_var}_count_) "
+                        f"SELECT (COUNT(*) AS ?qlever_count_) "
                         f"WHERE {{ SELECT ", 1) + " }"
 
             # Limit query.
@@ -185,6 +181,16 @@ class ExampleQueriesCommand(QleverCommand):
                 query = query.replace(
                         "SELECT ", "SELECT * WHERE { SELECT ", 1) \
                           + f" }} LIMIT {args.limit}"
+
+            # Show query.
+            if args.show_query:
+                try:
+                    print()
+                    run_command(f"echo {shlex.quote(query)} | sparql-formatter",
+                                return_output=False, show_output=True)
+                except Exception as e:
+                    log.error(e)
+                    print(query)
 
             # Launch query.
             try:
@@ -264,7 +270,8 @@ class ExampleQueriesCommand(QleverCommand):
                 count_failed += 1
                 if (args.width_error_message > 0
                         and len(error_msg) > args.width_error_message
-                        and args.log_level != "DEBUG"):
+                        and args.log_level != "DEBUG"
+                        and not args.show_query):
                     error_msg = error_msg[:args.width_error_message - 3]
                     error_msg += "..."
                 log.error(f"{description:<{args.width_query_description}}    "

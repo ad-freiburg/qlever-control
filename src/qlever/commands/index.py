@@ -25,7 +25,7 @@ class IndexCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name"],
+        return {"data": ["name", "format"],
                 "index": ["input_files", "cat_input_files", "settings_json",
                           "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
@@ -41,7 +41,7 @@ class IndexCommand(QleverCommand):
     def execute(self, args) -> bool:
         # Construct the command line.
         index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
-                     f" -F ttl -f -"
+                     f" -F {args.format} -"
                      f" -i {args.name}"
                      f" -s {args.name}.settings.json")
         if args.only_pso_and_pos_permutations:

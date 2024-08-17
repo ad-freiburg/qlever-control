@@ -53,6 +53,10 @@ class Qleverfile:
                 "--text-description", type=str, default=None,
                 help="A concise description of the additional text data"
                      " if any")
+        data_args["format"] = arg(
+                "--format", type=str, default="ttl",
+                choices=["ttl", "nt", "nq"],
+                help="The format of the data")
 
         index_args["input_files"] = arg(
                 "--input-files", type=str, required=True,

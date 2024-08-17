@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import errno
 import re
 import secrets
+import socket
 import shlex
 import shutil
 import string
@@ -180,3 +182,21 @@ def get_random_string(length: int) -> str:
     """
     characters = string.ascii_letters + string.digits
     return "".join(secrets.choice(characters) for _ in range(length))
+
+
+def is_port_used(port: int) -> bool:
+    """
+    Try to bind to the port on all interfaces to check if the port is already in use.
+    If the port is already in use, `socket.bind` will raise an `OSError` with errno EADDRINUSE.
+    """
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Ensure that the port is not blocked after the check.
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('', port))
+        sock.close()
+        return False
+    except OSError as err:
+        if err.errno != errno.EADDRINUSE:
+            log.warning(f"Failed to determine if port is used: {err}")
+        return True

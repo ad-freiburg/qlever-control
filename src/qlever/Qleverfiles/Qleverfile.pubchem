@@ -1,60 +1,51 @@
 # Qleverfile for PubChem, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads .gz files of total size 114 GB; see NOTES 2, 3, 4
-# qlever index     # takes ~5 hours and ~20 GB RAM on an AMD Ryzen 9 5900X
-# qlever start     # starts the server (a few seconds)
+# Resource requirements (as of 18.08.2024, on an AMD Ryzen 9 5900X):
+#
+# qlever get-data  # ~2 hours, ~132 GB, 18.5 B triples
+# qlever index     # ~6 hours, ~20 GB RAM, ~40 GB disk
+# qlever start     # a few seconds
 #
 # IMPORTANT NOTES:
 #
-# NOTE 1: The SPARQL endpoint at https://qlever.cs.uni-freiburg.de/pubchem also
-# contains data from the following ontologies, which are very useful for
-# resolving names of IRIs like `sio:SIO_000008` or `obo:IAO_0000412`, but which
-# are not part of the PubChem RDF data. For the corresponding URLs, see
-# https://github.com/ad-freiburg/qlever/issues/711#issuecomment-1200479401 .
+# NOTE 1: The GET_DATA_CMD does not only download the PubChem RDF data, but also
+# a number of ontologies. These are very useful for resolving names of IRIs like
+# `sio:SIO_000008` or `obo:IAO_0000412` (which are hard to understand otherwise).
+# The ontologies BAO and NDF-RT are infrequently updated, for the latest versions,
+# see the download links at https://bioportal.bioontology.org/ontologies/BAO and
+# https://bioportal.bioontology.org/ontologies/NDF-RT .
 # 
-# bao bfo biopax-level3 chebi cheminf cito dublin_core_terms fabio go iao ncit
-# obi pr ro sio skos so uo
-#
-# NOTE 2: The robots.txt file from https://ftp.ncbi.nlm.nih.gov currently
-# disallows downloading the PubChem RDF data using `wget --recursive` as in the
-# GET_DATA_CMD below. As a workaround, you can write a simple Python script
-# (using `BeautifulSoup` and `urllib.parse`) to scrape the URLs from the HTML
-# pages and download the files individually. This was done for the latest
-# version of https://qlever.cs.uni-freiburg.de/pubchem .
-#
-# NOTE 3: Many of the TTL files have generic prefix definitions in the middle
+# NOTE 2: Many of the TTL files have generic prefix definitions in the middle
 # of the file, like @prefix ns23: <http://identifiers.org/biocyc/ARACYC:> .
 # See https://github.com/ad-freiburg/qlever/issues/711#issuecomment-1197113953
-# This is allowed by the standard, but VERY unusual. For use with QLever,
-# convert the TTL files to NT before indexing, see GET_DATA_CMD below.
+# This is allowed by the standard, but unusual. For use with QLever, we convert
+# the TTL files to NT before indexing.
 #
-# NOTE 4: Many of the files (TTL as well as NT) contain invalid IRIs because
-# spaces and braces are not properly escaped. Here is a simple awk-based script
-# to percent-encode spaces and braces in all IRIs in the NT files:
-#
-# for NTGZ in nt.${DATE}/*.nt.gz; do echo "zcat $NTGZ | sed 's/> />\t/1; s/> />\t/1; s/ \.\$/\t./' | awk 'BEGIN{FS=OFS=\"\t\"} {for (i = 1; i <= 3; i++) if (\$i ~ /^<.*>\$/) { gsub(/ /, \"%20\", \$i); gsub(/\[/, \"%5B\", \$i); gsub(/\]/, \"%5D\", \$i); gsub(/{/, \"%7B\", \$i); gsub(/}/, \"%7D\", \$i); } print }' | sed 's/\t/ /g' | gzip -c > nt.${DATE}.FIXED/$(basename $NTGZ)"; done > fix-nt.commands.txt
-# cat fix-nt.commands.txt | parallel
-
-
-[DEFAULT]
-NAME = pubchem
-DATE = 2024-02-03
+# NOTE 3: The input files used to contain invalid IRIs because spaces and
+# braces are not properly escaped. The previous version of this Qleverfile used
+# a combination of sed and awk to fix this. The hope is that this has been fixed
+# in the original data by now.
 
 [data]
-GET_DATA_URL      = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
-MAKE_GET_DATA_CMD = curl -s ${GET_DATA_URL}/void.ttl | grep -oP '${GET_DATA_URL}/.*?\.ttl\.gz' | grep -v "nbr[23]d" | while read URL; do echo "echo \"Processing $$URL ...\"; curl --silent --remote-time --output ttl.${DATE}/$$(basename $$URL) $$URL && docker run --rm -v $$(pwd)/ttl.${DATE}:/data stain/jena turtle --output=NT /data/$$(basename $$URL) | sed 's/> />\t/1; s/> />\t/1; s/ \.\$$/\t./' | awk 'BEGIN{FS=OFS=\"\t\"} {for (i = 1; i <= 3; i++) if (\$$i ~ /^<.*>\$$/) { gsub(/ /, \"%20\", \$$i); gsub(/\[/, \"%5B\", \$$i); gsub(/\]/, \"%5D\", \$$i); gsub(/{/, \"%7B\", \$$i); gsub(/}/, \"%7D\", \$$i); } print }' | sed 's/\t/ /g' | gzip -c > nt.${DATE}/$$(basename -s .ttl.gz $$URL).nt.gz"; done > pubchem.get-data-cmds.txt
-GET_DATA_CMD      = mkdir -p ttl.${DATE} && mkdir -p nt.${DATE} && ${MAKE_GET_DATA_CMD} && cat pubchem.get-data-cmds.txt | parallel --line-buffer
-DESCRIPTION       = PubChem RDF from ${GET_DATA_URL}, version ${DATE} (all folders except nbr2d and nbr3d)
+NAME                 = pubchem
+GET_DATA_URL         = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
+CHECK_REQUIREMENTS   = for CMD in xxxdocker xxxparallel; do $$CMD --version >/dev/null 2>&1 || (echo "Requires \"$$CMD\", please install it"; false); done
+MAKE_GET_DATA_CMD_1  = DIR=DATA.ontologies && mkdir -p $$DIR && cat $$DIR/ontologies.csv | while IFS=',' read -r DESC FILE URL; do ERRFILE=$${FILE%.*}.stderr; echo "echo \"Processing $$URL ($$FILE) ...\" && curl -sLRo $$DIR/$$FILE \"$$URL\" && docker run --rm -v $$(pwd):/data stain/jena riot --output=NT /data/$$DIR/$$FILE 2> $$DIR/$$ERRFILE | gzip -c > $$DIR/$${FILE%.*}.nt.gz && rm -f $$DIR/$$FILE && if [ ! -s $$DIR/$$ERRFILE ]; then rm -f $$DIR/$$ERRFILE; fi || echo \"ERROR processing $$URL ($$FILE)\""; done > pubchem.get-data-cmds-1.txt
+MAKE_GET_DATA_CMD_2  = DIR=DATA.pubchem && mkdir -p $$DIR && curl -LRO ${GET_DATA_URL}/void.ttl && grep -oP '${GET_DATA_URL}/.*?\.ttl\.gz' void.ttl | while read URL; do FILE=$$(basename $$URL); echo "echo \"Processing $$URL ...\" && curl -sLRo $$DIR/$$FILE \"$$URL\" && docker run -i --rm -v $$(pwd):/data stain/jena turtle --output=NT /data/$$DIR/$$FILE | gzip -c > $$DIR/$${FILE%%.*}.nt.gz && rm -f $$DIR/$$FILE || echo \"ERROR processing $$URL\""; done > pubchem.get-data-cmds-2.txt
+GET_DATA_CMD        = ${CHECK_REQUIREMENTS} && ${MAKE_GET_DATA_CMD_1} && ${MAKE_GET_DATA_CMD_2} && cat pubchem.get-data-cmds-?.txt | parallel --line-buffer 2>&1 | tee pubchem.get-data-log.txt
+VERSION             = $$(date -r ttl/void.ttl +%d.%m.%Y || echo "NO_DATE")
+DESCRIPTION         = PubChem RDF from ${GET_DATA_URL}, version ${VERSION}
+MAKE_ONTOLOGIES_CSV = $$(mkdir -p DATA.ontologies && echo "BAO - BioAssay Ontology,bao.owl,https://data.bioontology.org/ontologies/BAO/submissions/56/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nBFO - Basic Formal Ontology,bfo.owl,http://purl.obolibrary.org/obo/bfo.owl\n BioPAX - biological pathway data,bp.owl,http://www.biopax.org/release/biopax-level3.owl\n CHEMINF - Chemical Information Ontology,cheminf.owl,http://purl.obolibrary.org/obo/cheminf.owl\n ChEBI - Chemical Entities of Biological Interest,chebi.owl,http://purl.obolibrary.org/obo/chebi.owl\n CiTO,cito.nt,http://purl.org/spar/cito.nt\n DCMI Terms,dcterms.nt,https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.nt\n FaBiO,fabio.nt,http://purl.org/spar/fabio.nt\n GO - Gene Ontology,go.owl,http://purl.obolibrary.org/obo/go.owl\n IAO - Information Artifact Ontology,iao.owl,http://purl.obolibrary.org/obo/iao.owl\n NCIt,ncit.owl,http://purl.obolibrary.org/obo/ncit.owl\n NDF-RT,ndfrt.owl,https://data.bioontology.org/ontologies/NDF-RT/submissions/1/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\n OBI - Ontology for Biomedical Investigations,obi.owl,http://purl.obolibrary.org/obo/obi.owl\n OWL,owl.ttl,http://www.w3.org/2002/07/owl.ttl\n PDBo,pdbo.owl,http://rdf.wwpdb.org/schema/pdbx-v40.owl\n PR - PRotein Ontology (PRO),pr.owl,http://purl.obolibrary.org/obo/pr.owl\n RDF Schema,rdfs.ttl,https://www.w3.org/2000/01/rdf-schema.ttl\n RDF,rdf.ttl,http://www.w3.org/1999/02/22-rdf-syntax-ns.ttl\n RO - Relation Ontology,ro.owl,http://purl.obolibrary.org/obo/ro.owl\n SIO - Semanticscience Integrated Ontology,sio.owl,http://semanticscience.org/ontology/sio.owl\n SKOS,skos.rdf,http://www.w3.org/TR/skos-reference/skos.rdf\n SO - Sequence types and features ontology,so.owl,http://purl.obolibrary.org/obo/so.owl\n UO - Units of measurement ontology,uo.owl,http://purl.obolibrary.org/obo/uo.owl" > DATA.ontologies/ontologies.csv)
 
 [index]
-INPUT_FILES     = pubchem.additional-ontologies.nt.gz nt.${DATE}/*.nt.gz
+INPUT_FILES     = DATA.ontologies/*.nt.gz DATA.pubchem/*.nt.gz
 CAT_INPUT_FILES = zcat ${INPUT_FILES}
-SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
 STXXL_MEMORY    = 10G
 
 [server]
 PORT               = 7023
-ACCESS_TOKEN       = ${NAME}_310129823
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 20G
 TIMEOUT            = 120s
 

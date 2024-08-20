@@ -167,18 +167,10 @@ class ExampleQueriesCommand(QleverCommand):
 
             # Count query.
             if args.download_or_count == "count":
-                # Find first string matching ?[a-zA-Z0-9_]+ in query.
-                match = re.search(r"\?[a-zA-Z0-9_]+", query)
-                if not match:
-                    log.error("Could not find a variable in this query:")
-                    log.info("")
-                    log.info(query)
-                    return False
-                first_var = match.group(0)
                 query = query.replace(
                         "SELECT ",
-                        f"SELECT (COUNT({first_var}) AS {first_var}_count_) "
-                        f"WHERE {{ SELECT ", 1) + " }"
+                        "SELECT (COUNT(*) AS ?qlever_count_) "
+                        "WHERE {{ SELECT ", 1) + " }"
 
             # Limit query.
             if args.limit:

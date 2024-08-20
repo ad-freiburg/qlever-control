@@ -59,6 +59,9 @@ class ExampleQueriesCommand(QleverCommand):
                                "or just compute the size of the result")
         subparser.add_argument("--limit", type=int,
                                help="Limit on the number of results")
+        subparser.add_argument("--remove-offset-and-limit",
+                               action="store_true", default=False,
+                               help="Remove OFFSET and LIMIT from the query")
         subparser.add_argument("--accept", type=str,
                                choices=["text/tab-separated-values",
                                         "text/csv",
@@ -82,6 +85,11 @@ class ExampleQueriesCommand(QleverCommand):
                                help="Width for printing the result size")
 
     def execute(self, args) -> bool:
+        # We can't have both `--remove-offset-and-limit` and `--limit`.
+        if args.remove_offset_and_limit and args.limit:
+            log.error("Cannot have both --remove-offset-and-limit and --limit")
+            return False
+
         # If `args.accept` is `application/sparql-results+json`, we need `jq`.
         if args.accept == "application/sparql-results+json":
             try:
@@ -165,18 +173,41 @@ class ExampleQueriesCommand(QleverCommand):
                 with mute_log():
                     ClearCacheCommand().execute(args)
 
-            # Count query.
-            if args.download_or_count == "count":
-                query = query.replace(
-                        "SELECT ",
-                        "SELECT (COUNT(*) AS ?qlever_count_) "
-                        "WHERE {{ SELECT ", 1) + " }"
+            # Remove OFFSET and LIMIT (after the last closing bracket).
+            if args.remove_offset_and_limit or args.limit:
+                closing_bracket_idx = query.rfind("}")
+                regexes = [re.compile(r"OFFSET\s+\d+\s*", re.IGNORECASE),
+                           re.compile(r"LIMIT\s+\d+\s*", re.IGNORECASE)]
+                for regex in regexes:
+                    match = re.search(regex, query[closing_bracket_idx:])
+                    if match:
+                        query = query[:closing_bracket_idx + match.start()] + \
+                                query[closing_bracket_idx + match.end():]
 
             # Limit query.
             if args.limit:
-                query = query.replace(
-                        "SELECT ", "SELECT * WHERE { SELECT ", 1) \
-                          + f" }} LIMIT {args.limit}"
+                query += f" LIMIT {args.limit}"
+
+            # Count query.
+            if args.download_or_count == "count":
+                # First find out if there is a FROM clause.
+                regex_from_clause = re.compile(r"\s*FROM\s+<[^>]+>\s*",
+                                               re.IGNORECASE)
+                match_from_clause = re.search(regex_from_clause, query)
+                from_clause = " "
+                if match_from_clause:
+                    from_clause = match_from_clause.group(0)
+                    query = (query[:match_from_clause.start()] + " " +
+                             query[match_from_clause.end():])
+                # Now we can add the outer SELECT COUNT(*).
+                query = re.sub(r"SELECT ",
+                               "SELECT (COUNT(*) AS ?qlever_count_)"
+                               + from_clause + "WHERE { SELECT ",
+                               query, count=1, flags=re.IGNORECASE) + " }"
+
+            # A bit of pretty-printing.
+            query = re.sub(r"\s+", " ", query)
+            query = re.sub(r"\s*\.\s*\}", " }", query)
 
             # Launch query.
             try:

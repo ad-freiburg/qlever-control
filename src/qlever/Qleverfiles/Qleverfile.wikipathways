@@ -1,16 +1,16 @@
 # Qleverfile for WikiPathways, use with https://github.com/ad-freiburg/qlever-control
 #
-# qlever get-data  # downloads .gz file of size ~100 MB (as of 24.02.2024)
+# qlever get-data  # takes ~3 seconds, generates TTL of size ~600 MB
 # qlever index     # takes ~20 seconds and little RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server (takes around 2 minutes)
+# qlever start     # instant
 #
 # Limitations: does not include the ontologies (WP, GPML, ChEBI, PW, CLO, ...) yet
 
 [data]
 NAME             = wikipathways
-RELEASE          = 20231210
+RELEASE          = 20240810
 GET_DATA_URL     = https://data.wikipathways.org/${RELEASE}/rdf
-GET_DATA_CMD     = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-void.ttl && \
+GET_DATA_CMD     = wget -O wikipathways-rdf-void.ttl ${GET_DATA_URL}/wikipathways-rdf-void.ttl && \
                     wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-wp.zip && \
                       unzip -qq -c wikipathways-${RELEASE}-rdf-wp.zip -x wp/wpOntology.ttl > wikipathways-rdf-wp.ttl && \
                     wget ${GET_DATA_URL}/wikipathways-${RELEASE}-rdf-gpml.zip && 
@@ -23,13 +23,13 @@ TEXT_DESCRIPTION = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
 INPUT_FILES     = ${data:NAME}.prefix-definitions wikipathways-rdf-wp.ttl wikipathways-rdf-gpml.ttl wikipathways-rdf-void.ttl wikipathways-rdf-authors.ttl
-CAT_INPUT_FILES = cat ${FILE_NAMES}
+CAT_INPUT_FILES = cat ${INPUT_FILES}
 SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
 TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7040
-ACCESS_TOKEN       = ${data:NAME}_7643543846
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 5G
 
 [runtime]

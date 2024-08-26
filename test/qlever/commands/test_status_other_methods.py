@@ -49,7 +49,3 @@ class TestStatusCommand(unittest.TestCase):
         # Test that the help text is correctly set
         argument_help = subparser._group_actions[-1].help
         self.assertEqual(argument_help, "Show only processes where the command line matches this regex")
-
-
-if __name__ == '__main__':
-    unittest.main()

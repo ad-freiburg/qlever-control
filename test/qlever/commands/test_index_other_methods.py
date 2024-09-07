@@ -3,7 +3,7 @@ from qlever.commands.index import IndexCommand
 import argparse
 
 
-class TestStopCommand(unittest.TestCase):
+class TestIndexCommand(unittest.TestCase):
     def test_description(self):
         # Create an instance of IndexCommand
         ic = IndexCommand()

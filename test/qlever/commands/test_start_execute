@@ -19,13 +19,13 @@ class TestStartCommand(unittest.TestCase):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = True
-        args.port = 8080
+        args.port = 1234
         args.server_binary = "/test/path/server_binary"
         args.name = "TestName"
-        args.num_threads = 4
+        args.num_threads = 2
         args.memory_for_queries = "8G"
         args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
+        args.cache_max_size_single_entry = "124M"
         args.cache_max_num_entries = 1000
         args.system = "native"
         args.show = False
@@ -60,15 +60,15 @@ class TestStartCommand(unittest.TestCase):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = False
-        args.port = 8080
+        args.port = 1234
         args.cmdline_regex = f"^ServerMain.* -p {args.port}"
         args.no_containers = True
         args.server_binary = "/test/path/server_binary"
         args.name = "TestName"
-        args.num_threads = 4
+        args.num_threads = 2
         args.memory_for_queries = "8G"
         args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
+        args.cache_max_size_single_entry = "124M"
         args.cache_max_num_entries = 1000
         args.system = "native"
         args.show = False
@@ -101,13 +101,13 @@ class TestStartCommand(unittest.TestCase):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = False
-        args.port = 8080
+        args.port = 1234
         args.server_binary = "/test/path/server_binary"
         args.name = "TestName"
-        args.num_threads = 4
+        args.num_threads = 2
         args.memory_for_queries = "8G"
         args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
+        args.cache_max_size_single_entry = "124M"
         args.cache_max_num_entries = 1000
         args.system = "native"
         args.show = False
@@ -130,26 +130,28 @@ class TestStartCommand(unittest.TestCase):
         self.assertTrue(mock_run_command.called)  # Ensure the server was started
         self.assertTrue(result)  # Ensure execution was successful
 
+    @patch('qlever.commands.start.CacheStatsCommand.execute')
     @patch('qlever.commands.start.run_command')
     @patch('qlever.commands.start.is_qlever_server_alive')
     @patch('subprocess.Popen')
+    @patch('subprocess.run')
     @patch('qlever.commands.start.Containerize')
-    def test_execute_server_with_warmup(self, mock_containerize, mock_popen, mock_is_qlever_server_alive,
-                                        mock_run_command):
+    def test_execute_server_with_warmup(self, mock_containerize, mock_run, mock_popen, mock_is_qlever_server_alive,
+                                        mock_run_command, mock_cache_stats_command):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = False
-        args.port = 8080
+        args.port = 1234
         args.server_binary = "/test/path/server_binary"
         args.name = "TestName"
-        args.num_threads = 4
+        args.num_threads = 2
         args.memory_for_queries = "8G"
         args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
+        args.cache_max_size_single_entry = "124M"
         args.cache_max_num_entries = 1000
         args.system = "native"
         args.show = False
-        args.warmup_cmd = "warmup_command"
+        args.warmup_cmd = "test_warmup_command"
         args.no_warmup = False
 
         # Mock Popen
@@ -157,6 +159,7 @@ class TestStartCommand(unittest.TestCase):
 
         # Mock that no server is currently running
         mock_is_qlever_server_alive.side_effect = [False, True]
+
 
         # Instantiate the StartCommand
         sc = StartCommand()
@@ -169,185 +172,8 @@ class TestStartCommand(unittest.TestCase):
         mock_is_qlever_server_alive.assert_called()  # Ensure the server status was checked
         self.assertTrue(result)  # Execution should succeed
 
-        # Check that Popen was called for tailing the log and warmup, but also check individual calls
-        expected_tail_call = call(f"exec tail -f {args.name}.server-log.txt", shell=True)
-        expected_warmup_call = call(args.warmup_cmd, shell=True)
+        # Check that Popen was called
+        mock_popen.assert_called_once_with(f"exec tail -f {args.name}.server-log.txt", shell=True)
 
-        # Check the individual calls made to Popen
-        mock_popen.assert_has_calls([expected_tail_call, expected_warmup_call], any_order=True)import unittest
-from unittest.mock import patch, MagicMock, call
-from qlever.commands.start import StartCommand
-from qlever.util import run_command, is_qlever_server_alive
-import subprocess
-
-
-class TestStartCommand(unittest.TestCase):
-
-    @patch('qlever.commands.stop.StopCommand.execute', return_value=True)  # Simuliere erfolgreiches Stoppen
-    @patch('qlever.commands.start.run_command')
-    @patch('qlever.commands.start.is_qlever_server_alive')
-    @patch('subprocess.Popen')
-    @patch('qlever.commands.start.Containerize')
-    # @patch('qlever.commands.cache_stats.CacheStatsCommand.execute')
-    # @patch('time.sleep', return_value=None)  # Mocking sleep to avoid delays
-    def test_execute_kills_existing_server_on_same_port(self, mock_containerize, mock_popen,
-                                                        mock_is_qlever_server_alive, mock_run_command, mock_stop):
-        # Setup args
-        args = MagicMock()
-        args.kill_existing_with_same_port = True
-        args.port = 8080
-        args.server_binary = "/test/path/server_binary"
-        args.name = "TestName"
-        args.num_threads = 4
-        args.memory_for_queries = "8G"
-        args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
-        args.cache_max_num_entries = 1000
-        args.system = "native"
-        args.show = False
-        args.no_warmup = True
-
-
-        # Mock server is alive initially, then killed, then alive after the restart.
-        # We trust here that the StopCommand to kill the server worked with success.
-        mock_is_qlever_server_alive.side_effect = [False, True]
-
-        # Mock Popen
-        mock_popen.return_value = MagicMock()
-
-        # Instantiate the StartCommand
-        sc = StartCommand()
-
-        # Execute the function
-        result = sc.execute(args)
-
-        # Assertions
-        mock_stop.assert_called_once()  # Ensure the StopCommand was called
-        mock_is_qlever_server_alive.assert_called()  # Server status should be checked
-        self.assertTrue(mock_run_command.called)  # Ensure the server was started
-        self.assertTrue(result)  # Ensure execution was successful
-
-
-    @patch('qlever.commands.start.run_command')
-    @patch('qlever.commands.start.is_qlever_server_alive')
-    @patch('qlever.commands.start.Containerize')
-    def test_execute_fails_due_to_existing_server(self, mock_containerize, mock_is_qlever_server_alive,
-                                                  mock_run_command):
-        # Setup args
-        args = MagicMock()
-        args.kill_existing_with_same_port = False
-        args.port = 8080
-        args.cmdline_regex = f"^ServerMain.* -p {args.port}"
-        args.no_containers = True
-        args.server_binary = "/test/path/server_binary"
-        args.name = "TestName"
-        args.num_threads = 4
-        args.memory_for_queries = "8G"
-        args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
-        args.cache_max_num_entries = 1000
-        args.system = "native"
-        args.show = False
-
-        # Mock the QLever server as already running
-        mock_is_qlever_server_alive.return_value = True
-
-        # Instantiate the StartCommand
-        sc = StartCommand()
-
-        # Execute the function
-        result = sc.execute(args)
-
-        # Assertions
-        mock_is_qlever_server_alive.assert_called_once_with(args.port)  # Ensure the server status was checked
-
-        # Check that `run_command` was called only for the `--help` check, but not the actual start command
-        mock_run_command.assert_any_call(f"{args.server_binary} --help")  # Allow the `--help` command
-        self.assertEqual(mock_run_command.call_count, 1,
-                         "run_command should only be called for '--help', not the server start command.")
-        self.assertFalse(result)  # The function should return False if the server is already running
-
-    @patch('qlever.commands.start.run_command')
-    @patch('qlever.commands.start.is_qlever_server_alive')
-    @patch('subprocess.Popen')
-    @patch('qlever.commands.start.Containerize')
-    @patch('time.sleep', return_value=None)  # Mocking sleep to avoid delays
-    def test_execute_successful_server_start(self, mock_sleep, mock_containerize, mock_popen,
-                                             mock_is_qlever_server_alive, mock_run_command):
-        # Setup args
-        args = MagicMock()
-        args.kill_existing_with_same_port = False
-        args.port = 8080
-        args.server_binary = "/test/path/server_binary"
-        args.name = "TestName"
-        args.num_threads = 4
-        args.memory_for_queries = "8G"
-        args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
-        args.cache_max_num_entries = 1000
-        args.system = "native"
-        args.show = False
-        args.no_warmup = True
-
-        # Mock server is not alive initially, then alive after starting
-        mock_is_qlever_server_alive.side_effect = [False, True]
-
-        # Mock Popen
-        mock_popen.return_value = MagicMock()
-
-        # Instantiate the StartCommand
-        sc = StartCommand()
-
-        # Execute the function
-        result = sc.execute(args)
-
-        # Assertions
-        mock_is_qlever_server_alive.assert_called()  # Server status should be checked
-        self.assertTrue(mock_run_command.called)  # Ensure the server was started
-        self.assertTrue(result)  # Ensure execution was successful
-
-    @patch('qlever.commands.start.run_command')
-    @patch('qlever.commands.start.is_qlever_server_alive')
-    @patch('subprocess.Popen')
-    @patch('qlever.commands.start.Containerize')
-    def test_execute_server_with_warmup(self, mock_containerize, mock_popen, mock_is_qlever_server_alive,
-                                        mock_run_command):
-        # Setup args
-        args = MagicMock()
-        args.kill_existing_with_same_port = False
-        args.port = 8080
-        args.server_binary = "/test/path/server_binary"
-        args.name = "TestName"
-        args.num_threads = 4
-        args.memory_for_queries = "8G"
-        args.cache_max_size = "2G"
-        args.cache_max_size_single_entry = "512M"
-        args.cache_max_num_entries = 1000
-        args.system = "native"
-        args.show = False
-        args.warmup_cmd = "warmup_command"
-        args.no_warmup = False
-
-        # Mock Popen
-        mock_popen.return_value = MagicMock()
-
-        # Mock that no server is currently running
-        mock_is_qlever_server_alive.side_effect = [False, True]
-
-        # Instantiate the StartCommand
-        sc = StartCommand()
-
-        # Execute the function
-        result = sc.execute(args)
-
-        # Assertions
-        mock_run_command.assert_called()  # Ensure the server was started
-        mock_is_qlever_server_alive.assert_called()  # Ensure the server status was checked
-        self.assertTrue(result)  # Execution should succeed
-
-        # Check that Popen was called for tailing the log and warmup, but also check individual calls
-        expected_tail_call = call(f"exec tail -f {args.name}.server-log.txt", shell=True)
-        expected_warmup_call = call(args.warmup_cmd, shell=True)
-
-        # Check the individual calls made to Popen
-        mock_popen.assert_has_calls([expected_tail_call, expected_warmup_call], any_order=True)
+        # Check warmup was called
+        mock_run.assert_called_once_with(args.warmup_cmd, shell=True, check=True)

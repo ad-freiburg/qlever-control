@@ -167,13 +167,14 @@ class TestStartCommand(unittest.TestCase):
         # Execute the function
         result = sc.execute(args)
 
-        # Assertions
-        mock_run_command.assert_called()  # Ensure the server was started
-        mock_is_qlever_server_alive.assert_called()  # Ensure the server status was checked
-        self.assertTrue(result)  # Execution should succeed
-
         # Check that Popen was called
         mock_popen.assert_called_once_with(f"exec tail -f {args.name}.server-log.txt", shell=True)
 
         # Check warmup was called
         mock_run.assert_called_once_with(args.warmup_cmd, shell=True, check=True)
+        
+        # Assertions
+        mock_is_qlever_server_alive.assert_called()  # Ensure the server status was checked
+        mock_run_command.assert_called()  # Ensure the server was started
+        self.assertTrue(result)  # Execution should succeed
+

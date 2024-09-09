@@ -7,6 +7,7 @@ import subprocess
 
 class TestStartCommand(unittest.TestCase):
 
+    @patch('qlever.commands.start.CacheStatsCommand.execute')
     @patch('qlever.commands.stop.StopCommand.execute', return_value=True)  # Simuliere erfolgreiches Stoppen
     @patch('qlever.commands.start.run_command')
     @patch('qlever.commands.start.is_qlever_server_alive')
@@ -15,7 +16,7 @@ class TestStartCommand(unittest.TestCase):
     # @patch('qlever.commands.cache_stats.CacheStatsCommand.execute')
     # @patch('time.sleep', return_value=None)  # Mocking sleep to avoid delays
     def test_execute_kills_existing_server_on_same_port(self, mock_containerize, mock_popen,
-                                                        mock_is_qlever_server_alive, mock_run_command, mock_stop):
+                                                        mock_is_qlever_server_alive, mock_run_command, mock_stop, mock_cache_stats_command):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = True
@@ -91,13 +92,14 @@ class TestStartCommand(unittest.TestCase):
                          "run_command should only be called for '--help', not the server start command.")
         self.assertFalse(result)  # The function should return False if the server is already running
 
+    @patch('qlever.commands.start.CacheStatsCommand.execute')
     @patch('qlever.commands.start.run_command')
     @patch('qlever.commands.start.is_qlever_server_alive')
     @patch('subprocess.Popen')
     @patch('qlever.commands.start.Containerize')
     @patch('time.sleep', return_value=None)  # Mocking sleep to avoid delays
     def test_execute_successful_server_start(self, mock_sleep, mock_containerize, mock_popen,
-                                             mock_is_qlever_server_alive, mock_run_command):
+                                             mock_is_qlever_server_alive, mock_run_command, mock_cache_stats_command):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = False
@@ -172,9 +174,8 @@ class TestStartCommand(unittest.TestCase):
 
         # Check warmup was called
         mock_run.assert_called_once_with(args.warmup_cmd, shell=True, check=True)
-        
+
         # Assertions
         mock_is_qlever_server_alive.assert_called()  # Ensure the server status was checked
         mock_run_command.assert_called()  # Ensure the server was started
         self.assertTrue(result)  # Execution should succeed
-

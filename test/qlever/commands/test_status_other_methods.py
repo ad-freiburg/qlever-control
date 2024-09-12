@@ -5,30 +5,15 @@ import argparse
 
 class TestStatusCommand(unittest.TestCase):
     def test_description(self):
-        # Create an instance of StatusCommand
-        sc = StatusCommand()
-
-        # Call the method
-        result = sc.description()
-
+        result = StatusCommand().description()
         self.assertEqual(result, "Show QLever processes running on this machine")
 
     def test_should_have_qleverfile(self):
-        # Create an instance of StatusCommand
-        sc = StatusCommand()
+        self.assertFalse(StatusCommand().should_have_qleverfile())
 
-        # Call the method
-        result = sc.should_have_qleverfile()
-
-        assert not result
 
     def test_relevant_qleverfile_arguments(self):
-        # Create an instance of StatusCommand
-        sc = StatusCommand()
-
-        # Call the method
-        result = sc.relevant_qleverfile_arguments()
-
+        result = StatusCommand().relevant_qleverfile_arguments()
         self.assertEqual(result, {})
 
     def test_additional_arguments(self):

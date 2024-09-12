@@ -19,7 +19,8 @@ class TestStatusCommand(unittest.TestCase):
     @patch('psutil.process_iter')
     # testing execute for 2 processes. Just the second one is a qlever process.
     # Mocking the process_iter and show_process_info method and testing if the methods are called correctly.
-    def test_execute_processes_found(self, mock_process_iter, mock_show_process_info):
+    def test_execute_processes_found(self, mock_process_iter,
+                                     mock_show_process_info):
         # Mocking the input for the execute function
         [args, args.cmdline_regex, args.show] = get_mock_args(False)
 
@@ -50,7 +51,8 @@ class TestStatusCommand(unittest.TestCase):
         mock_process3.as_dict.return_value = {'test': [3]}
 
         # Mock the return value of process_iter to be a list of these mocked process objects
-        mock_process_iter.return_value = [mock_process1, mock_process2, mock_process3]
+        mock_process_iter.return_value = [mock_process1, mock_process2,
+                                          mock_process3]
 
         # Simulate show_process_info returning False for the first and True for the second process
         mock_show_process_info.side_effect = [False, True, False]
@@ -64,15 +66,18 @@ class TestStatusCommand(unittest.TestCase):
         mock_process_iter.assert_called_once()
 
         # Assert that show_process_info was called 3times in correct order with the correct arguments
-        expected_calls = [call(mock_process1, args.cmdline_regex, show_heading=True),
-                          call(mock_process2, args.cmdline_regex, show_heading=True),
-                          call(mock_process3, args.cmdline_regex, show_heading=False)]
-        mock_show_process_info.assert_has_calls(expected_calls, any_order=False)
+        expected_calls = [
+            call(mock_process1, args.cmdline_regex, show_heading=True),
+            call(mock_process2, args.cmdline_regex, show_heading=True),
+            call(mock_process3, args.cmdline_regex, show_heading=False)]
+        mock_show_process_info.assert_has_calls(expected_calls,
+                                                any_order=False)
         self.assertIsNone(result)
 
     @patch('qlever.util.show_process_info')
     @patch('psutil.process_iter')
-    def test_execute_no_processes_found(self, mock_process_iter, mock_show_process_info):
+    def test_execute_no_processes_found(self, mock_process_iter,
+                                        mock_show_process_info):
         # Mocking the input for the execute function
         [args, args.cmdline_regex, args.show] = get_mock_args(False)
 
@@ -113,7 +118,8 @@ class TestStatusCommand(unittest.TestCase):
 
         # Assert that verifies that show was called with the correct parameters
         mock_show.assert_any_call(f"Show all processes on this machine where "
-                  f"the command line matches {args.cmdline_regex}"
-                  f" using Python's psutil library", only_show=args.show)
+                            f"the command line matches {args.cmdline_regex}"
+                            f" using Python's psutil library",
+                            only_show=args.show)
 
         self.assertFalse(result)

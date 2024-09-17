@@ -106,7 +106,7 @@ class Qleverfile:
                 help="The binary for starting the server (this requires "
                      "that you have compiled QLever on your machine)")
         server_args["host_name"] = arg(
-                "--host-name", type=str, default=f"{socket.getfqdn()}",
+                "--host-name", type=str, default=f"localhost",
                 help="The name of the host on which the server listens for "
                      "requests")
         server_args["port"] = arg(

@@ -73,15 +73,12 @@ def format_size(bytes, suffix="B"):
         bytes /= factor
 
 
-class TroubleshootCommand(QleverCommand):
+class SystemInfoCommand(QleverCommand):
     def __init__(self):
         pass
 
     def description(self) -> str:
-        return (
-            "Please additionally attach the output of this command when "
-            "creating issues to help with debugging."
-        )
+        return "Gather some system info to help with troubleshooting"
 
     def should_have_qleverfile(self) -> bool:
         return True

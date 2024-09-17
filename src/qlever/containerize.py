@@ -9,6 +9,7 @@ import subprocess
 from typing import Optional
 
 from qlever.log import log
+from qlever.util import run_command
 
 
 class ContainerizeException(Exception):
@@ -79,8 +80,17 @@ class Containerize:
         return containerized_cmd
 
     @staticmethod
-    def stop_and_remove_container(container_system: str,
-                                  container_name: str) -> bool:
+    def is_running(container_system: str, container_name: str) -> bool:
+        # Curly braces have to escaped in f-strings. "{{{{" results in "{{".
+        containers = (
+            run_command(f'{container_system} ps --format="{{{{.Names}}}}"', return_output=True)
+            .strip()
+            .splitlines()
+        )
+        return container_name in containers
+
+    @staticmethod
+    def stop_and_remove_container(container_system: str, container_name: str) -> bool:
         """
         Stop the container with the given name using the given system. Return
         `True` if a container with that name was found and stopped, `False`

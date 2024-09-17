@@ -119,11 +119,13 @@ class IndexCommand(QleverCommand):
         # Remove already existing container.
         if args.system in Containerize.supported_systems() \
                 and args.overwrite_existing:
-            try:
-                run_command(f"{args.system} rm -f {args.index_container}")
-            except Exception as e:
-                log.error(f"Removing existing container failed: {e}")
-                return False
+            if Containerize.is_running(args.system, args.index_container):
+                log.info(f"An Index process is still running. Stopping it...")
+                try:
+                    run_command(f"{args.system} rm -f {args.index_container}")
+                except Exception as e:
+                    log.error(f"Removing existing container failed: {e}")
+                    return False
 
         # Write settings.json file.
         try:

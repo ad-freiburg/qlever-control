@@ -5,31 +5,16 @@ import argparse
 
 class TestStopCommand(unittest.TestCase):
     def test_description(self):
-        # Create an instance of StopCommand
-        sc = StopCommand()
-
-        # Call the method
-        result = sc.description()
-
+        result = StopCommand().description()
         self.assertEqual(result, "Stop QLever server for a "
                                  "given datasedataset or port")
 
     def test_should_have_qleverfile(self):
-        # Create an instance of StopCommand
-        sc = StopCommand()
-
-        # Call the method
-        result = sc.should_have_qleverfile()
-
+        result = StopCommand().should_have_qleverfile()
         assert result
 
     def test_relevant_qleverfile_arguments(self):
-        # Create an instance of StopCommand
-        sc = StopCommand()
-
-        # Call the method
-        result = sc.relevant_qleverfile_arguments()
-
+        result = StopCommand().relevant_qleverfile_arguments()
         self.assertEqual(result, {"data": ["name"],
                                   "server": ["port"],
                                   "runtime": ["server_container"]})

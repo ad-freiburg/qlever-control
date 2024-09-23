@@ -15,7 +15,6 @@ COUNTRY           = switzerland
 NAME              = osm-${COUNTRY}
 PBF               = ${NAME}.pbf
 WITH_TEXT         = false
-STXXL_MEMORY      = 10
 VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6)
 GET_DATA_CMD      = wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${NAME}.*.bz2; ( time osm2rdf ${PBF} -o ${NAME}.ttl --cache . ) 2>&1 | tee ${NAME}.osm2rdf-log.txt; rm -f spatial-*
 DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
@@ -24,6 +23,7 @@ DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
 [index]
 INPUT_FILES       = ${data:NAME}.ttl.bz2
 CAT_INPUT_FILES   = bzcat ${data:NAME}.ttl.bz2
+STXXL_MEMORY      = 10G
 SETTINGS_JSON     = { "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(", "\"POLYGON(" ], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
 
 # Server settings

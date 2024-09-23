@@ -44,5 +44,5 @@ IMAGE = docker.io/adfreiburg/qlever:latest
 
 # Qlever UI
 [ui]
-UI_PORT   = 8176
-UI_CONFIG = osm-country
+UI_PORT   = 7000
+UI_CONFIG = osm

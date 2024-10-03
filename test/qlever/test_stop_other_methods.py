@@ -10,8 +10,7 @@ class TestStopCommand(unittest.TestCase):
                                  "given datasedataset or port")
 
     def test_should_have_qleverfile(self):
-        result = StopCommand().should_have_qleverfile()
-        assert result
+        self.assertTrue(StopCommand().should_have_qleverfile())
 
     def test_relevant_qleverfile_arguments(self):
         result = StopCommand().relevant_qleverfile_arguments()

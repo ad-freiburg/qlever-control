@@ -22,6 +22,16 @@ def try_to_kill(proc, pinfo):
     return True
 
 
+def check_stop_remove_container(server_container):
+    for container_system in Containerize.supported_systems():
+        if Containerize.stop_and_remove_container(
+                container_system, server_container):
+            log.info(f"{container_system.capitalize()} container with "
+                     f"name \"{server_container}\" stopped "
+                     f" and removed")
+            return True
+
+
 class StopCommand(QleverCommand):
     """
     Class for executing the `stop` command.
@@ -65,13 +75,8 @@ class StopCommand(QleverCommand):
         # First check if there is container running and if yes, stop and remove
         # it (unless the user has specified `--no-containers`).
         if not args.no_containers:
-            for container_system in Containerize.supported_systems():
-                if Containerize.stop_and_remove_container(
-                        container_system, args.server_container):
-                    log.info(f"{container_system.capitalize()} container with "
-                             f"name \"{args.server_container}\" stopped "
-                             f" and removed")
-                    return True
+            if check_stop_remove_container(args.server_container):
+                return True
 
         # Check if there is a process running on the server port using psutil.
         # NOTE: On MacOS, some of the proc's returned by psutil.process_iter()

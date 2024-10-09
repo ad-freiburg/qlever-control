@@ -29,7 +29,7 @@ class TestStatusCommand(unittest.TestCase):
         args = parser.parse_args([])
 
         # Test that the default value is set correctly
-        self.assertEqual(args.cmdline_regex, 
+        self.assertEqual(args.cmdline_regex,
                          "^(ServerMain|IndexBuilderMain)")
 
         # Test that the help text is correctly set

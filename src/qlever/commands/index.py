@@ -121,6 +121,7 @@ class IndexCommand(QleverCommand):
                 and args.overwrite_existing:
             if Containerize.is_running(args.system, args.index_container):
                 log.info("Another index process is running, trying to stop it ...")
+                log.info("")
                 try:
                     run_command(f"{args.system} rm -f {args.index_container}")
                 except Exception as e:

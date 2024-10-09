@@ -50,11 +50,13 @@ class TestStatusCommand(unittest.TestCase):
         mock_process3 = MagicMock()
         mock_process3.as_dict.return_value = {'test': [3]}
 
-        # Mock the return value of process_iter to be a list of these mocked process objects
+        # Mock the return value of process_iter
+        # to be a list of these mocked process objects
         mock_process_iter.return_value = [mock_process1, mock_process2,
                                           mock_process3]
 
-        # Simulate show_process_info returning False for the first and True for the second process
+        # Simulate show_process_info returning False for the first
+        # True for the second and False for the third process
         mock_show_process_info.side_effect = [False, True, False]
 
         sc = StatusCommand()
@@ -65,7 +67,8 @@ class TestStatusCommand(unittest.TestCase):
         # Assert that process_iter was called once
         mock_process_iter.assert_called_once()
 
-        # Assert that show_process_info was called 3times in correct order with the correct arguments
+        # Assert that show_process_info was called 3times
+        # in correct order with the correct arguments
         expected_calls = [
             call(mock_process1, args.cmdline_regex, show_heading=True),
             call(mock_process2, args.cmdline_regex, show_heading=True),
@@ -81,7 +84,8 @@ class TestStatusCommand(unittest.TestCase):
         # Mocking the input for the execute function
         [args, args.cmdline_regex, args.show] = get_mock_args(False)
 
-        # Mock process_iter to return an empty list, simulating that no matching processes are found
+        # Mock process_iter to return an empty list,
+        # simulating that no matching processes are found
         mock_process_iter.return_value = []
 
         # Capture the string-output
@@ -100,7 +104,8 @@ class TestStatusCommand(unittest.TestCase):
         # Assert that process_iter was called once
         mock_process_iter.assert_called_once()
 
-        # Assert that show_process_info was never called since there are no processes
+        # Assert that show_process_info was never called
+        # since there are no processes
         mock_show_process_info.assert_not_called()
 
         self.assertIsNone(result)

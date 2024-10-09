@@ -18,7 +18,8 @@ class TestStatusCommand(unittest.TestCase):
     @patch('qlever.commands.status.show_process_info')
     @patch('psutil.process_iter')
     # testing execute for 2 processes. Just the second one is a qlever process.
-    # Mocking the process_iter and show_process_info method and testing if the methods are called correctly.
+    # Mocking the process_iter and show_process_info method and testing 
+    # if the methods are called correctly.
     def test_execute_processes_found(self, mock_process_iter,
                                      mock_show_process_info):
         # Mocking the input for the execute function

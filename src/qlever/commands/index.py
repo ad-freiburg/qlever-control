@@ -41,7 +41,7 @@ class IndexCommand(QleverCommand):
     def execute(self, args) -> bool:
         # Construct the command line.
         index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
-                     f" -F {args.format} -"
+                     f" -F {args.format} -f -"
                      f" -i {args.name}"
                      f" -s {args.name}.settings.json")
         if args.only_pso_and_pos_permutations:

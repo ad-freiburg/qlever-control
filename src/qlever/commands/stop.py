@@ -7,11 +7,13 @@ from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import show_process_info
 
-
-def try_to_kill(proc, pinfo):
+# try to kill the given process, return true iff it was killed successfully.
+# the process_info is used for logging.
+def stop_process(proc, pinfo):
     try:
         proc.kill()
         log.info(f"Killed process {pinfo['pid']}")
+        return True
     except Exception as e:
         log.error(f"Could not kill process with PID "
                   f"{pinfo['pid']} ({e}) ... try to kill it "
@@ -19,10 +21,11 @@ def try_to_kill(proc, pinfo):
         log.info("")
         show_process_info(proc, "", show_heading=True)
         return False
-    return True
 
 
-def check_stop_remove_container(server_container):
+# try to stop and remove container. return True iff it was stopped
+# successfully. Gives log info accordingly.
+def stop_container(server_container):
     for container_system in Containerize.supported_systems():
         if Containerize.stop_and_remove_container(
                 container_system, server_container):
@@ -30,6 +33,7 @@ def check_stop_remove_container(server_container):
                      f"name \"{server_container}\" stopped "
                      f" and removed")
             return True
+    return False
 
 
 class StopCommand(QleverCommand):
@@ -75,7 +79,7 @@ class StopCommand(QleverCommand):
         # First check if there is container running and if yes, stop and remove
         # it (unless the user has specified `--no-containers`).
         if not args.no_containers:
-            if check_stop_remove_container(args.server_container):
+            if stop_container(args.server_container):
                 return True
 
         # Check if there is a process running on the server port using psutil.
@@ -94,10 +98,7 @@ class StopCommand(QleverCommand):
                 log.info(f"Found process {pinfo['pid']} from user "
                          f"{pinfo['username']} with command line: {cmdline}")
                 log.info("")
-                if try_to_kill(proc, pinfo):
-                    return True
-                else:
-                    return False
+                return stop_process(proc, pinfo)
 
         # No matching process found.
         message = "No matching process found" if args.no_containers else \

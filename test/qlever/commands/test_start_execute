@@ -1,6 +1,78 @@
 import unittest
 from unittest.mock import patch, MagicMock, call
 from qlever.commands.start import StartCommand
+import qlever.commands.start
+
+
+# Tests if the construction of the command line works if every "if" is taken
+def test_construct_command_line_with_if():
+    # Setup args
+    args = MagicMock()
+    args.server_binary = "/test/path/server_binary"
+    args.name = "TestName"
+    args.num_threads = 2
+    args.port = 1234
+    args.memory_for_queries = "8G"
+    args.cache_max_size = "2G"
+    args.cache_max_size_single_entry = "124M"
+    args.cache_max_num_entries = 1000
+    args.timeout = True
+    args.access_token = True
+    args.only_pso_and_pos_permutations = True
+    args.use_patterns = False
+    args.use_text_index = "yes"
+
+    # Execute the function
+    result = qlever.commands.start.construct_command_line(args)
+
+    start_command = (f"{args.server_binary}"
+                     f" -i {args.name}"
+                     f" -j {args.num_threads}"
+                     f" -p {args.port}"
+                     f" -m {args.memory_for_queries}"
+                     f" -c {args.cache_max_size}"
+                     f" -e {args.cache_max_size_single_entry}"
+                     f" -k {args.cache_max_num_entries}"
+                     f" -s {args.timeout}"
+                     f" -a {args.access_token}"
+                     " --only-pso-and-pos-permutations"
+                     " --no-patterns"
+                     " -t"
+                     f" > {args.name}.server-log.txt 2>&1")
+    assert result == start_command
+
+
+# Tests if the construction of the command line works if no "if" is taken
+def test_construct_command_line_without_if():
+    # Setup args
+    args = MagicMock()
+    args.server_binary = "/test/path/server_binary"
+    args.name = "TestName"
+    args.num_threads = 2
+    args.port = 1234
+    args.memory_for_queries = "8G"
+    args.cache_max_size = "2G"
+    args.cache_max_size_single_entry = "124M"
+    args.cache_max_num_entries = 1000
+    args.timeout = False
+    args.access_token = False
+    args.only_pso_and_pos_permutations = False
+    args.use_patterns = True
+    args.use_text_index = "no"
+
+    # Execute the function
+    result = qlever.commands.start.construct_command_line(args)
+
+    start_command = (f"{args.server_binary}"
+                     f" -i {args.name}"
+                     f" -j {args.num_threads}"
+                     f" -p {args.port}"
+                     f" -m {args.memory_for_queries}"
+                     f" -c {args.cache_max_size}"
+                     f" -e {args.cache_max_size_single_entry}"
+                     f" -k {args.cache_max_num_entries}"
+                     f" > {args.name}.server-log.txt 2>&1")
+    assert result == start_command
 
 
 class TestStartCommand(unittest.TestCase):
@@ -251,8 +323,6 @@ class TestStartCommand(unittest.TestCase):
     @patch('qlever.commands.start.Containerize.supported_systems')
     @patch('qlever.commands.start.run_command_in_container')
     @patch('qlever.commands.start.construct_command_line')
-    # This test just works with other start execute bc current one doesn't
-    # have run_command_in_container and construct_command_line
     def test_execute_containerize_and_description(self,
                                 mock_construct_cl, mock_run_containerize,
                                 mock_containerize, mock_popen,

@@ -1,0 +1,24 @@
+[data]
+NAME         = orkg
+GET_DATA_URL = https://orkg.org/api/rdf/dump
+GET_DATA_CMD = curl -LRC - -O ${GET_DATA_URL} 2>&1
+VERSION      = NO DATE
+DESCRIPTION  = The Open Research Knowledge Graph (ORKG) aims to describe research papers in a structured manner. With the ORKG, papers are easier to find and compare (data from ${GET_DATA_URL}).
+
+[index]
+INPUT_FILES     = dump
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
+
+[server]
+PORT               = 7053
+ACCESS_TOKEN       = ${data:NAME}_anvlkdj3902jm
+MEMORY_FOR_QUERIES = 10G
+CACHE_MAX_SIZE     = 5G
+
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
+
+[ui]
+UI_CONFIG = orkg

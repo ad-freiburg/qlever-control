@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import socket
 import subprocess
 from configparser import ConfigParser, ExtendedInterpolation
 
@@ -63,8 +62,16 @@ class Qleverfile:
                 help="A space-separated list of patterns that match "
                      "all the files of the dataset")
         index_args["cat_input_files"] = arg(
-                "--cat-input-files", type=str, required=True,
+                "--cat-input-files", type=str,
                 help="The command that produces the input")
+        index_args["multi_input_json"] = arg(
+                "--multi-input-json", type=str, default=None,
+                help="JSON to specify multiple input files, each with a "
+                "`cmd` (command that writes the triples to stdout), "
+                "`format` (format like for the `--format` option), "
+                "`graph` (name of the graph, use `-` for the default graph), "
+                "`parallel` (parallel parsing for large files, where all "
+                "prefix declaration are at the beginning)")
         index_args["settings_json"] = arg(
                 "--settings-json", type=str, default="{}",
                 help="The `.settings.json` file for the index")
@@ -106,7 +113,7 @@ class Qleverfile:
                 help="The binary for starting the server (this requires "
                      "that you have compiled QLever on your machine)")
         server_args["host_name"] = arg(
-                "--host-name", type=str, default=f"localhost",
+                "--host-name", type=str, default="localhost",
                 help="The name of the host on which the server listens for "
                      "requests")
         server_args["port"] = arg(

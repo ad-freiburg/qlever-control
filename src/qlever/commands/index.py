@@ -55,7 +55,6 @@ class IndexCommand(QleverCommand):
             raise self.InvalidInputJson(
                     f"Failed to parse `MULTI_INPUT_JSON` ({e})",
                     args.multi_input_json)
-            raise Exception("")
         # Check that it is an array of length at least one.
         if not isinstance(input_specs, list):
             raise self.InvalidInputJson(
@@ -93,7 +92,10 @@ class IndexCommand(QleverCommand):
                         f"Element {i} in `MULTI_INPUT_JSON` must only contain "
                         "the keys `format`, `graph`, and `parallel`",
                         input_spec)
-            # Add the command-line options for this input stream.
+            # Add the command-line options for this input stream. We use
+            # process substitution `<(...)` as a convenient way to handle
+            # an input stream just like a file. This is not POSIX compliant,
+            # but supported by various shells, including bash and zsh.
             input_options.append(
                     f"-f <({input_cmd}) -F {input_format} "
                     f"-g \"{input_graph}\" -p {input_parallel}")

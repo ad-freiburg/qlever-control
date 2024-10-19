@@ -8,7 +8,7 @@ on:
   merge_group:
 
 jobs:
-  format-check:
+  qleverfiles-check:
     runs-on: ${{matrix.os}}
     strategy:
       fail-fast: true
@@ -22,6 +22,7 @@ jobs:
           path: qlever-control
 
       - name: Install the script locally
+        working-directory: ${{github.workspace}}/qlever-control
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
           python3 --version

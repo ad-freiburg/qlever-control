@@ -16,14 +16,14 @@ DESCRIPTION  = "Full dump from https://yago-knowledge.org/downloads/yago-4, vers
 
 [index]
 INPUT_FILES     = yago-wd-*.nt.gz
-CAT_INPUT_FILES = zcat ${FILE_NAMES}
+CAT_INPUT_FILES = zcat ${INPUT_FILES}
 SETTINGS_JSON   = { "languages-internal": ["en"], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
 STXXL_MEMORY    = 10G
 
 [server]
-PORT                        = 9004
-ACCESS_TOKEN                = ${DB}_2347348732
-MEMORY_FOR_QUERIES          = 30G
+PORT               = 9004
+ACCESS_TOKEN       = ${DB}
+MEMORY_FOR_QUERIES = 30G
 
 [runtime]
 SYSTEM = docker

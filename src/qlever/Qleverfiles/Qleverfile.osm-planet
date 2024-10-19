@@ -11,7 +11,7 @@
 NAME         = osm-planet
 DATA_URL     = https://osm2rdf.cs.uni-freiburg.de/ttl/planet.osm.ttl.bz2
 GET_DATA_CMD = curl --location --fail --continue-at - --remote-time --output ${NAME}.ttl.bz2 ${DATA_URL}
-VERSION      = $$(date -r ${NAME}.ttl.bz2 +"%d.%m.%Y")
+VERSION      = $$(date -r ${NAME}.ttl.bz2 +"%d.%m.%Y" || echo "NO_DATE")
 DESCRIPTION  = OSM Planet, data from ${DATA_URL} version ${VERSION} (complete OSM data, with GeoSPARQL predicates ogc:sfContains and ogc:sfIntersects)
 
 [index]

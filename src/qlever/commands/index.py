@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import json
 import shlex
 
 from qlever.command import QleverCommand
@@ -26,8 +27,8 @@ class IndexCommand(QleverCommand):
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name", "format"],
-                "index": ["input_files", "cat_input_files", "settings_json",
-                          "index_binary",
+                "index": ["input_files", "cat_input_files", "multi_input_json",
+                          "settings_json", "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "text_index", "stxxl_memory"],
                 "runtime": ["system", "image", "index_container"]}
@@ -38,12 +39,98 @@ class IndexCommand(QleverCommand):
                 default=False,
                 help="Overwrite an existing index, think twice before using.")
 
+    # Exception for invalid JSON.
+    class InvalidInputJson(Exception):
+        def __init__(self, error_message, additional_info):
+            self.error_message = error_message
+            self.additional_info = additional_info
+            super().__init__()
+
+    # Helper function to get command line options from JSON.
+    def get_input_options_for_json(self, args) -> str:
+        # Parse the JSON.
+        try:
+            input_specs = json.loads(args.multi_input_json)
+        except Exception as e:
+            raise self.InvalidInputJson(
+                    f"Failed to parse `MULTI_INPUT_JSON` ({e})",
+                    args.multi_input_json)
+        # Check that it is an array of length at least one.
+        if not isinstance(input_specs, list):
+            raise self.InvalidInputJson(
+                    "`MULTI_INPUT_JSON` must be a JSON array",
+                    args.multi_input_json)
+        if len(input_specs) == 0:
+            raise self.InvalidInputJson(
+                    "`MULTI_INPUT_JSON` must contain at least one element",
+                    args.multi_input_json)
+        # For each of the maps, construct the corresponding command-line
+        # options to the index binary.
+        input_options = []
+        for i, input_spec in enumerate(input_specs):
+            # Check that `input_spec` is a dictionary.
+            if not isinstance(input_spec, dict):
+                raise self.InvalidInputJson(
+                        f"Element {i} in `MULTI_INPUT_JSON` must be a JSON "
+                        "object",
+                        input_spec)
+            # For each `input_spec`, we must have a command.
+            if "cmd" not in input_spec:
+                raise self.InvalidInputJson(
+                        f"Element {i} in `MULTI_INPUT_JSON` must contain a "
+                        "key `cmd`",
+                        input_spec)
+            input_cmd = input_spec["cmd"]
+            # The `format`, `graph`, and `parallel` keys are optional.
+            input_format = input_spec.get("format", args.format)
+            input_graph = input_spec.get("graph", "-")
+            input_parallel = input_spec.get("parallel", "false")
+            # There must not be any other keys.
+            extra_keys = input_spec.keys() - {"cmd", "format", "graph", "parallel"}
+            if extra_keys:
+                raise self.InvalidInputJson(
+                        f"Element {i} in `MULTI_INPUT_JSON` must only contain "
+                        "the keys `format`, `graph`, and `parallel`. Contains "
+                        "extra keys {extra_keys}.",
+                        input_spec)
+            # Add the command-line options for this input stream. We use
+            # process substitution `<(...)` as a convenient way to handle
+            # an input stream just like a file. This is not POSIX compliant,
+            # but supported by various shells, including bash and zsh.
+            input_options.append(
+                    f"-f <({input_cmd}) -F {input_format} "
+                    f"-g \"{input_graph}\" -p {input_parallel}")
+        # Return the concatenated command-line options.
+        return " ".join(input_options)
+
     def execute(self, args) -> bool:
-        # Construct the command line.
-        index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
-                     f" -F {args.format} -f -"
-                     f" -i {args.name}"
-                     f" -s {args.name}.settings.json")
+        # The mandatory part of the command line (specifying the input, the
+        # basename of the index, and the settings file). There are two ways
+        # to specify the input: via a single stream or via multiple streams.
+        if args.cat_input_files and not args.multi_input_json:
+            index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
+                         f" -i {args.name} -s {args.name}.settings.json"
+                         f" -F {args.format} -f -")
+        elif args.multi_input_json and not args.cat_input_files:
+            try:
+                input_options = self.get_input_options_for_json(args)
+            except self.InvalidInputJson as e:
+                log.error(e.error_message)
+                log.info("")
+                log.info(e.additional_info)
+                return False
+            index_cmd = (f"{args.index_binary}"
+                         f" -i {args.name} -s {args.name}.settings.json"
+                         f" {input_options}")
+        else:
+            log.error("Specify exactly one of `CAT_INPUT_FILES` (for a "
+                      "single input stream) or `MULTI_INPUT_JSON` (for "
+                      "multiple input streams)")
+            log.info("")
+            log.info("See `qlever index --help` for more information")
+            return False
+
+        # Add remaining options.
         if args.only_pso_and_pos_permutations:
             index_cmd += " --only-pso-and-pos-permutations --no-patterns"
         if not args.use_patterns:
@@ -120,7 +207,8 @@ class IndexCommand(QleverCommand):
         if args.system in Containerize.supported_systems() \
                 and args.overwrite_existing:
             if Containerize.is_running(args.system, args.index_container):
-                log.info("Another index process is running, trying to stop it ...")
+                log.info("Another index process is running, trying to stop "
+                         "it ...")
                 log.info("")
                 try:
                     run_command(f"{args.system} rm -f {args.index_container}")

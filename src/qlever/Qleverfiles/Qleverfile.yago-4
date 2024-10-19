@@ -22,7 +22,7 @@ STXXL_MEMORY    = 10G
 
 [server]
 PORT               = 9004
-ACCESS_TOKEN       = ${DB}
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 30G
 
 [runtime]

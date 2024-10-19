@@ -87,11 +87,12 @@ class IndexCommand(QleverCommand):
             input_graph = input_spec.get("graph", "-")
             input_parallel = input_spec.get("parallel", "false")
             # There must not be any other keys.
-            if not all(key in ["cmd", "format", "graph", "parallel"]
-                       for key in input_spec.keys()):
+            extra_keys = input_spec.keys() - {"cmd", "format", "graph", "parallel"}
+            if extra_keys:
                 raise self.InvalidInputJson(
                         f"Element {i} in `MULTI_INPUT_JSON` must only contain "
-                        "the keys `format`, `graph`, and `parallel`",
+                        "the keys `format`, `graph`, and `parallel`. Contains "
+                        "extra keys {extra_keys}.",
                         input_spec)
             # Add the command-line options for this input stream.
             input_options.append(

@@ -21,9 +21,13 @@ jobs:
         with:
           path: qlever-control
 
-      - name: Install dependencies needed for checking
+      - name: Install the script locally
         run: |
-          pip install -e .
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 --version
+          pip3 --version
+          pip3 show setuptools wheel
+          pip3 install -e .
 
       - name: Check that all the files in `src/qlever/Qleverfiles` parse.
         working-directory: ${{github.workspace}}/qlever-control

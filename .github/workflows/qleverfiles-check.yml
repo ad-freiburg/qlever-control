@@ -35,7 +35,7 @@ jobs:
         run: |
           for QLEVERFILE in src/qlever/Qleverfiles/Qleverfile.*; do
             echo
-            echo -e "\x1b[1mChecking ${QLEVERFILE}\x1b[0m"
+            echo -e "\x1b[1;34mChecking ${QLEVERFILE}\x1b[0m"
             echo
             NAME=${QLEVERFILE##*.}
             rm -f Qleverfile

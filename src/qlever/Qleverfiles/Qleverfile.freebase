@@ -12,12 +12,12 @@ DESCRIPTION  = RDF data from ${DATA_URL}, latest (and final) version from 09.08.
 
 [index]
 INPUT_FILES     = freebase-rdf-latest.gz
-CAT_INPUT_FILES = zcat ${RDF_FILES}
+CAT_INPUT_FILES = zcat ${INPUT_FILES}
 SETTINGS_JSON   = { "languages-internal": [ "en" ], "prefixes-external": ["<"], "locale": { "language": "en", "country": "US", "ignore-punctuation": true }, "ascii-prefixes-only": false, "num-triples-per-batch": 10000000 }
 
 [server]
 PORT               = 7002
-ACCESS_TOKEN       = ${data:NAME}_12631403
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 10G
 
 [runtime]

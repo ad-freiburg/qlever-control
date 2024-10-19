@@ -34,13 +34,17 @@ jobs:
         working-directory: ${{github.workspace}}/qlever-control
         run: |
           for QLEVERFILE in src/qlever/Qleverfiles/Qleverfile.*; do
+            echo
+            echo -e "\x1b[1mChecking ${QLEVERFILE}\x1b[0m"
+            echo
             NAME=${QLEVERFILE##*.}
-            printf "Checking Qleverfile for $NAME ... "
             rm -f Qleverfile
-            qlever setup-config $NAME >/dev/null 2>&1
-            qlever get-data --show >/dev/null 2>&1
-            qlever index --show >/dev/null 2>&1
-            qlever start --show >/dev/null 2>&1
-            qlever ui --show >/dev/null 2>&1
-            echo "OK"
+            qlever setup-config $NAME
+            qlever get-data --show
+            qlever index --show
+            qlever start --show
+            qlever ui --show
+            echo
+            echo -e "\x1b[34mAll checks passed for ${QLEVERFILE}\x1b[0m"
+            echo
           done

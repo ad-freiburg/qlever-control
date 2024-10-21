@@ -74,6 +74,193 @@ def test_construct_command_line_without_if():
                      f" > {args.name}.server-log.txt 2>&1")
     assert result == start_command
 
+# Tests the run_command_in_container help function while mocking
+# containerize_command.
+@patch('qlever.commands.start.Containerize.containerize_command')
+def test_run_command_in_container(mock_containerize):
+    # Setup args
+    args = MagicMock()
+    args.name = "TestName"
+    args.server_container = f"qlever.server.{args.name}"
+    args.port = 1234
+    args.system = "native"
+    args.image = None
+
+    #Mock containerize_command
+    mock_containerize.return_value = "Test_Container_Command"
+
+    # start_cmd before construct_command_line(args)
+    start_cmd = "Test_start_cmd"
+    # Execute the function
+    result = qlever.commands.start.run_command_in_container(args, start_cmd)
+
+    # check containerize_command was called once with correct parameters
+    mock_containerize.assert_called_once_with(start_cmd, args.system,
+        "run -d --restart=unless-stopped", args.image, args.server_container,
+        volumes=[("$(pwd)", "/index")], ports=[(args.port, args.port)],
+        working_directory="/index")
+    # check start command was successfully returned
+    start_command = "Test_Container_Command"
+    assert result == start_command
+
+
+# Tests the check_binary help function for the case of success of the
+# run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+def test_check_binary_success(mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.server_binary = "/test/path/server_binary"
+    # mock run_cmd as successful
+    mock_run_cmd.return_value = "Command works"
+
+    # Execute the function
+    result = qlever.commands.start.check_binary(args.server_binary)
+    # check if run_cmd was called once with
+    mock_run_cmd.assert_called_once_with(f"{args.server_binary} --help")
+    assert result
+
+
+# Tests the check_binary help function for the case of exception for the
+# run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+@patch('qlever.commands.start.log')
+def test_check_binary_exception(mock_log, mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.server_binary = "false_binary"
+
+    # Simulate an exception when run_command is called
+    mock_run_cmd.side_effect = Exception("Mocked command failure")
+
+    # Execute the function
+    result = qlever.commands.start.check_binary(args.server_binary)
+
+    # check if run_cmd was called once with
+    mock_run_cmd.assert_called_once_with(f"{args.server_binary} --help")
+    # Verify that the error message was logged
+    mock_log.error.assert_called_once_with(
+        'Running "false_binary" failed, set `--server-binary` to a different'
+        ' binary or set `--system to a container system`')
+    # Check that the info log contains the exception message
+    mock_log.info.assert_any_call(
+        'The error message was: Mocked command failure')
+    assert not result
+
+
+# Tests the setting_index_description help function for the case of success
+# of the run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+@patch('qlever.commands.start.log')
+def test_setting_index_description_success(mock_log, mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.access_token = True
+    args.port = 1234
+    args.description = "TestDescription"
+    access_arg = f"--data-urlencode \"access-token={args.access_token}\""
+
+    # Execute the function
+    qlever.commands.start.setting_index_description(access_arg, args.port,
+                                                        args.description)
+    # Asserts
+    curl_cmd = (f"curl -Gs http://localhost:{args.port}/api"
+                f" --data-urlencode \"index-description={args.description}\""
+                f" {access_arg} > /dev/null")
+    # Verify that the debug message was logged
+    mock_log.debug.assert_called_once_with(curl_cmd)
+    # check if run_cmd was called once with correct parameters
+    mock_run_cmd.assert_called_once_with(curl_cmd)
+
+
+# Tests the setting_index_description help function for the case of exception
+# for the run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+@patch('qlever.commands.start.log')
+def test_setting_index_description_exception(mock_log, mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.access_token = True
+    args.port = 1234
+    args.description = "ErrorDescription"
+    access_arg = f"--data-urlencode \"access-token={args.access_token}\""
+
+    # Simulate an exception when run_command is called
+    mock_run_cmd.side_effect = Exception("Mocked command failure")
+
+    # Execute the function
+    qlever.commands.start.setting_index_description(access_arg, args.port,
+                                                        args.description)
+
+    # Asserts
+    curl_cmd = (f"curl -Gs http://localhost:{args.port}/api"
+                f" --data-urlencode \"index-description={args.description}\""
+                f" {access_arg} > /dev/null")
+    # Verify that the debug message was logged
+    mock_log.debug.assert_called_once_with(curl_cmd)
+    # check if run_cmd was called once with correct parameters
+    mock_run_cmd.assert_called_once_with(curl_cmd)
+    # Verify that the error message was logged
+    mock_log.error.assert_called_once_with(
+        f"Setting the index description failed (Mocked command failure)")
+
+
+# Tests the setting_text_description help function for the case of success
+# of the run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+@patch('qlever.commands.start.log')
+def test_setting_text_description_success(mock_log, mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.access_token = True
+    args.port = 1234
+    args.description = "TestDescription"
+    access_arg = f"--data-urlencode \"access-token={args.access_token}\""
+
+    # Execute the function
+    qlever.commands.start.setting_text_description(access_arg, args.port,
+                                                        args.description)
+    # Asserts
+    curl_cmd = (f"curl -Gs http://localhost:{args.port}/api"
+                f" --data-urlencode \"text-description={args.description}\""
+                f" {access_arg} > /dev/null")
+    # Verify that the debug message was logged
+    mock_log.debug.assert_called_once_with(curl_cmd)
+    # check if run_cmd was called once with correct parameters
+    mock_run_cmd.assert_called_once_with(curl_cmd)
+
+
+# Tests the setting_text_description help function for the case of exception
+# for the run_cmd in the try/except block
+@patch('qlever.commands.start.run_command')
+@patch('qlever.commands.start.log')
+def test_setting_text_description_exception(mock_log, mock_run_cmd):
+    # Setup args
+    args = MagicMock()
+    args.access_token = True
+    args.port = 1234
+    args.description = "ErrorDescription"
+    access_arg = f"--data-urlencode \"access-token={args.access_token}\""
+
+    # Simulate an exception when run_command is called
+    mock_run_cmd.side_effect = Exception("Mocked command failure")
+
+    # Execute the function
+    qlever.commands.start.setting_text_description(access_arg, args.port,
+                                                        args.description)
+
+    # Asserts
+    curl_cmd = (f"curl -Gs http://localhost:{args.port}/api"
+                f" --data-urlencode \"text-description={args.description}\""
+                f" {access_arg} > /dev/null")
+    # Verify that the debug message was logged
+    mock_log.debug.assert_called_once_with(curl_cmd)
+    # check if run_cmd was called once with correct parameters
+    mock_run_cmd.assert_called_once_with(curl_cmd)
+    # Verify that the error message was logged
+    mock_log.error.assert_called_once_with(
+        f"Setting the text description failed (Mocked command failure)")
+
 
 class TestStartCommand(unittest.TestCase):
 
@@ -396,3 +583,17 @@ class TestStartCommand(unittest.TestCase):
         mock_is_qlever_server_alive.assert_called()
         # Ensure execution was successful
         self.assertTrue(result)
+
+    # check if execute returns False for args.show = True
+    @patch('qlever.commands.start.construct_command_line')
+    def test_execute_show(self, mock_construct_cmd_line):
+        # Setup args
+        args = MagicMock()
+        args.kill_existing_with_same_port = False
+        args.system = None
+        args.show = True
+        # Mock construct_command_line
+        mock_construct_cmd_line.return_value = "Test_start_cmd"
+
+        # Execute the function and check if return is False
+        self.assertFalse(StartCommand().execute(args))

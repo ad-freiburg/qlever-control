@@ -9,7 +9,7 @@ import psutil
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import format_size, run_command, run_in_container
+from qlever.util import format_size, run_command
 
 
 def show_heading(text: str) -> str:
@@ -105,15 +105,14 @@ class SystemInfoCommand(QleverCommand):
         )
         # User/Group on host and in container
         if is_linux or is_mac:
-            host_user = run_command("whoami", return_output=True).strip()
-            log.info(f"User on host: {host_user}")
+            user_info = run_command("whoami", return_output=True).strip()
+            log.info(f"User on host: {user_info}")
         elif is_windows:
-            whoami = run_command("whoami", return_output=True).strip()
-            log.info(f"User/group on host: {whoami}")
+            user_info = run_command("whoami", return_output=True).strip()
+            log.info(f"User on host: {user_info}")
         if args.system in Containerize.supported_systems():
-            log.info(
-                f"User/Group in container: " f"{run_in_container('id', args).strip()}"
-            )
+            user_info = Containerize.run_in_container("id", args).strip()
+            log.info(f"User in container: {user_info}")
 
         # Show Qleverfile.
         log.info("")

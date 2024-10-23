@@ -12,7 +12,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
-from qlever.containerize import Containerize
 from qlever.log import log
 
 
@@ -212,25 +211,6 @@ def is_port_used(port: int) -> bool:
         if err.errno != errno.EADDRINUSE:
             log.warning(f"Failed to determine if port is used: {err}")
         return True
-
-
-def run_in_container(cmd: str, args) -> Optional[str]:
-    """
-    Run an arbitrary command in the qlever container and return its output.
-    """
-    if args.system in Containerize.supported_systems():
-        if not args.server_container:
-            args.server_container = get_random_string(20)
-        run_cmd = Containerize().containerize_command(
-            cmd,
-            args.system,
-            'run --rm -it --entrypoint "" ',
-            args.image,
-            args.server_container,
-            volumes=[("$(pwd)", "/index")],
-            working_directory="/index",
-        )
-        return run_command(run_cmd, return_output=True)
 
 
 def format_size(bytes, suffix="B"):

@@ -202,16 +202,6 @@ def is_port_used(port: int) -> bool:
             log.warning(f"Failed to determine if port is used: {err}")
         return True
 
-def generate_heading(text: str, total_width: int = 50) -> str:
-    text_length = len(text)
-    delimiter_space = total_width - text_length - 2
-    if delimiter_space <= 0:
-        raise ValueError("Text is too long for the specified width.")
-    left_delimiter = delimiter_space // 2
-    right_delimiter = delimiter_space - left_delimiter
-    heading = f"{'=' * left_delimiter} {text} {'=' * right_delimiter}"
-    return heading
-
 def run_in_container(cmd: str, args) -> Optional[str]:
     """
     Run an arbitrary command in the qlever container and return its output.

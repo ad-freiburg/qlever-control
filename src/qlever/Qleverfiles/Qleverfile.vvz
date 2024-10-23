@@ -14,13 +14,13 @@ TEXT_DESCRIPTION = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
 INPUT_FILES     = vvz.ttl
-CAT_INPUT_FILES = cat ${FILE_NAMES}
-SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 1000000 }
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
 TEXT_INDEX      = from_literals
 
 [server]
 PORT               = 7041
-ACCESS_TOKEN       = ${data:NAME}_8736426534
+ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 10G
 
 [runtime]

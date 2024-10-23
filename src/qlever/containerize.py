@@ -9,6 +9,7 @@ import subprocess
 from typing import Optional
 
 from qlever.log import log
+from qlever.util import run_command
 
 
 class ContainerizeException(Exception):
@@ -77,6 +78,17 @@ class Containerize:
                              f" --name {container_name} {image_name}"
                              f" -c {shlex.quote(cmd)}")
         return containerized_cmd
+
+    @staticmethod
+    def is_running(container_system: str, container_name: str) -> bool:
+        # Note: the `{{{{` and `}}}}` result in `{{` and `}}`, respectively.
+        containers = (
+            run_command(f"{container_system} ps --format=\"{{{{.Names}}}}\"",
+                        return_output=True)
+            .strip()
+            .splitlines()
+        )
+        return container_name in containers
 
     @staticmethod
     def stop_and_remove_container(container_system: str,

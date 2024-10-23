@@ -1,14 +1,15 @@
+from __future__ import annotations
+
 import platform
 from importlib.metadata import version
 from pathlib import Path
-from typing import Optional
 
 import psutil
 
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command, get_random_string
+from qlever.util import format_size, run_command, run_in_container
 
 
 def show_heading(text: str) -> str:
@@ -37,39 +38,6 @@ def get_partition(dir: Path):
     return None
 
 
-def run_in_container(cmd: str, args) -> Optional[str]:
-    """
-    Run an arbitrary command in the qlever container and return its output.
-    """
-    if args.system in Containerize.supported_systems():
-        if not args.server_container:
-            args.server_container = get_random_string(20)
-        run_cmd = Containerize().containerize_command(
-            cmd,
-            args.system,
-            'run --rm -it --entrypoint "" ',
-            args.image,
-            args.server_container,
-            volumes=[("$(pwd)", "/index")],
-            working_directory="/index",
-        )
-        return run_command(run_cmd, return_output=True)
-
-
-def format_size(bytes, suffix="B"):
-    """
-    Scale bytes to its proper format
-    e.g:
-        1253656 => '1.20MB'
-        1253656678 => '1.17GB'
-    """
-    factor = 1024
-    for unit in ["", "K", "M", "G", "T", "P"]:
-        if bytes < factor:
-            return f"{bytes:.2f}{unit}{suffix}"
-        bytes /= factor
-
-
 class SystemInfoCommand(QleverCommand):
     def __init__(self):
         pass
@@ -88,8 +56,7 @@ class SystemInfoCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Say what the command is doing.
-        self.show("Show system information and Qleverfile",
-                  only_show=args.show)
+        self.show("Show system information and Qleverfile", only_show=args.show)
         if args.show:
             return False
 
@@ -113,15 +80,13 @@ class SystemInfoCommand(QleverCommand):
         memory_total = psutil.virtual_memory().total / (1024.0**3)
         memory_available = psutil.virtual_memory().available / (1024.0**3)
         log.info(
-            f"RAM: {memory_total:.1f} GB total, "
-            f"{memory_available:.1f} GB available"
+            f"RAM: {memory_total:.1f} GB total, " f"{memory_available:.1f} GB available"
         )
         num_cores = psutil.cpu_count(logical=False)
         num_threads = psutil.cpu_count(logical=True)
         cpu_freq = psutil.cpu_freq().max / 1000
         log.info(
-            f"CPU: {num_cores} Cores, "
-            f"{num_threads} Threads @ {cpu_freq:.2f} GHz"
+            f"CPU: {num_cores} Cores, " f"{num_threads} Threads @ {cpu_freq:.2f} GHz"
         )
 
         cwd = Path.cwd()
@@ -147,8 +112,7 @@ class SystemInfoCommand(QleverCommand):
             log.info(f"User/group on host: {whoami}")
         if args.system in Containerize.supported_systems():
             log.info(
-                f"User/Group in container: "
-                f"{run_in_container('id', args).strip()}"
+                f"User/Group in container: " f"{run_in_container('id', args).strip()}"
             )
 
         # Show Qleverfile.

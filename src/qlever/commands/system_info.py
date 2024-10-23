@@ -8,18 +8,7 @@ import psutil
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command, get_random_string
-
-
-def generate_heading(text: str, total_width: int = 50) -> str:
-    text_length = len(text)
-    delimiter_space = total_width - text_length - 2
-    if delimiter_space <= 0:
-        raise ValueError("Text is too long for the specified width.")
-    left_delimiter = delimiter_space // 2
-    right_delimiter = delimiter_space - left_delimiter
-    heading = f"{'=' * left_delimiter} {text} {'=' * right_delimiter}"
-    return heading
+from qlever.util import run_command, get_random_string, generate_heading, format_size, run_in_container
 
 
 def get_partition(dir: Path):
@@ -38,40 +27,6 @@ def get_partition(dir: Path):
         if dir.is_relative_to(partition.mountpoint):
             return partition
     return None
-
-
-def run_in_container(cmd: str, args) -> Optional[str]:
-    """
-    Run an arbitrary command in the qlever container and return its output.
-    """
-    if args.system in Containerize.supported_systems():
-        if not args.server_container:
-            args.server_container = get_random_string(20)
-        run_cmd = Containerize().containerize_command(
-            cmd,
-            args.system,
-            'run --rm -it --entrypoint "" ',
-            args.image,
-            args.server_container,
-            volumes=[("$(pwd)", "/index")],
-            working_directory="/index",
-        )
-        return run_command(run_cmd, return_output=True)
-
-
-def format_size(bytes, suffix="B"):
-    """
-    Scale bytes to its proper format
-    e.g:
-        1253656 => '1.20MB'
-        1253656678 => '1.17GB'
-    """
-    factor = 1024
-    for unit in ["", "K", "M", "G", "T", "P"]:
-        if bytes < factor:
-            return f"{bytes:.2f}{unit}{suffix}"
-        bytes /= factor
-
 
 class SystemInfoCommand(QleverCommand):
     def __init__(self):

@@ -105,14 +105,14 @@ class SystemInfoCommand(QleverCommand):
         )
         # User/Group on host and in container
         if is_linux or is_mac:
-            user_info = run_command("whoami", return_output=True).strip()
-            log.info(f"User on host: {user_info}")
+            user_info = run_command("id", return_output=True).strip()
+            log.info(f"User and group on host: {user_info}")
         elif is_windows:
-            user_info = run_command("whoami", return_output=True).strip()
-            log.info(f"User on host: {user_info}")
+            user_info = run_command("whoami /all", return_output=True).strip()
+            log.info(f"User and group on host: {user_info}")
         if args.system in Containerize.supported_systems():
             user_info = Containerize.run_in_container("id", args).strip()
-            log.info(f"User in container: {user_info}")
+            log.info(f"User and group in container: {user_info}")
 
         # Show Qleverfile.
         log.info("")

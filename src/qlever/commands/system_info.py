@@ -11,15 +11,10 @@ from qlever.log import log
 from qlever.util import run_command, get_random_string
 
 
-def generate_heading(text: str, total_width: int = 50) -> str:
-    text_length = len(text)
-    delimiter_space = total_width - text_length - 2
-    if delimiter_space <= 0:
-        raise ValueError("Text is too long for the specified width.")
-    left_delimiter = delimiter_space // 2
-    right_delimiter = delimiter_space - left_delimiter
-    heading = f"{'=' * left_delimiter} {text} {'=' * right_delimiter}"
-    return heading
+def show_heading(text: str) -> str:
+    log.info(text)
+    log.info("-" * len(text))
+    log.info("")
 
 
 def get_partition(dir: Path):
@@ -29,10 +24,12 @@ def get_partition(dir: Path):
     # The first partition that whose mountpoint is a parent of `dir` is
     # returned. Sort the partitions by the length of the mountpoint to ensure
     # that the result is correct. Assume there are partitions with mountpoint
-    # `/` and `/home`. This ensures that `/home/foo` is detected as being in the
-    # partition with mountpoint `/home`.
+    # `/` and `/home`. This ensures that `/home/foo` is detected as being in
+    # the partition with mountpoint `/home`.
     partitions = sorted(
-        psutil.disk_partitions(), key=lambda part: len(part.mountpoint), reverse=True
+        psutil.disk_partitions(),
+        key=lambda part: len(part.mountpoint),
+        reverse=True,
     )
     for partition in partitions:
         if dir.is_relative_to(partition.mountpoint):
@@ -90,14 +87,21 @@ class SystemInfoCommand(QleverCommand):
         pass
 
     def execute(self, args) -> bool:
-        log.info(generate_heading("General Info"))
+        # Say what the command is doing.
+        self.show("Show system information and Qleverfile",
+                  only_show=args.show)
+        if args.show:
+            return False
+
+        # Show system information.
+        show_heading("System Information")
         system = platform.system()
         is_linux = system == "Linux"
         is_mac = system == "Darwin"
         is_windows = system == "Windows"
         if is_windows:
             log.warn("Only limited information is gathered on Windows.")
-        log.info(f"qlever-control: {version('qlever')}")
+        log.info(f"Version: {version('qlever')} (qlever --version)")
         if is_linux:
             info = platform.freedesktop_os_release()
             log.info(f"OS: {platform.system()} ({info['PRETTY_NAME']})")
@@ -106,11 +110,18 @@ class SystemInfoCommand(QleverCommand):
         log.info(f"Arch: {platform.machine()}")
         log.info(f"Host: {platform.node()}")
         psutil.virtual_memory().total / (1000**3)
+        memory_total = psutil.virtual_memory().total / (1024.0**3)
+        memory_available = psutil.virtual_memory().available / (1024.0**3)
         log.info(
-            f"RAM: {psutil.virtual_memory().total / (1024.0 ** 3):.1f} GB total, {psutil.virtual_memory().available / (1024.0 ** 3):.1f} GB available"
+            f"RAM: {memory_total:.1f} GB total, "
+            f"{memory_available:.1f} GB available"
         )
+        num_cores = psutil.cpu_count(logical=False)
+        num_threads = psutil.cpu_count(logical=True)
+        cpu_freq = psutil.cpu_freq().max / 1000
         log.info(
-            f"CPU: {psutil.cpu_count(logical=False)} Cores, {psutil.cpu_count(logical=True)} Threads @ {psutil.cpu_freq().max / 1000:.2f} GHz"
+            f"CPU: {num_cores} Cores, "
+            f"{num_threads} Threads @ {cpu_freq:.2f} GHz"
         )
 
         cwd = Path.cwd()
@@ -119,25 +130,30 @@ class SystemInfoCommand(QleverCommand):
         # directory resides.
         disk_usage = psutil.disk_usage(str(cwd))
         partition = get_partition(cwd)
+        partition_description = f"{partition.device} @ {partition.mountpoint}"
+        fs_type = partition.fstype
+        fs_free = format_size(disk_usage.free)
+        fs_total = format_size(disk_usage.total)
         log.info(
-            f"Disk space in . ({partition.device} @ {partition.mountpoint} is {partition.fstype}): {format_size(disk_usage.free)} free / {format_size(disk_usage.total)} total"
+            f"Disk space in {partition_description} is "
+            f"({fs_type}): {fs_free} free / {fs_total} total"
         )
         # User/Group on host and in container
         if is_linux or is_mac:
-            log.info(
-                f"User/Group on host: {run_command('id', return_output=True).strip()}"
-            )
+            host_user = run_command("whoami", return_output=True).strip()
+            log.info(f"User on host: {host_user}")
         elif is_windows:
-            log.info(
-                f"User/Group on host: {run_command('whoami /all', return_output=True).strip()}"
-            )
+            whoami = run_command("whoami", return_output=True).strip()
+            log.info(f"User/group on host: {whoami}")
         if args.system in Containerize.supported_systems():
             log.info(
-                f"User/Group in container: " f"{run_in_container('id', args).strip()}"
+                f"User/Group in container: "
+                f"{run_in_container('id', args).strip()}"
             )
 
-        # Qleverfile
-        log.info(generate_heading("Qleverfile"))
+        # Show Qleverfile.
+        log.info("")
+        show_heading("Contents of Qleverfile")
         qleverfile = cwd / "Qleverfile"
         if qleverfile.exists():
             # TODO: output the effective qlever file using primites from #57

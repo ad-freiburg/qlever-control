@@ -30,8 +30,8 @@ class TestIndexCommand(unittest.TestCase):
         result = ic.relevant_qleverfile_arguments()
 
         self.assertEqual(result, {"data": ["name", "format"],
-                "index": ["input_files", "cat_input_files", "settings_json",
-                          "index_binary",
+               "index": ["input_files", "cat_input_files", "multi_input_json",
+                          "settings_json", "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "text_index", "stxxl_memory"],
                 "runtime": ["system", "image", "index_container"]})

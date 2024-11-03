@@ -11,7 +11,8 @@ class TestIndexCommand(unittest.TestCase):
         # Call the method
         result = ic.description()
 
-        self.assertEqual(result, "Build the index for a given RDF dataset")
+        self.assertEqual(result, "Build the index for a given "
+                                 "RDF dataset")
 
     def test_should_have_qleverfile(self):
         # Create an instance of IndexCommand
@@ -30,7 +31,7 @@ class TestIndexCommand(unittest.TestCase):
         result = ic.relevant_qleverfile_arguments()
 
         self.assertEqual(result, {"data": ["name", "format"],
-               "index": ["input_files", "cat_input_files", "multi_input_json",
+                "index": ["input_files", "cat_input_files", "multi_input_json",
                           "settings_json", "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "text_index", "stxxl_memory"],
@@ -53,5 +54,6 @@ class TestIndexCommand(unittest.TestCase):
 
         # Test that the help text for cmdline_regex is correctly set
         argument_help = subparser._group_actions[-1].help
-        self.assertEqual(argument_help, "Overwrite an existing index, think twice before using.")
-      
+        self.assertEqual(argument_help, "Overwrite an existing index, "
+                                        "think twice before using.")
+

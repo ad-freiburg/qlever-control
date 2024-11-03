@@ -9,12 +9,12 @@
 [data]
 NAME              = dblp-plus
 GET_DATA_CMD      = wget -nc -O dblp.ttl.gz https://dblp.org/rdf/dblp.ttl.gz
-INDEX_DESCRIPTION = Publication data from https://dblp.org, with affiliations from https://www.wikidata.org and citations from https://opencitations.net
+DESCRIPTION       = Publication data from https://dblp.org, with affiliations from https://www.wikidata.org and citations from https://opencitations.net
 TEXT_DESCRIPTION  = All literals, search with FILTER KEYWORDS(?text, "...")
 
 [index]
 INPUT_FILES       = dblp.ttl.gz affiliations.nt affiliations.additions.nt citations.nt
-CAT_INPUT_FILES   = zcat -f ${RDF_FILES}
+CAT_INPUT_FILES   = zcat -f ${INPUT_FILES}
 SETTINGS_JSON     = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [ "<https://w3id.org", "<https://doi.org", "<http://dx.doi.org" ] }
 TEXT_INDEX        = from_literals
 

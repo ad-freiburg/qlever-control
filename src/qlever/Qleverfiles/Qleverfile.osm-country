@@ -8,35 +8,41 @@
 # the link under GET_DATA_CMD exists (the names are usually the canonical
 # names). The time for osm2rdf is around the same as that for "qlever index".
 
-# Indexer settings
+# Dataset settings
+[data]
 CONTINENT         = europe
 COUNTRY           = switzerland
-DB                = osm-${COUNTRY}
-PBF               = ${DB}.pbf
-RDF_FILES         = "${DB}.ttl.bz2"
-CAT_FILES         = "bzcat ${RDF_FILES}"
+NAME              = osm-${COUNTRY}
+PBF               = ${NAME}.pbf
 WITH_TEXT         = false
-STXXL_MEMORY   = 10
-SETTINGS_JSON     = '{ "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(", "\"POLYGON(" ], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }'
-GET_DATA_CMD      = "wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${DB}.*.bz2; ( time /local/data/osm2rdf/build/apps/osm2rdf ${PBF} -o ${DB}.ttl --cache . --write-geometric-relation-statistics ) 2>&1 | tee ${DB}.osm2rdf-log.txt; rm -f spatial-*"
-DESCRIPTION = "OSM ${COUNTRY^}, dump from $(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6) with ogc:contains"
+VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6)
+GET_DATA_CMD      = wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${NAME}.*.bz2; ( time osm2rdf ${PBF} -o ${NAME}.ttl --cache . ) 2>&1 | tee ${NAME}.osm2rdf-log.txt; rm -f spatial-*
+DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
+
+# Indexer settings
+[index]
+INPUT_FILES       = ${data:NAME}.ttl.bz2
+CAT_INPUT_FILES   = bzcat ${data:NAME}.ttl.bz2
+STXXL_MEMORY      = 10G
+SETTINGS_JSON     = { "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(", "\"POLYGON(" ], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
 
 # Server settings
-HOSTNAME                    = $(hostname -f)
-SERVER_PORT                 = 7025
-ACCESS_TOKEN                = ${DB}_%RANDOM%
+[server]
+HOSTNAME                    = localhost
+PORT                        = 7025
+ACCESS_TOKEN                = ${data:NAME}_%RANDOM%
 MEMORY_FOR_QUERIES          = 20G
 CACHE_MAX_SIZE              = 10G
 CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
 CACHE_MAX_NUM_ENTRIES       = 100
+TIMEOUT                     = 100s
 
-# QLever binaries
-QLEVER_BIN_DIR          = %QLEVER_BIN_DIR%
-USE_DOCKER              = true
-QLEVER_DOCKER_IMAGE     = adfreiburg/qlever
-QLEVER_DOCKER_CONTAINER = qlever.${DB}
+# Runtime to use
+[runtime]
+SYSTEM = docker
+IMAGE = docker.io/adfreiburg/qlever:latest
 
-# QLever UI
-QLEVERUI_PORT   = 7000
-QLEVERUI_DIR    = qlever-ui
-QLEVERUI_CONFIG = osm
+# Qlever UI
+[ui]
+UI_PORT   = 7000
+UI_CONFIG = osm

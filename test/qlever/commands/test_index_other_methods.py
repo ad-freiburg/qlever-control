@@ -107,7 +107,7 @@ class TestIndexCommand(unittest.TestCase):
             context.exception.error_message,
             "`MULTI_INPUT_JSON` must be a JSON array"
         )
-        self.assertEqual(context.exception.additional_info, 
+        self.assertEqual(context.exception.additional_info,
                          args.multi_input_json)
 
     def test_get_input_options_for_json_empty(self):
@@ -123,11 +123,11 @@ class TestIndexCommand(unittest.TestCase):
             context.exception.error_message,
             "`MULTI_INPUT_JSON` must contain at least one element"
         )
-        self.assertEqual(context.exception.additional_info, 
+        self.assertEqual(context.exception.additional_info,
                          args.multi_input_json)
 
     def test_get_input_options_for_json_object_structure(self):
-        # Mock args where one of the JSON objects is missing the 
+        # Mock args where one of the JSON objects is missing the
         # required "cmd" key
         args = MagicMock()
         args.multi_input_json = ('[{"cmd": "test_data1", "format": "json"}, '
@@ -144,6 +144,22 @@ class TestIndexCommand(unittest.TestCase):
         self.assertEqual(
             {"format": "json2"}, context.exception.additional_info)
 
+    def test_get_input_options_for_json_object_type(self):
+        # Mock args where one of the JSON objects is not a dictionary
+        args = MagicMock()
+        args.multi_input_json = ('[{"cmd": "test_data1", "format": "json"}, '
+                                 '5]')  # Missing "cmd"
+
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Verify error mentions the missing `cmd` key
+        self.assertEqual("Element 1 in `MULTI_INPUT_JSON` must be a JSON "
+                        "object",
+                         context.exception.error_message)
+
+        self.assertEqual(
+            5, context.exception.additional_info)
 
     def test_get_input_options_for_json_extra_keys(self):
         # Mock args where one of the JSON objects contains an extra key

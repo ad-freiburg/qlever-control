@@ -1,34 +1,34 @@
 import unittest
+from unittest.mock import MagicMock, patch
 from qlever.commands.index import IndexCommand
 import argparse
 
 
 class TestIndexCommand(unittest.TestCase):
+
+    def setUp(self):
+        # Initialize an IndexCommand instance to access the helper function
+        self.index_command = IndexCommand()
+
     def test_description(self):
-        # Create an instance of IndexCommand
-        ic = IndexCommand()
 
         # Call the method
-        result = ic.description()
+        result = self.index_command.description()
 
         self.assertEqual(result, "Build the index for a given "
                                  "RDF dataset")
 
     def test_should_have_qleverfile(self):
-        # Create an instance of IndexCommand
-        ic = IndexCommand()
 
         # Call the method
-        result = ic.should_have_qleverfile()
+        result = self.index_command.should_have_qleverfile()
 
         assert result
 
     def test_relevant_qleverfile_arguments(self):
-        # Create an instance of IndexCommand
-        ic = IndexCommand()
 
         # Call the method
-        result = ic.relevant_qleverfile_arguments()
+        result = self.index_command.relevant_qleverfile_arguments()
 
         self.assertEqual(result, {"data": ["name", "format"],
                 "index": ["input_files", "cat_input_files", "multi_input_json",
@@ -38,14 +38,13 @@ class TestIndexCommand(unittest.TestCase):
                 "runtime": ["system", "image", "index_container"]})
 
     def test_additional_arguments(self):
-        # Create an instance of IndexCommand
-        ic = IndexCommand()
 
         # Create a parser and a subparser
         parser = argparse.ArgumentParser()
         subparser = parser.add_argument_group('test')
+
         # Call the method
-        ic.additional_arguments(subparser)
+        self.index_command.additional_arguments(subparser)
         # Parse an empty argument list to see the default
         args = parser.parse_args([])
 
@@ -57,3 +56,108 @@ class TestIndexCommand(unittest.TestCase):
         self.assertEqual(argument_help, "Overwrite an existing index, "
                                         "think twice before using.")
 
+    def test_get_input_options_for_json_valid_input(self):
+        # Mock args with a valid multi_input_json and format
+        args = MagicMock()
+        args.multi_input_json = ('[{"cmd": "test_data1", "format": "json"}, '
+                                 '{"cmd": "test_data2"}]')
+        args.format = "jsonld"  # Default format if not specified in JSON
+
+        result = self.index_command.get_input_options_for_json(args)
+
+        # Expected command-line options string based on the JSON data
+        expected_result = ('-f <(test_data1) -F json -g "-" -p false -f '
+                           '<(test_data2) -F jsonld -g "-" -p false')
+        self.assertEqual(result, expected_result)
+
+    @patch('qlever.commands.index.json')
+    def test_get_input_options_for_json_invalid_format(self, mock_json):
+        # Mock args with invalid JSON format
+        args = MagicMock()
+        # Set invalid JSON string instead of array
+        args.multi_input_json = '{"cmd": "test_data"}'
+
+        # Simulate a JSON loading error
+        mock_json.loads.side_effect = Exception("Wrong format")
+
+        # Execute the function and check for the exception
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Check if the correct error message is in the raised exception
+        self.assertEqual(
+            context.exception.error_message,
+            "Failed to parse `MULTI_INPUT_JSON` (Wrong format)"
+        )
+        self.assertEqual(
+            context.exception.additional_info,
+            args.multi_input_json
+        )
+
+    def test_get_input_options_for_json_no_array(self):
+        # Mock args with JSON that's not an array
+        args = MagicMock()
+        args.multi_input_json = '{"key": "test_data1"}'
+
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Verify error message mentions array requirement
+        self.assertEqual(
+            context.exception.error_message,
+            "`MULTI_INPUT_JSON` must be a JSON array"
+        )
+        self.assertEqual(context.exception.additional_info, 
+                         args.multi_input_json)
+
+    def test_get_input_options_for_json_empty(self):
+        # Mock args with an empty JSON array
+        args = MagicMock()
+        args.multi_input_json = '[]'
+
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Verify error message mentions non-empty requirement
+        self.assertEqual(
+            context.exception.error_message,
+            "`MULTI_INPUT_JSON` must contain at least one element"
+        )
+        self.assertEqual(context.exception.additional_info, 
+                         args.multi_input_json)
+
+    def test_get_input_options_for_json_object_structure(self):
+        # Mock args where one of the JSON objects is missing the 
+        # required "cmd" key
+        args = MagicMock()
+        args.multi_input_json = ('[{"cmd": "test_data1", "format": "json"}, '
+                                 '{"format": "json2"}]')  # Missing "cmd"
+
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Verify error mentions the missing `cmd` key
+        self.assertEqual(  "Element 1 in `MULTI_INPUT_JSON` must contain "
+                           "a key `cmd`",
+            context.exception.error_message)
+
+        self.assertEqual(
+            {"format": "json2"}, context.exception.additional_info)
+
+
+    def test_get_input_options_for_json_extra_keys(self):
+        # Mock args where one of the JSON objects contains an extra key
+        args = MagicMock()
+        args.multi_input_json = '[{"cmd": "test_data1", "test_key": "data2"}]'
+
+        with self.assertRaises(IndexCommand.InvalidInputJson) as context:
+            self.index_command.get_input_options_for_json(args)
+
+        # Verify error mentions the missing `cmd` key
+        self.assertEqual("Element 0 in `MULTI_INPUT_JSON` must only "
+                        "contain the keys `format`, `graph`, and `parallel`. "
+                        "Contains extra keys {'test_key'}.",
+                        context.exception.error_message)
+
+        self.assertEqual({"cmd": "test_data1", "test_key": "data2"},
+                         context.exception.additional_info)

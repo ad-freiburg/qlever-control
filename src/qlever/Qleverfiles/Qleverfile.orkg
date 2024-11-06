@@ -1,0 +1,30 @@
+# Qleverfile for ORKG, use with the QLever CLI (`pip install qlever`)
+#
+# qlever get-data  # Get the dataset
+# qlever index     # Build index data structures
+# qlever start     # Start the server
+
+[data]
+NAME         = orkg
+GET_DATA_URL = https://orkg.org/api/rdf/dump
+GET_DATA_CMD = curl -LR -o ${NAME}.ttl ${GET_DATA_URL} 2>&1 | tee ${NAME}.download-log.txt
+VERSION      = $$(date -r ${NAME}.ttl +%d.%m.%Y || echo "NO_DATE")
+DESCRIPTION  = The Open Research Knowledge Graph (ORKG) (data from ${GET_DATA_URL}, version ${VERSION})
+
+[index]
+INPUT_FILES     = ${data:NAME}.ttl
+CAT_INPUT_FILES = cat ${INPUT_FILES}
+SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
+
+[server]
+PORT               = 7053
+ACCESS_TOKEN       = ${data:NAME}
+MEMORY_FOR_QUERIES = 10G
+CACHE_MAX_SIZE     = 5G
+
+[runtime]
+SYSTEM = docker
+IMAGE  = docker.io/adfreiburg/qlever:latest
+
+[ui]
+UI_CONFIG = orkg

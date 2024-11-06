@@ -1,4 +1,4 @@
-# Qleverfile for Wikidata, use with the QLever CLI (`pip install qlever`)
+# Qleverfile for ORKG, use with the QLever CLI (`pip install qlever`)
 #
 # qlever get-data  # Get the dataset
 # qlever index     # Build index data structures

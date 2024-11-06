@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from os import environ
 from pathlib import Path
 
 from qlever.command import QleverCommand
@@ -15,9 +16,9 @@ class SetupConfigCommand(QleverCommand):
 
     def __init__(self):
         self.qleverfiles_path = Path(__file__).parent.parent / "Qleverfiles"
-        self.qleverfile_names = \
-            [p.name.split(".")[1]
-             for p in self.qleverfiles_path.glob("Qleverfile.*")]
+        self.qleverfile_names = [
+            p.name.split(".")[1] for p in self.qleverfiles_path.glob("Qleverfile.*")
+        ]
 
     def description(self) -> str:
         return "Get a pre-configured Qleverfile"
@@ -25,23 +26,38 @@ class SetupConfigCommand(QleverCommand):
     def should_have_qleverfile(self) -> bool:
         return False
 
-    def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
-                "config_name", type=str,
-                choices=self.qleverfile_names,
-                help="The name of the pre-configured Qleverfile to create")
+            "config_name",
+            type=str,
+            choices=self.qleverfile_names,
+            help="The name of the pre-configured Qleverfile to create",
+        )
 
     def execute(self, args) -> bool:
+        # Show a warning if `QLEVER_OVERRIDE_SYSTEM_NATIVE` is set.
+        qlever_override_system_native = environ.get("QLEVER_OVERRIDE_SYSTEM_NATIVE")
+        if qlever_override_system_native:
+            log.warning(
+                "The environment variable QLEVER_OVERRIDE_SYSTEM_NATIVE"
+                " is set, therefore the Qleverfile will be configured"
+                " to use SYSTEM = native"
+            )
+            log.info("")
         # Construct the command line and show it.
-        qleverfile_path = (self.qleverfiles_path
-                           / f"Qleverfile.{args.config_name}")
+        qleverfile_path = self.qleverfiles_path / f"Qleverfile.{args.config_name}"
         setup_config_cmd = (
-                f"cat {qleverfile_path}"
-                f" | sed -E 's/(^ACCESS_TOKEN.*)/\\1_{get_random_string(12)}/'"
-                f"> Qleverfile")
+            f"cat {qleverfile_path}"
+            f" | sed -E 's/(^ACCESS_TOKEN.*)/\\1_{get_random_string(12)}/'"
+        )
+        if qlever_override_system_native:
+            setup_config_cmd += (
+                " | sed -E 's/(^SYSTEM[[:space:]]*=[[:space:]]*).*/\\1native/'"
+            )
+        setup_config_cmd += "> Qleverfile"
         self.show(setup_config_cmd, only_show=args.show)
         if args.show:
             return False
@@ -51,31 +67,31 @@ class SetupConfigCommand(QleverCommand):
         if qleverfile_path.exists():
             log.error("`Qleverfile` already exists in current directory")
             log.info("")
-            log.info("If you want to create a new Qleverfile using "
-                     "`qlever setup-config`, delete the existing Qleverfile "
-                     "first")
+            log.info(
+                "If you want to create a new Qleverfile using "
+                "`qlever setup-config`, delete the existing Qleverfile "
+                "first"
+            )
             return False
 
         # Copy the Qleverfile to the current directory.
         try:
-            subprocess.run(setup_config_cmd, shell=True, check=True,
-                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run(
+                setup_config_cmd,
+                shell=True,
+                check=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
         except Exception as e:
-            log.error(f"Could not copy \"{qleverfile_path}\""
-                      f" to current directory: {e}")
+            log.error(
+                f'Could not copy "{qleverfile_path}"' f" to current directory: {e}"
+            )
             return False
 
         # If we get here, everything went well.
-        log.info(f"Created Qleverfile for config \"{args.config_name}\""
-                 f" in current directory")
+        log.info(
+            f'Created Qleverfile for config "{args.config_name}"'
+            f" in current directory"
+        )
         return True
-
-        # if config_name == "default":
-        #     log.info("Since this is the default Qleverfile, you need to "
-        #              "edit it before you can continue")
-        #     log.info("")
-        #     log.info("Afterwards, run `qlever` without arguments to see "
-        #              "which actions are available")
-        # else:
-        #     show_available_action_names()
-        # log.info("")

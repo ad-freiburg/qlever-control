@@ -66,6 +66,7 @@ class TestIndexCommand(unittest.TestCase):
         assert result
 
 
+    # Test execute for file already existing
     @patch('qlever.commands.index.run_command')
     @patch('qlever.commands.index.Containerize')
     @patch('qlever.commands.index.get_existing_index_files')
@@ -102,11 +103,9 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.return_value = None
         mock_containerize.supported_systems.return_value = []
 
-        # Instantiate the IndexCommand
-        ic = IndexCommand()
 
-        # Execute the function
-        result = ic.execute(args)
+        # Instantiate IndexCommand and execute the function
+        result = IndexCommand().execute(args)
 
         # Assertions
         assert not result
@@ -122,6 +121,7 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.assert_called_once_with(f"{args.index_binary} --help")
 
 
+    # Test execute for no index binary found
     @patch('qlever.commands.index.run_command')
     @patch('qlever.commands.index.Containerize')
     @patch('qlever.commands.index.get_existing_index_files')
@@ -160,11 +160,8 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.side_effect = Exception("Binary not found")
         mock_containerize.supported_systems.return_value = []
 
-        # Instantiate the IndexCommand
-        ic = IndexCommand()
-
-        # Execute the function
-        result = ic.execute(args)
+        # Instantiate IndexCommand and execute the function
+        result = IndexCommand().execute(args)
 
         # Assertions
         self.assertFalse(result)
@@ -181,6 +178,7 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.assert_called_once_with(f"{args.index_binary} --help")
 
 
+    # Test execute for file size > 10gb
     @patch('qlever.commands.index.run_command')
     @patch('qlever.commands.index.Containerize')
     @patch('qlever.commands.index.get_existing_index_files')
@@ -216,11 +214,8 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.return_value = None
         mock_containerize.supported_systems.return_value = []
 
-        # Instantiate the IndexCommand
-        ic = IndexCommand()
-
-        # Execute the function
-        result = ic.execute(args)
+        # Instantiate IndexCommand and execute the function
+        result = IndexCommand().execute(args)
 
         # Assertions
         expected_index_cmd = (
@@ -231,3 +226,100 @@ class TestIndexCommand(unittest.TestCase):
         )
         mock_run_command.assert_any_call(expected_index_cmd, show_output=True)
         self.assertTrue(result)
+
+
+    # Test elif branch for multi_input_json
+    @patch('qlever.commands.index.log')
+    @patch('qlever.commands.index.json')
+    def test_execute_get_input_options_error(self, mock_json,
+                                                    mock_log):
+        # Setup args
+        args = MagicMock()
+        args.cat_input_files = False
+        args.multi_input_json = '{"cmd": "test_data"}'
+
+        # Simulate a JSON loading error
+        mock_json.loads.side_effect = Exception("Wrong format")
+
+        # Instantiate IndexCommand and execute the function
+        result = IndexCommand().execute(args)
+
+        error_msg = "Failed to parse `MULTI_INPUT_JSON` (Wrong format)"
+        # Asserts
+        # Verify that the error message was logged
+        mock_log.error.assert_called_once_with(error_msg)
+        # Assert that log_info was called exactly 2 times with the
+        # correct arguments in order
+        mock_log.info.assert_has_calls([call(""), call(args.multi_input_json)],
+                                       any_order=False)
+        assert not result
+
+
+    # Test else branch for multi_input_json
+    @patch('qlever.commands.index.log')
+    def test_execute_cat_files_and_multi_json(self, mock_log):
+        # Setup args
+        args = MagicMock()
+        args.cat_input_files = True
+        args.multi_input_json = True
+
+        # Instantiate IndexCommand and execute the function
+        result = IndexCommand().execute(args)
+
+        error_msg = ("Specify exactly one of `CAT_INPUT_FILES` (for a "
+                      "single input stream) or `MULTI_INPUT_JSON` (for "
+                      "multiple input streams)")
+        log_msg = "See `qlever index --help` for more information"
+        # Asserts
+        # Verify that the error message was logged
+        mock_log.error.assert_called_once_with(error_msg)
+        # Assert that log_info was called exactly 2 times with the
+        # correct arguments in order
+        mock_log.info.assert_has_calls([call(""), call(log_msg)],
+                                       any_order=False)
+        assert not result
+
+
+    # Tests all the extra additions to the index_cmd and the show option
+    @patch('qlever.commands.index.IndexCommand.get_input_options_for_json')
+    @patch('qlever.commands.index.IndexCommand.show')
+    def test_execute_successful_indexing_with_extras_and_show(self, mock_show,
+                                                mock_input_json):
+        # Setup args
+        args = MagicMock()
+        args.name = "TestName"
+        args.index_binary = "/test/path/index-binary"
+        args.multi_input_json = True
+        args.cat_input_files = False
+        args.only_pso_and_pos_permutations = True
+        args.use_patterns = False
+        args.text_index = "from_text_records_and_literals"
+        args.stxxl_memory = True
+        args.input_files = "*.nt"
+        args.system = "native"
+        args.settings_json = '{"example": "settings"}'
+        args.show = True
+
+        # Mock get_input_options_for_json
+        mock_input_json.return_value = "test_input_stream"
+
+        # Instantiate and executing the IndexCommand
+        result = IndexCommand().execute(args)
+
+        # Assertions
+        expected_index_cmd = (f"{args.index_binary}"
+                     f" -i {args.name} -s {args.name}.settings.json"
+                     f" {mock_input_json.return_value}"
+                     f" --only-pso-and-pos-permutations --no-patterns"
+                     f" --no-patterns -w {args.name}.wordsfile.tsv"
+                     f" -d {args.name}.docsfile.tsv"
+                     f" --text-words-from-literals"
+                     f" --stxxl-memory {args.stxxl_memory}"
+                     f" | tee {args.name}.index-log.txt")
+        settings_json_cmd = (f"echo {shlex.quote(args.settings_json)} "
+                             f"> {args.name}.settings.json")
+
+        # Verify that show was called with the right parameters
+        mock_show.assert_called_once_with(f"{settings_json_cmd}\n"
+                                f"{expected_index_cmd}", only_show = args.show)
+        assert not result

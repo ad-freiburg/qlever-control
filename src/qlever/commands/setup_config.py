@@ -39,12 +39,12 @@ class SetupConfigCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Show a warning if `QLEVER_OVERRIDE_SYSTEM_NATIVE` is set.
-        qlever_override_system_native = environ.get("QLEVER_OVERRIDE_SYSTEM_NATIVE")
-        if qlever_override_system_native:
+        qlever_is_running_in_container = environ.get("QLEVER_IS_RUNNING_IN_CONTAINER")
+        if qlever_is_running_in_container:
             log.warning(
-                "The environment variable QLEVER_OVERRIDE_SYSTEM_NATIVE"
-                " is set, therefore the Qleverfile will be configured"
-                " to use SYSTEM = native"
+                "The environment variable `QLEVER_IS_RUNNING_IN_CONTAINER` is set, "
+                "therefore the Qleverfile is modified to use `SYSTEM = native` "
+                "(since inside the container, QLever should run natively)"
             )
             log.info("")
         # Construct the command line and show it.
@@ -53,7 +53,7 @@ class SetupConfigCommand(QleverCommand):
             f"cat {qleverfile_path}"
             f" | sed -E 's/(^ACCESS_TOKEN.*)/\\1_{get_random_string(12)}/'"
         )
-        if qlever_override_system_native:
+        if qlever_is_running_in_container:
             setup_config_cmd += (
                 " | sed -E 's/(^SYSTEM[[:space:]]*=[[:space:]]*).*/\\1native/'"
             )

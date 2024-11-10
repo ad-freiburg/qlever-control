@@ -35,12 +35,12 @@ class UiCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # If QLEVER_OVERRIDE_DISABLE_UI is set, this command is disabled.
-        disable_ui = environ.get("QLEVER_OVERRIDE_DISABLE_UI")
-        if disable_ui:
+        qlever_is_running_in_container = environ.get("QLEVER_IS_RUNNING_IN_CONTAINER")
+        if qlever_is_running_in_container:
             log.error(
-                "The environment variable QLEVER_OVERRIDE_DISABLE_UI is set, "
-                "probably because this is running inside a container, "
-                "therefore `qlever ui` is not available"
+                "The environment variable `QLEVER_OVERRIDE_DISABLE_UI` is set, "
+                "therefore `qlever ui` is not available (it should not be called "
+                "from inside a container)"
             )
             log.info("")
             if not args.show:
@@ -70,7 +70,7 @@ class UiCommand(QleverCommand):
             "\n".join(["Stop running containers", pull_cmd, run_cmd, exec_cmd]),
             only_show=args.show,
         )
-        if disable_ui or args.show:
+        if qlever_is_running_in_container or args.show:
             return False
 
         # Stop running containers.

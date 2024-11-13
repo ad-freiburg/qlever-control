@@ -1,51 +1,72 @@
-# Qleverfile for PubChem, use with https://github.com/ad-freiburg/qlever-control
-#
-# Resource requirements (as of 18.08.2024, on an AMD Ryzen 9 5900X):
+# Qleverfile for PubChem, use with the QLever CLI (`pip install qlever`)
 #
 # qlever get-data  # ~2 hours, ~150 GB, ~19 billion triples
 # qlever index     # ~7 hours, ~20 GB RAM, ~400 GB disk space
 # qlever start     # a few seconds
 #
-# NOTE 1: `get-data` does not only download the PubChem RDF data, but also
+# Measured on an AMD Ryzen 9 5950X with 128 GB RAM, and NVMe SSD (13.11.2024)
+#
+# NOTE: `qlever get-data` does not only download the PubChem RDF data, but also
 # a number of ontologies. These are very useful to obtain names for IRIs like
 # `sio:SIO_000008` or `obo:IAO_0000412` (otherwise very hard to understand).
-# The ontologies BAO and NDF-RT are infrequently updated, for latest versions,
+# The ontologies BAO and NDF-RT are occasionally updated; for latest versions,
 # see the download links at https://bioportal.bioontology.org/ontologies/BAO
 # and https://bioportal.bioontology.org/ontologies/NDF-RT .
-# 
-# NOTE 2: Many of the TTL files have generic prefix definitions in the middle
-# of the file, like @prefix ns23: <http://identifiers.org/biocyc/ARACYC:> .
-# See https://github.com/ad-freiburg/qlever/issues/711#issuecomment-1197113953
-# This is allowed by the standard, but unusual. For use with QLever, we
-# therefore convert the TTL files to NT when downloading them.
-#
-# NOTE 3: The PubChem data contains several invalid IRIs, in particular,
-# containing spaces. The previous version of this Qleverfile used a combination
-# of `sed` and `awk` to fix this. In the meantime, QLever's default is to warn
-# about such IRIs while indexing, but accept them anyway.
 
 [data]
 NAME                = pubchem
 GET_DATA_URL        = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
+ONTOLOGIES_DIR      = RDF.ontologies
+PUBCHEM_DIR         = RDF.pubchem
 CHECK_REQUIREMENTS  = for CMD in docker parallel; do $$CMD --version >/dev/null 2>&1 || (echo "Requires \"$$CMD\", please install it"; false); done
-MAKE_GET_DATA_CMD_1 = DIR=DATA.ontologies && mkdir -p $$DIR && cat $$DIR/ontologies.csv | while IFS=',' read -r DESC FILE URL; do ERRFILE=$${FILE%.*}.jena-stderr; echo "echo \"Processing $$URL ($$FILE) ...\" && curl -sLRo $$DIR/$$FILE \"$$URL\" && docker run --rm -v $$(pwd):/data stain/jena riot --output=NT /data/$$DIR/$$FILE 2> $$DIR/$$ERRFILE | gzip -c > $$DIR/$${FILE%.*}.nt.gz && rm -f $$DIR/$$FILE && if [ ! -s $$DIR/$$ERRFILE ]; then rm -f $$DIR/$$ERRFILE; fi || echo \"ERROR processing $$URL ($$FILE)\""; done > pubchem.get-data-cmds.txt
-MAKE_GET_DATA_CMD_2 = DIR=DATA.pubchem && mkdir -p $$DIR && curl -LRO ${GET_DATA_URL}/void.ttl && grep -oP '${GET_DATA_URL}/.*?\.ttl\.gz' void.ttl | while read URL; do FILE=$$(basename $$URL); echo "echo \"Processing $$URL ...\" && curl -sLRo $$DIR/$$FILE \"$$URL\" && docker run -i --rm -v $$(pwd):/data stain/jena turtle --output=NT /data/$$DIR/$$FILE | gzip -c > $$DIR/$${FILE%%.*}.nt.gz && rm -f $$DIR/$$FILE || echo \"ERROR processing $$URL\""; done >> pubchem.get-data-cmds.txt
-GET_DATA_CMD        = ${CHECK_REQUIREMENTS} && ${MAKE_GET_DATA_CMD_1} && ${MAKE_GET_DATA_CMD_2} && cat pubchem.get-data-cmds.txt | parallel --line-buffer 2>&1 | tee pubchem.get-data-log.txt
+GET_DATA_CMD_1      = mkdir -p ${ONTOLOGIES_DIR} && (cd ${ONTOLOGIES_DIR} && echo -e ${ONTOLOGIES_CSV} | while IFS=',' read -r DESC FILE URL; do ERRFILE=$${FILE%.*}.jena-stderr; echo "Processing $$URL ($$FILE) ..." && curl -sLRo $$FILE $$URL && docker run --rm -v $$(pwd):/data stain/jena riot --output=NT /data/$$FILE 2> $$ERRFILE | gzip -c > $${FILE%.*}.nt.gz && rm -f $$FILE; if [ -s $$ERRFILE ]; then grep -q "ERROR *riot" $$ERRFILE && echo "riot ERRORs in $$FILE, check $$ERRFILE"; else rm $$ERRFILE; fi; done)
+GET_DATA_CMD_2      = mkdir -p ${PUBCHEM_DIR} && wget -r -nH --cut-dirs=2 -A '*.ttl.gz' ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF -P RDF.pubchem
+GET_DATA_CMD        = (${CHECK_REQUIREMENTS} && ${GET_DATA_CMD_1} && ${GET_DATA_CMD_2}) 2>&1 | tee pubchem.get-data-log.txt
 VERSION             = $$(date -r void.ttl +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION         = PubChem RDF from ${GET_DATA_URL} (version ${VERSION}) + associated ontologies (bao, bfo, biopax-level3, chebi, cheminf, cito, dublin_core_terms, fabio, go, iao, ncit, obi, pr, ro, sio, skos, so, uo)
-MAKE_ONTOLOGIES_CSV = $$(mkdir -p DATA.ontologies && echo "BAO - BioAssay Ontology,bao.owl,https://data.bioontology.org/ontologies/BAO/submissions/56/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nBFO - Basic Formal Ontology,bfo.owl,http://purl.obolibrary.org/obo/bfo.owl\n BioPAX - biological pathway data,bp.owl,http://www.biopax.org/release/biopax-level3.owl\n CHEMINF - Chemical Information Ontology,cheminf.owl,http://purl.obolibrary.org/obo/cheminf.owl\n ChEBI - Chemical Entities of Biological Interest,chebi.owl,http://purl.obolibrary.org/obo/chebi.owl\n CiTO,cito.nt,http://purl.org/spar/cito.nt\n DCMI Terms,dcterms.nt,https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.nt\n FaBiO,fabio.nt,http://purl.org/spar/fabio.nt\n GO - Gene Ontology,go.owl,http://purl.obolibrary.org/obo/go.owl\n IAO - Information Artifact Ontology,iao.owl,http://purl.obolibrary.org/obo/iao.owl\n NCIt,ncit.owl,http://purl.obolibrary.org/obo/ncit.owl\n NDF-RT,ndfrt.owl,https://data.bioontology.org/ontologies/NDF-RT/submissions/1/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\n OBI - Ontology for Biomedical Investigations,obi.owl,http://purl.obolibrary.org/obo/obi.owl\n OWL,owl.ttl,http://www.w3.org/2002/07/owl.ttl\n PDBo,pdbo.owl,http://rdf.wwpdb.org/schema/pdbx-v40.owl\n PR - PRotein Ontology (PRO),pr.owl,http://purl.obolibrary.org/obo/pr.owl\n RDF Schema,rdfs.ttl,https://www.w3.org/2000/01/rdf-schema.ttl\n RDF,rdf.ttl,http://www.w3.org/1999/02/22-rdf-syntax-ns.ttl\n RO - Relation Ontology,ro.owl,http://purl.obolibrary.org/obo/ro.owl\n SIO - Semanticscience Integrated Ontology,sio.owl,http://semanticscience.org/ontology/sio.owl\n SKOS,skos.rdf,http://www.w3.org/TR/skos-reference/skos.rdf\n SO - Sequence types and features ontology,so.owl,http://purl.obolibrary.org/obo/so.owl\n UO - Units of measurement ontology,uo.owl,http://purl.obolibrary.org/obo/uo.owl" > DATA.ontologies/ontologies.csv)
+ONTOLOGIES_CSV      = "BAO - BioAssay Ontology,bao.owl,https://data.bioontology.org/ontologies/BAO/submissions/56/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nBFO - Basic Formal Ontology,bfo.owl,http://purl.obolibrary.org/obo/bfo.owl\nBioPAX - biological pathway data,bp.owl,http://www.biopax.org/release/biopax-level3.owl\nCHEMINF - Chemical Information Ontology,cheminf.owl,http://purl.obolibrary.org/obo/cheminf.owl\nChEBI - Chemical Entities of Biological Interest,chebi.owl,http://purl.obolibrary.org/obo/chebi.owl\nCiTO,cito.nt,http://purl.org/spar/cito.nt\nDCMI Terms,dcterms.nt,https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.nt\nFaBiO,fabio.nt,http://purl.org/spar/fabio.nt\nGO - Gene Ontology,go.owl,http://purl.obolibrary.org/obo/go.owl\nIAO - Information Artifact Ontology,iao.owl,http://purl.obolibrary.org/obo/iao.owl\nNCIt,ncit.owl,http://purl.obolibrary.org/obo/ncit.owl\nNDF-RT,ndfrt.owl,https://data.bioontology.org/ontologies/NDF-RT/submissions/1/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nOBI - Ontology for Biomedical Investigations,obi.owl,http://purl.obolibrary.org/obo/obi.owl\nOWL,owl.ttl,http://www.w3.org/2002/07/owl.ttl\nPDBo,pdbo.owl,http://rdf.wwpdb.org/schema/pdbx-v40.owl\nPR - PRotein Ontology (PRO),pr.owl,http://purl.obolibrary.org/obo/pr.owl\nRDF Schema,rdfs.ttl,https://www.w3.org/2000/01/rdf-schema.ttl\nRDF,rdf.ttl,http://www.w3.org/1999/02/22-rdf-syntax-ns.ttl\nRO - Relation Ontology,ro.owl,http://purl.obolibrary.org/obo/ro.owl\nSIO - Semanticscience Integrated Ontology,sio.owl,http://semanticscience.org/ontology/sio.owl\nSKOS,skos.rdf,http://www.w3.org/TR/skos-reference/skos.rdf\nSO - Sequence types and features ontology,so.owl,http://purl.obolibrary.org/obo/so.owl\nUO - Units of measurement ontology,uo.owl,http://purl.obolibrary.org/obo/uo.owl"
 
 [index]
-INPUT_FILES     = DATA.ontologies/*.nt.gz DATA.pubchem/*.nt.gz
-CAT_INPUT_FILES = zcat ${INPUT_FILES}
+INPUT_FILES      = ${data:ONTOLOGIES_DIR}/*.nt.gz ${data:PUBCHEM_DIR}/*/*.ttl.gz ${data:PUBCHEM_DIR}/*/*/*.ttl.gz
+BASE_URL         = http://rdf.ncbi.nlm.nih.gov/pubchem
+MULTI_INPUT_JSON = [{ "cmd": "zcat ${data:ONTOLOGIES_DIR}/*.nt.gz", "graph": "${BASE_URL}/ruleset"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/anatomy/*.ttl.gz", "graph": "${BASE_URL}/anatomy"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/author/*.ttl.gz", "graph": "${BASE_URL}/author"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/bioassay/*.ttl.gz", "graph": "${BASE_URL}/bioassay"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/book/*.ttl.gz", "graph": "${BASE_URL}/book"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/cell/*.ttl.gz", "graph": "${BASE_URL}/cell"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/compound/general/*.ttl.gz", "graph": "${BASE_URL}/compound/general"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/concept/*.ttl.gz", "graph": "${BASE_URL}/concept"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/conserveddomain/*.ttl.gz", "graph": "${BASE_URL}/conserveddomain"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/cooccurrence/*.ttl.gz", "graph": "${BASE_URL}/cooccurrence"}]
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/descriptor/compound/*.ttl.gz", "graph": "${BASE_URL}/descriptor/compound"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/descriptor/substance/*.ttl.gz", "graph": "${BASE_URL}/descriptor/substance"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/disease/*.ttl.gz", "graph": "${BASE_URL}/disease"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/endpoint/*.ttl.gz", "graph": "${BASE_URL}/endpoint"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/gene/*.ttl.gz", "graph": "${BASE_URL}/gene"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/grant/*.ttl.gz", "graph": "${BASE_URL}/grant"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/inchikey/*.ttl.gz", "graph": "${BASE_URL}/inchikey"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/journal/*.ttl.gz", "graph": "${BASE_URL}/journal"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/measuregroup/*.ttl.gz", "graph": "${BASE_URL}/measuregroup"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/organization/*.ttl.gz", "graph": "${BASE_URL}/organization"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/patent/*.ttl.gz", "graph": "${BASE_URL}/patent"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/patent/cpc/*.ttl.gz", "graph": "${BASE_URL}/patent/cpc"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/patent/ipc/*.ttl.gz", "graph": "${BASE_URL}/patent/ipc"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/pathway/*.ttl.gz", "graph": "${BASE_URL}/pathway"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/protein/*.ttl.gz", "graph": "${BASE_URL}/protein"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/reference/*.ttl.gz", "graph": "${BASE_URL}/reference"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/source/*.ttl.gz", "graph": "${BASE_URL}/source"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/substance/*.ttl.gz", "graph": "${BASE_URL}/substance"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/synonym/*.ttl.gz", "graph": "${BASE_URL}/synonym"},
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/taxonomy/*.ttl.gz", "graph": "${BASE_URL}/taxonomy"}]
 SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
-STXXL_MEMORY    = 10G
+STXXL_MEMORY    = 20G
 
 [server]
 PORT               = 7023
 ACCESS_TOKEN       = ${data:NAME}
 MEMORY_FOR_QUERIES = 20G
-TIMEOUT            = 120s
+TIMEOUT            = 600s
 
 [runtime]
 SYSTEM = docker

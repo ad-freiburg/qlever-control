@@ -38,7 +38,7 @@ MULTI_INPUT_JSON = [{ "cmd": "zcat ${data:ONTOLOGIES_DIR}/*.nt.gz", "graph": "${
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/compound/general/*.ttl.gz", "graph": "${BASE_URL}/compound/general"},
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/concept/*.ttl.gz", "graph": "${BASE_URL}/concept"},
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/conserveddomain/*.ttl.gz", "graph": "${BASE_URL}/conserveddomain"},
-                    { "cmd": "zcat ${data:PUBCHEM_DIR}/cooccurrence/*.ttl.gz", "graph": "${BASE_URL}/cooccurrence"}]
+                    { "cmd": "zcat ${data:PUBCHEM_DIR}/cooccurrence/*.ttl.gz", "graph": "${BASE_URL}/cooccurrence"},
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/descriptor/compound/*.ttl.gz", "graph": "${BASE_URL}/descriptor/compound"},
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/descriptor/substance/*.ttl.gz", "graph": "${BASE_URL}/descriptor/substance"},
                     { "cmd": "zcat ${data:PUBCHEM_DIR}/disease/*.ttl.gz", "graph": "${BASE_URL}/disease"},

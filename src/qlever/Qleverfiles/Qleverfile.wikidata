@@ -13,7 +13,7 @@ NAME = wikidata
 
 [data]
 GET_DATA_URL      = https://dumps.wikimedia.org/wikidatawiki/entities
-GET_DATA_CMD      = curl -LROC - ${GET_DATA_URL}/latest-all.ttl.bz2 ${GET_DATA_URL}/latest-lexemes.ttl.bz2 2>&1 | tee wikidata.download-log.txt && curl -sL ${GET_DATA_URL}/dcatap.rdf | docker run -i --rm -v $$(pwd):/data stain/jena riot --syntax=RDF/XML --output=NT /dev/stdin > dcatap.nt
+GET_DATA_CMD      = curl -LRC - -O ${GET_DATA_URL}/latest-all.ttl.bz2 -O ${GET_DATA_URL}/latest-lexemes.ttl.bz2 2>&1 | tee wikidata.download-log.txt && curl -sL ${GET_DATA_URL}/dcatap.rdf | docker run -i --rm -v $$(pwd):/data stain/jena riot --syntax=RDF/XML --output=NT /dev/stdin > dcatap.nt
 DATE_WIKIDATA     = $$(date -r latest-all.ttl.bz2 +%d.%m.%Y || echo "NO_DATE")
 DATE_WIKIPEDIA    = $$(date -r wikipedia-abstracts.nt +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION       = Full Wikidata dump from ${GET_DATA_URL} (latest-all.ttl.bz2 and latest-lexemes.ttl.bz2, version ${DATE_WIKIDATA}) + English Wikipeda abstracts (version ${DATE_WIKIPEDIA}, available via schema:description)
@@ -31,11 +31,11 @@ TEXT_INDEX       = from_text_records
 
 [server]
 PORT                        = 7001
-ACCESS_TOKEN                = ${data:NAME}_3fz47hfzrbf64b
-MEMORY_FOR_QUERIES          = 40G
-CACHE_MAX_SIZE              = 30G
+ACCESS_TOKEN                = ${data:NAME}
+MEMORY_FOR_QUERIES          = 20G
+CACHE_MAX_SIZE              = 15G
 CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
-TIMEOUT                     = 300s
+TIMEOUT                     = 600s
 
 [runtime]
 SYSTEM = docker

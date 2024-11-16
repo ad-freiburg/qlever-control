@@ -28,7 +28,7 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name", "format"],
                 "index": ["input_files", "cat_input_files", "multi_input_json",
-                          "settings_json", "index_binary",
+                          "parallel_parsing", "settings_json", "index_binary",
                           "only_pso_and_pos_permutations", "use_patterns",
                           "text_index", "stxxl_memory"],
                 "runtime": ["system", "image", "index_container"]}
@@ -111,6 +111,8 @@ class IndexCommand(QleverCommand):
             index_cmd = (f"{args.cat_input_files} | {args.index_binary}"
                          f" -i {args.name} -s {args.name}.settings.json"
                          f" -F {args.format} -f -")
+            if args.parallel_parsing:
+                index_cmd += (f" -p {args.parallel_parsing}")
         elif args.multi_input_json and not args.cat_input_files:
             try:
                 input_options = self.get_input_options_for_json(args)

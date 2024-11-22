@@ -20,7 +20,7 @@ DESCRIPTION       = Full Wikidata dump from ${GET_DATA_URL} (latest-all.ttl.bz2 
 TEXT_DESCRIPTION  = All English and German literals + all sentences from the English Wikipedia (version ${DATE_WIKIPEDIA}), use with FILTER KEYWORDS(...)
 
 [index]
-INPUT_FILES      = latest-all.ttl.bz2 latest-lexemes.ttl.bz2 wikipedia-abstracts.nt dcatap.nt
+INPUT_FILES      = latest-all.ttl.bz2 latest-lexemes.ttl.bz2 dcatap.nt
 MULTI_INPUT_JSON = [{ "cmd": "lbzcat -n 4 latest-all.ttl.bz2", "format": "ttl", "parallel": "true" },
                     { "cmd": "lbzcat -n 1 latest-lexemes.ttl.bz2", "format": "ttl", "parallel": "false" },
                     { "cmd": "cat dcatap.nt", "format": "nt", "parallel": "false" }]

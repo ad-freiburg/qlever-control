@@ -17,7 +17,7 @@ FORMAT       = ttl
 
 [index]
 INPUT_FILES      = *.gz
-MULTI_INPUT_JSON = $$(ls *.gz | awk 'BEGIN { printf "[ " } NR > 1 { printf ", " } { printf "{\"cmd\": \"zcat " $$0 "\"}" } END { printf "]" }')
+MULTI_INPUT_JSON = $$(ls *.gz | xargs -I {} echo '{ "cmd": "zcat {}" }')
 SETTINGS_JSON    = { "ascii-prefixes-only": false, "num-triples-per-batch": 5000000, "prefixes-external": [""] }
 
 [server]

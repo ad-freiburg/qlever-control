@@ -386,11 +386,12 @@ class ExampleQueriesCommand(QleverCommand):
                     error_msg["long"] = (
                         error_msg["long"][: args.width_error_message - 3] + "..."
                     )
+                seperator_short_long = "\n" if args.show_query == "on-error" else " "
                 log.info(
                     f"{description:<{args.width_query_description}}    "
                     f"{colored('FAILED   ', 'red')}"
                     f"{colored(error_msg['short'], 'red')}"
-                    f"{'\n' if args.show_query == 'on-error' else ' '}"
+                    f"{seperator_short_long}"
                     f"{colored(error_msg['long'], 'red')}"
                 )
                 if args.show_query == "on-error":

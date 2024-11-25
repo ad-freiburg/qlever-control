@@ -323,41 +323,63 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                try:
-                    if args.download_or_count == "count":
-                        if args.accept == "text/tab-separated-values":
-                            result_size = run_command(
-                                f"sed 1d {result_file}", return_output=True
-                            )
-                        else:
+                # CASE 0: Rhe result is empty despite a 200 HTTP code.
+                if Path(result_file).stat().st_size == 0:
+                    result_size = 0
+                    error_msg = {
+                        "short": "Empty result",
+                        "long": "curl returned with code 200, "
+                        "but the result is empty",
+                    }
+
+                # CASE 1: Just counting the size of the result (TSV or JSON).
+                elif args.download_or_count == "count":
+                    if args.accept == "text/tab-separated-values":
+                        result_size = run_command(
+                            f"sed 1d {result_file}", return_output=True
+                        )
+                    else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings[0]'
                                 f" | to_entries[0].value.value"
                                 f' | tonumber" {result_file}',
                                 return_output=True,
                             )
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": "curl returned with code 200, "
+                                "but the JSON is malformed: "
+                                + re.sub(r"\s+", " ", str(e)),
+                            }
+
+                # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
+                else:
+                    if (
+                        args.accept == "text/tab-separated-values"
+                        or args.accept == "text/csv"
+                    ):
+                        result_size = run_command(
+                            f"sed 1d {result_file} | wc -l", return_output=True
+                        )
+                    elif args.accept == "text/turtle":
+                        result_size = run_command(
+                            f"sed '1d;/^@prefix/d;/^\\s*$/d' " f"{result_file} | wc -l",
+                            return_output=True,
+                        )
                     else:
-                        if (
-                            args.accept == "text/tab-separated-values"
-                            or args.accept == "text/csv"
-                        ):
-                            result_size = run_command(
-                                f"sed 1d {result_file} | wc -l", return_output=True
-                            )
-                        elif args.accept == "text/turtle":
-                            result_size = run_command(
-                                f"sed '1d;/^@prefix/d;/^\\s*$/d' "
-                                f"{result_file} | wc -l",
-                                return_output=True,
-                            )
-                        else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings | length"' f" {result_file}",
                                 return_output=True,
                             )
-                    result_size = int(result_size)
-                except Exception as e:
-                    error_msg = str(e)
+                            result_size = int(result_size)
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": re.sub(r"\s+", " ", str(e)),
+                            }
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -386,11 +408,11 @@ class ExampleQueriesCommand(QleverCommand):
                     error_msg["long"] = (
                         error_msg["long"][: args.width_error_message - 3] + "..."
                     )
-                seperator_short_long = "\n" if args.show_query == "on-error" else " "
+                seperator_short_long = "\n" if args.show_query == "on-error" else "  "
                 log.info(
                     f"{description:<{args.width_query_description}}    "
                     f"{colored('FAILED   ', 'red')}"
-                    f"{colored(error_msg['short'], 'red')}"
+                    f"{colored(error_msg['short'], 'red'):>{args.width_result_size}}"
                     f"{seperator_short_long}"
                     f"{colored(error_msg['long'], 'red')}"
                 )

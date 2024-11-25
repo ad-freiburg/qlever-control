@@ -374,7 +374,6 @@ class ExampleQueriesCommand(QleverCommand):
                                 f'jq -r ".results.bindings | length"' f" {result_file}",
                                 return_output=True,
                             )
-                            result_size = int(result_size)
                         except Exception as e:
                             error_msg = {
                                 "short": "Malformed JSON",
@@ -390,6 +389,7 @@ class ExampleQueriesCommand(QleverCommand):
                 description = description[: args.width_query_description - 3]
                 description += "..."
             if error_msg is None:
+                result_size = int(result_size)
                 log.info(
                     f"{description:<{args.width_query_description}}  "
                     f"{time_seconds:6.2f} s  "

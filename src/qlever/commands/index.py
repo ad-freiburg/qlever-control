@@ -99,13 +99,50 @@ class IndexCommand(QleverCommand):
                     f"Element {i} in `MULTI_INPUT_JSON` must contain a " "key `cmd`",
                     input_spec,
                 )
-            input_cmd = input_spec["cmd"]
+            # If the command contains a `{}` placeholder, we need a `for-each`
+            # key` specifying the pattern for the placeholder values, and vice
+            # versa.
+            if "{}" in input_spec["cmd"] and "for-each" not in input_spec:
+                raise self.InvalidInputJson(
+                    f"Element {i} in `MULTI_INPUT_JSON` must contain a "
+                    "key `for-each` if the command contains a placeholder "
+                    "`{}`",
+                    input_spec,
+                )
+            if "for-each" in input_spec and "{}" not in input_spec["cmd"]:
+                raise self.InvalidInputJson(
+                    f"Element {i} in `MULTI_INPUT_JSON` contains a "
+                    "key `for-each`, but the command does not contain a "
+                    "placeholder `{{}}`",
+                    input_spec,
+                )
+            # Get all commands. This is just the value of the `cmd` key if no
+            # `for-each` key is specified. Otherwise, we have a command for
+            # each file matching the pattern.
+            if "for-each" not in input_spec:
+                input_cmds = [input_spec["cmd"]]
+            else:
+                try:
+                    files = glob.glob(input_spec["for-each"])
+                except Exception as e:
+                    raise self.InvalidInputJson(
+                        f"Element {i} in `MULTI_INPUT_JSON` contains an "
+                        f"invalid `for-each` pattern: {e}",
+                        input_spec,
+                    )
+                input_cmds = [input_spec["cmd"].format(file) for file in files]
             # The `format`, `graph`, and `parallel` keys are optional.
             input_format = input_spec.get("format", args.format)
             input_graph = input_spec.get("graph", "-")
             input_parallel = input_spec.get("parallel", "false")
             # There must not be any other keys.
-            extra_keys = input_spec.keys() - {"cmd", "format", "graph", "parallel"}
+            extra_keys = input_spec.keys() - {
+                "cmd",
+                "format",
+                "graph",
+                "parallel",
+                "for-each",
+            }
             if extra_keys:
                 raise self.InvalidInputJson(
                     f"Element {i} in `MULTI_INPUT_JSON` must only contain "
@@ -114,13 +151,15 @@ class IndexCommand(QleverCommand):
                     input_spec,
                 )
             # Add the command-line options for this input stream. We use
-            # process substitution `<(...)` as a convenient way to handle
-            # an input stream just like a file. This is not POSIX compliant,
-            # but supported by various shells, including bash and zsh.
-            input_options.append(
-                f"-f <({input_cmd}) -F {input_format} "
-                f'-g "{input_graph}" -p {input_parallel}'
-            )
+            # process substitution `<(...)` as a convenient way to handle an
+            # input stream just like a file. This is not POSIX compliant, but
+            # supported by various shells, including bash and zsh. If
+            # `for-each` is specified, add one command for each matching file.
+            for input_cmd in input_cmds:
+                input_options.append(
+                    f"-f <({input_cmd}) -F {input_format} "
+                    f'-g "{input_graph}" -p {input_parallel}'
+                )
         # Return the concatenated command-line options.
         return " ".join(input_options)
 

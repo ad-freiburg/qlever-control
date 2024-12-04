@@ -113,6 +113,25 @@ class ExampleQueriesCommand(QleverCommand):
             default=14,
             help="Width for printing the result size",
         )
+        subparser.add_argument(
+            "--show-query",
+            choices=["always", "never", "on-error"],
+            default="never",
+            help="Show the queries that will be executed (always, never, on error)",
+        )
+
+    def pretty_print_query(self, query: str) -> None:
+        pretty_print_query_cmd = (
+            f"echo {shlex.quote(query)}"
+            f" | docker run -i --rm sparqling/sparql-formatter"
+            f" | sed '/^PREFIX /Id' | grep -v '^$'"
+        )
+        try:
+            query_pp = run_command(pretty_print_query_cmd, return_output=True)
+            log.info(colored(query_pp.rstrip(), "cyan"))
+        except Exception as e:
+            log.error(f"Failed to pretty-print query: {e}")
+            log.info(colored(query.rstrip(), "cyan"))
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -262,6 +281,9 @@ class ExampleQueriesCommand(QleverCommand):
             # A bit of pretty-printing.
             query = re.sub(r"\s+", " ", query)
             query = re.sub(r"\s*\.\s*\}", " }", query)
+            if args.show_query == "always":
+                log.info("")
+                self.pretty_print_query(query)
 
             # Launch query.
             try:
@@ -282,55 +304,81 @@ class ExampleQueriesCommand(QleverCommand):
                     params={"query": query},
                     result_file=result_file,
                 ).strip()
-                if http_code != "200":
-                    raise Exception(
-                        f"HTTP code {http_code}" f"  {Path(result_file).read_text()}"
-                    )
-                time_seconds = time.time() - start_time
-                error_msg = None
+                if http_code == "200":
+                    time_seconds = time.time() - start_time
+                    error_msg = None
+                else:
+                    error_msg = {
+                        "short": f"HTTP code: {http_code}",
+                        "long": re.sub(r"\s+", " ", Path(result_file).read_text()),
+                    }
             except Exception as e:
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
-                error_msg = re.sub(r"\s+", " ", str(e))
+                error_msg = {
+                    "short": "Exception",
+                    "long": re.sub(r"\s+", " ", str(e)),
+                }
 
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                try:
-                    if args.download_or_count == "count":
-                        if args.accept == "text/tab-separated-values":
-                            result_size = run_command(
-                                f"sed 1d {result_file}", return_output=True
-                            )
-                        else:
+                # CASE 0: Rhe result is empty despite a 200 HTTP code.
+                if Path(result_file).stat().st_size == 0:
+                    result_size = 0
+                    error_msg = {
+                        "short": "Empty result",
+                        "long": "curl returned with code 200, "
+                        "but the result is empty",
+                    }
+
+                # CASE 1: Just counting the size of the result (TSV or JSON).
+                elif args.download_or_count == "count":
+                    if args.accept == "text/tab-separated-values":
+                        result_size = run_command(
+                            f"sed 1d {result_file}", return_output=True
+                        )
+                    else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings[0]'
                                 f" | to_entries[0].value.value"
                                 f' | tonumber" {result_file}',
                                 return_output=True,
                             )
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": "curl returned with code 200, "
+                                "but the JSON is malformed: "
+                                + re.sub(r"\s+", " ", str(e)),
+                            }
+
+                # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
+                else:
+                    if (
+                        args.accept == "text/tab-separated-values"
+                        or args.accept == "text/csv"
+                    ):
+                        result_size = run_command(
+                            f"sed 1d {result_file} | wc -l", return_output=True
+                        )
+                    elif args.accept == "text/turtle":
+                        result_size = run_command(
+                            f"sed '1d;/^@prefix/d;/^\\s*$/d' " f"{result_file} | wc -l",
+                            return_output=True,
+                        )
                     else:
-                        if (
-                            args.accept == "text/tab-separated-values"
-                            or args.accept == "text/csv"
-                        ):
-                            result_size = run_command(
-                                f"sed 1d {result_file} | wc -l", return_output=True
-                            )
-                        elif args.accept == "text/turtle":
-                            result_size = run_command(
-                                f"sed '1d;/^@prefix/d;/^\\s*$/d' "
-                                f"{result_file} | wc -l",
-                                return_output=True,
-                            )
-                        else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings | length"' f" {result_file}",
                                 return_output=True,
                             )
-                    result_size = int(result_size)
-                except Exception as e:
-                    error_msg = str(e)
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": re.sub(r"\s+", " ", str(e)),
+                            }
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -341,6 +389,7 @@ class ExampleQueriesCommand(QleverCommand):
                 description = description[: args.width_query_description - 3]
                 description += "..."
             if error_msg is None:
+                result_size = int(result_size)
                 log.info(
                     f"{description:<{args.width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
@@ -352,16 +401,24 @@ class ExampleQueriesCommand(QleverCommand):
                 num_failed += 1
                 if (
                     args.width_error_message > 0
-                    and len(error_msg) > args.width_error_message
+                    and len(error_msg["long"]) > args.width_error_message
                     and args.log_level != "DEBUG"
+                    and args.show_query != "on-error"
                 ):
-                    error_msg = error_msg[: args.width_error_message - 3]
-                    error_msg += "..."
-                log.error(
+                    error_msg["long"] = (
+                        error_msg["long"][: args.width_error_message - 3] + "..."
+                    )
+                seperator_short_long = "\n" if args.show_query == "on-error" else "  "
+                log.info(
                     f"{description:<{args.width_query_description}}    "
-                    f"failed   "
-                    f"{colored(error_msg, 'red')}"
+                    f"{colored('FAILED   ', 'red')}"
+                    f"{colored(error_msg['short'], 'red'):>{args.width_result_size}}"
+                    f"{seperator_short_long}"
+                    f"{colored(error_msg['long'], 'red')}"
                 )
+                if args.show_query == "on-error":
+                    self.pretty_print_query(query)
+                    log.info("")
 
         # Check that each query has a time and a result size, or it failed.
         assert len(result_sizes) == len(query_times)

@@ -98,7 +98,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--width-query-description",
             type=int,
-            default=40,
+            default=70,
             help="Width for printing the query description",
         )
         subparser.add_argument(

@@ -197,7 +197,7 @@ class ExampleQueriesCommand(QleverCommand):
             only_show=args.show,
         )
         if args.show:
-            return False
+            return True
 
         # Get the example queries.
         try:

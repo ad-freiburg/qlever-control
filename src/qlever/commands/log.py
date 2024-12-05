@@ -47,7 +47,7 @@ class LogCommand(QleverCommand):
         log_cmd += f" {log_file}"
         self.show(log_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Execute the command.
         log.info(f"Follow log file {log_file}, press Ctrl-C to stop"

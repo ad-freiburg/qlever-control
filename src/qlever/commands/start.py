@@ -115,7 +115,7 @@ class StartCommand(QleverCommand):
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":

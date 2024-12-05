@@ -64,7 +64,7 @@ class AddTextIndexCommand(QleverCommand):
         # Show the command line.
         self.show(add_text_index_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":

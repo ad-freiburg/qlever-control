@@ -252,8 +252,6 @@ class IndexStatsCommand(QleverCommand):
         return True
 
     def execute(self, args) -> bool:
-        ret_value = args.show
-
         # The "time" part of the command.
         if not args.only_space:
             log_file_name = f"{args.name}.index-log.txt"
@@ -272,4 +270,4 @@ class IndexStatsCommand(QleverCommand):
             if not args.show:
                 ret_value &= self.execute_space(args)
 
-        return ret_value
+        return True

@@ -48,7 +48,7 @@ class ClearCacheCommand(QleverCommand):
                                 f"\"{args.access_token}\"")
         self.show(clear_cache_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Execute the command.
         try:

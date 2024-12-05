@@ -53,7 +53,7 @@ class QueryCommand(QleverCommand):
                     f" --data-urlencode query={shlex.quote(args.query)}")
         self.show(curl_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Launch query.
         try:

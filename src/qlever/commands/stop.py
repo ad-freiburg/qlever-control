@@ -49,7 +49,7 @@ class StopCommand(QleverCommand):
                             f"\"{args.server_container}\"")
         self.show(description, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # First check if there is container running and if yes, stop and remove
         # it (unless the user has specified `--no-containers`).

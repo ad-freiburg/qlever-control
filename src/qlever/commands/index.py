@@ -156,10 +156,11 @@ class IndexCommand(QleverCommand):
             # supported by various shells, including bash and zsh. If
             # `for-each` is specified, add one command for each matching file.
             for input_cmd in input_cmds:
-                input_options.append(
-                    f"-f <({input_cmd}) -F {input_format} "
-                    f'-g "{input_graph}" -p {input_parallel}'
-                )
+                input_option = f"-f <({input_cmd}) -g {input_graph}"
+                input_option += f" -F {input_format}"
+                if input_parallel == "true":
+                    input_option += " -p true"
+                input_options.append(input_option)
         # Return the concatenated command-line options.
         return " ".join(input_options)
 

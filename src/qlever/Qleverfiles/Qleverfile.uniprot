@@ -32,7 +32,7 @@ MULTI_INPUT_JSON = [{ "cmd": "zcat {}", "graph": "http://sparql.uniprot.org/unip
                     { "cmd": "zcat {}", "graph": "http://sparql.uniprot.org/uniref", "for-each": "${data:TTL_DIR}/uniref*.ttl.gz" },
                     { "cmd": "zcat {}", "graph": "http://sparql.uniprot.org/obsolete", "for-each": "${data:TTL_DIR}/uniprotkb_obsolete_*.ttl.gz" },
                     { "cmd": "zcat ${data:TTL_DIR}/chebi.ttl.gz", "graph": "http://sparql.uniprot.org/chebi" },
-                    { "cmd": "zcat ${data:TTL_DIR}/citations_mapping.ttl.gz", "graph": "http://sparql.uniprot.org/citationmapping" },
+                    { "cmd": "zcat ${data:TTL_DIR}/citation_mapping.ttl.gz", "graph": "http://sparql.uniprot.org/citationmapping" },
                     { "cmd": "zcat ${data:TTL_DIR}/citations.ttl.gz", "graph": "http://sparql.uniprot.org/citations" },
                     { "cmd": "zcat ${data:TTL_DIR}/databases.ttl.gz", "graph": "http://sparql.uniprot.org/databases" },
                     { "cmd": "zcat ${data:TTL_DIR}/diseases.ttl.gz", "graph": "http://sparql.uniprot.org/diseases" },

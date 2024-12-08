@@ -18,39 +18,79 @@ class QueryCommand(QleverCommand):
         pass
 
     def description(self) -> str:
-        return ("Send a query to a SPARQL endpoint")
+        return "Send a query to a SPARQL endpoint"
 
     def should_have_qleverfile(self) -> bool:
         return False
 
-    def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"server": ["port"]}
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
+        return {"server": ["port", "access_token"]}
 
     def additional_arguments(self, subparser) -> None:
-        subparser.add_argument("--query", type=str,
-                               default="SELECT * WHERE { ?s ?p ?o } LIMIT 10",
-                               help="SPARQL query to send")
-        subparser.add_argument("--sparql-endpoint", type=str,
-                               help="URL of the SPARQL endpoint")
-        subparser.add_argument("--accept", type=str,
-                               choices=["text/tab-separated-values",
-                                        "text/csv",
-                                        "application/sparql-results+json",
-                                        "application/sparql-results+xml",
-                                        "application/qlever-results+json"],
-                               default="text/tab-separated-values",
-                               help="Accept header for the SPARQL query")
-        subparser.add_argument("--no-time", action="store_true",
-                               default=False,
-                               help="Do not print the (end-to-end) time taken")
+        subparser.add_argument(
+            "query",
+            type=str,
+            nargs="?",
+            default="SELECT * WHERE { ?s ?p ?o } LIMIT 10",
+            help="SPARQL query to send",
+        )
+        subparser.add_argument(
+            "--pin-to-cache",
+            action="store_true",
+            default=False,
+            help="Pin the query to the cache",
+        )
+        subparser.add_argument(
+            "--sparql-endpoint", type=str, help="URL of the SPARQL endpoint"
+        )
+        subparser.add_argument(
+            "--accept",
+            type=str,
+            choices=[
+                "text/tab-separated-values",
+                "text/csv",
+                "application/sparql-results+json",
+                "application/sparql-results+xml",
+                "application/qlever-results+json",
+            ],
+            default="text/tab-separated-values",
+            help="Accept header for the SPARQL query",
+        )
+        subparser.add_argument(
+            "--no-time",
+            action="store_true",
+            default=False,
+            help="Do not print the (end-to-end) time taken",
+        )
 
     def execute(self, args) -> bool:
+        # When pinning to the cache, set `send=0` and request media type
+        # `application/qlever-results+json` so that we get the result size.
+        # Also, we need to provide the access token.
+        if args.pin_to_cache:
+            args.accept = "application/qlever-results+json"
+            curl_cmd_additions = (
+                f" --data pinresult=true --data send=0"
+                f" --data access-token="
+                f"{shlex.quote(args.access_token)}"
+                f" | jq .resultsize | numfmt --grouping"
+                f" | xargs -I {{}} printf"
+                f' "Result pinned to cache,'
+                f' number of rows: {{}}\\n"'
+            )
+        else:
+            curl_cmd_additions = ""
+
         # Show what the command will do.
-        sparql_endpoint = (args.sparql_endpoint if args.sparql_endpoint
-                           else f"localhost:{args.port}")
-        curl_cmd = (f"curl -s {sparql_endpoint}"
-                    f" -H \"Accept: {args.accept}\""
-                    f" --data-urlencode query={shlex.quote(args.query)}")
+        sparql_endpoint = (
+            args.sparql_endpoint if args.sparql_endpoint else f"localhost:{args.port}"
+        )
+        curl_cmd = (
+            f"curl -s {sparql_endpoint}"
+            f' -H "Accept: {args.accept}"'
+            f" --data-urlencode query={shlex.quote(args.query)}"
+            f"{curl_cmd_additions}"
+        )
         self.show(curl_cmd, only_show=args.show)
         if args.show:
             return False
@@ -62,8 +102,7 @@ class QueryCommand(QleverCommand):
             time_msecs = round(1000 * (time.time() - start_time))
             if not args.no_time and args.log_level != "NO_LOG":
                 log.info("")
-                log.info(f"Query processing time (end-to-end):"
-                         f" {time_msecs:,d} ms")
+                log.info(f"Query processing time (end-to-end):" f" {time_msecs:,d} ms")
         except Exception as e:
             if args.log_level == "DEBUG":
                 traceback.print_exc()

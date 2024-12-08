@@ -43,7 +43,7 @@ def main():
         log.info("")
         log.info("Ctrl-C pressed, exiting ...")
         log.info("")
-        exit(0)
+        exit(1)
     except Exception as e:
         # Check if it's a certain kind of `AttributeError` and give a hint in
         # that case.

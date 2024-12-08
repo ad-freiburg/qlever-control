@@ -31,7 +31,7 @@ class GetDataCommand(QleverCommand):
         # Construct the command line and show it.
         self.show(args.get_data_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Execute the command line.
         try:

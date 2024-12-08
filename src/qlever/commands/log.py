@@ -53,4 +53,14 @@ class LogCommand(QleverCommand):
         log.info(f"Follow log file {log_file}, press Ctrl-C to stop"
                  f" following (will not stop the server)")
         log.info("")
-        subprocess.run(log_cmd, shell=True)
+        try:
+            subprocess.run(log_cmd, shell=True)
+            return True
+        except Exception as e:
+            log.error(e)
+            return False
+
+
+
+
+

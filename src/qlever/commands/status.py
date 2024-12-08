@@ -47,3 +47,4 @@ class StatusCommand(QleverCommand):
                 num_processes_found += 1
         if num_processes_found == 0:
             print("No processes found")
+        return True

@@ -76,5 +76,7 @@ class ClearCacheCommand(QleverCommand):
         # Show cache stats.
         log.info("")
         args.detailed = False
-        CacheStatsCommand().execute(args)
+        if not CacheStatsCommand().execute(args):
+            log.error("Clearing the cache was successful, but showing the "
+                      "cache stats failed {e}")
         return True

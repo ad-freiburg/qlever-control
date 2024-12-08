@@ -72,7 +72,9 @@ class StartCommand(QleverCommand):
         if args.kill_existing_with_same_port:
             args.cmdline_regex = f"^ServerMain.* -p {args.port}"
             args.no_containers = True
-            StopCommand().execute(args)
+            if not StopCommand().execute(args):
+                log.error("Stopping the existing server failed")
+                return False
             log.info("")
 
         # Construct the command line based on the config file.
@@ -192,6 +194,7 @@ class StartCommand(QleverCommand):
                 run_command(curl_cmd)
             except Exception as e:
                 log.error(f"Setting the index description failed ({e})")
+                return False
         if args.text_description:
             text_desc = args.text_description
             curl_cmd = (f"curl -Gs http://localhost:{port}/api"
@@ -202,6 +205,7 @@ class StartCommand(QleverCommand):
                 run_command(curl_cmd)
             except Exception as e:
                 log.error(f"Setting the text description failed ({e})")
+                return False
 
         # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
         tail_proc.terminate()
@@ -209,7 +213,9 @@ class StartCommand(QleverCommand):
         # Execute the warmup command.
         if args.warmup_cmd and not args.no_warmup:
             log.info("")
-            WarmupCommand().execute(args)
+            if not WarmupCommand().execute(args):
+                log.error("Warmup failed")
+                return False
 
         # Show cache stats.
         log.info("")

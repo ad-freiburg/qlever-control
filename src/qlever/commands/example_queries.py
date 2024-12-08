@@ -98,7 +98,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--width-query-description",
             type=int,
-            default=40,
+            default=70,
             help="Width for printing the query description",
         )
         subparser.add_argument(
@@ -197,7 +197,7 @@ class ExampleQueriesCommand(QleverCommand):
             only_show=args.show,
         )
         if args.show:
-            return False
+            return True
 
         # Get the example queries.
         try:
@@ -229,8 +229,11 @@ class ExampleQueriesCommand(QleverCommand):
             if args.clear_cache == "yes":
                 args.server_url = sparql_endpoint
                 args.complete = False
+                clear_cache_successful = False
                 with mute_log():
-                    ClearCacheCommand().execute(args)
+                    clear_cache_successful = ClearCacheCommand().execute(args)
+                if not clear_cache_successful:
+                    log.warn("Failed to clear the cache")
 
             # Remove OFFSET and LIMIT (after the last closing bracket).
             if args.remove_offset_and_limit or args.limit:

@@ -240,7 +240,7 @@ class IndexCommand(QleverCommand):
         # Show the command line.
         self.show(f"{settings_json_cmd}\n{index_cmd}", only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":

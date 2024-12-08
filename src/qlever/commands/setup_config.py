@@ -60,7 +60,7 @@ class SetupConfigCommand(QleverCommand):
         setup_config_cmd += "> Qleverfile"
         self.show(setup_config_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # If there is already a Qleverfile in the current directory, exit.
         qleverfile_path = Path("Qleverfile")

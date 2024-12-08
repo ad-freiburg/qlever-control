@@ -93,7 +93,7 @@ class QueryCommand(QleverCommand):
         )
         self.show(curl_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Launch query.
         try:

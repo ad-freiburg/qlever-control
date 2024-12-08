@@ -231,9 +231,9 @@ class ExampleQueriesCommand(QleverCommand):
                 args.complete = False
                 clear_cache_successful = False
                 with mute_log():
-                    clear_cache_successful = ClearCacheCommand().execute(args):
+                    clear_cache_successful = ClearCacheCommand().execute(args)
                 if not clear_cache_successful:
-                    log.warn(f"Failed to clear the cache: {e}")
+                    log.warn("Failed to clear the cache")
 
             # Remove OFFSET and LIMIT (after the last closing bracket).
             if args.remove_offset_and_limit or args.limit:

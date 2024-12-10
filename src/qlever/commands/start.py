@@ -10,7 +10,7 @@ from qlever.commands.stop import StopCommand
 from qlever.commands.warmup import WarmupCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import is_qlever_server_alive, run_command
+from qlever.util import is_qlever_server_alive, run_command, name_from_path
 
 
 class StartCommand(QleverCommand):
@@ -37,6 +37,7 @@ class StartCommand(QleverCommand):
                            "timeout", "only_pso_and_pos_permutations",
                            "use_patterns", "use_text_index",
                            "warmup_cmd"],
+                "index": ["index_binary"],
                 "runtime": ["system", "image", "server_container"]}
 
     def additional_arguments(self, subparser) -> None:
@@ -58,19 +59,21 @@ class StartCommand(QleverCommand):
                                help="Do not execute the warmup command")
 
     def execute(self, args) -> bool:
+        server_binary = name_from_path(args.server_binary)
+
         # Kill existing server with the same name if so desired.
         #
         # TODO: This is currently disabled because I never used it once over
         # the past weeks and it is not clear to me what the use case is.
         if False:  # or args.kill_existing_with_same_name:
-            args.cmdline_regex = f"^ServerMain.* -i {args.name}"
+            args.cmdline_regex = f"^{server_binary}.* -i {args.name}"
             args.no_containers = True
             StopCommand().execute(args)
             log.info("")
 
         # Kill existing server on the same port if so desired.
         if args.kill_existing_with_same_port:
-            args.cmdline_regex = f"^ServerMain.* -p {args.port}"
+            args.cmdline_regex = f"^{server_binary}.* -p {args.port}"
             args.no_containers = True
             if not StopCommand().execute(args):
                 log.error("Stopping the existing server failed")
@@ -141,7 +144,7 @@ class StartCommand(QleverCommand):
                      "--kill-existing-with-same-port`")
 
             # Show output of status command.
-            args.cmdline_regex = f"^ServerMain.* -p *{port}"
+            args.cmdline_regex = f"^{server_binary}.* -p *{port}"
             log.info("")
             StatusCommand().execute(args)
 

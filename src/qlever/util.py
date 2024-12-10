@@ -232,3 +232,4 @@ def name_from_path(path: str) -> str:
     E.g. /qlever/ServerMain -> ServerMain
     """
     return Path(path).name
+

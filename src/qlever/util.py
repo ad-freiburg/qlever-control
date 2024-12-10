@@ -225,3 +225,10 @@ def format_size(bytes, suffix="B"):
         if bytes < factor:
             return f"{bytes:.2f} {unit}{suffix}"
         bytes /= factor
+
+def name_from_path(path: str) -> str:
+    """
+    Helper function that returns the name of the file from its path.
+    E.g. /qlever/ServerMain -> ServerMain
+    """
+    return Path(path).name

@@ -37,6 +37,7 @@ class StartCommand(QleverCommand):
                            "timeout", "only_pso_and_pos_permutations",
                            "use_patterns", "use_text_index",
                            "warmup_cmd"],
+                "index": ["index_binary"],
                 "runtime": ["system", "image", "server_container"]}
 
     def additional_arguments(self, subparser) -> None:

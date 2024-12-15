@@ -39,10 +39,15 @@ class QleverConfig:
     autocompletion.
     """
 
-    def add_subparser_for_command(self, subparsers, command_name,
-                                  command_object, all_qleverfile_args,
-                                  qleverfile_config=None,
-                                  envvars_config=None):
+    def add_subparser_for_command(
+        self,
+        subparsers,
+        command_name,
+        command_object,
+        all_qleverfile_args,
+        qleverfile_config=None,
+        envvars_config=None,
+    ):
         """
         Add subparser for the given command. Take the arguments from
         `command_object.relevant_qleverfile_arguments()` and report an error if
@@ -65,11 +70,15 @@ class QleverConfig:
         # `all_qleverfile_args`.
         def argument_error(prefix):
             log.info("")
-            log.error(f"{prefix} in `Qleverfile.all_arguments()` for command "
-                      f"`{command_name}`")
+            log.error(
+                f"{prefix} in `Qleverfile.all_arguments()` for command "
+                f"`{command_name}`"
+            )
             log.info("")
-            log.info(f"Value of `relevant_qleverfile_arguments` for "
-                     f"command `{command_name}`:")
+            log.info(
+                f"Value of `relevant_qleverfile_arguments` for "
+                f"command `{command_name}`:"
+            )
             log.info("")
             log.info(f"{arg_names}")
             log.info("")
@@ -77,9 +86,9 @@ class QleverConfig:
 
         # Add the subparser.
         description = command_object.description()
-        subparser = subparsers.add_parser(command_name,
-                                          description=description,
-                                          help=description)
+        subparser = subparsers.add_parser(
+            command_name, description=description, help=description
+        )
 
         # Add the arguments relevant for the command.
         for section in arg_names:
@@ -87,8 +96,9 @@ class QleverConfig:
                 argument_error(f"Section `{section}` not found")
             for arg_name in arg_names[section]:
                 if arg_name not in all_qleverfile_args[section]:
-                    argument_error(f"Argument `{arg_name}` of section "
-                                   f"`{section}` not found")
+                    argument_error(
+                        f"Argument `{arg_name}` of section " f"`{section}` not found"
+                    )
                 args, kwargs = all_qleverfile_args[section][arg_name]
                 kwargs_copy = kwargs.copy()
                 # If `qleverfile_config` is given, add the corresponding
@@ -96,12 +106,14 @@ class QleverConfig:
                 if qleverfile_config is not None:
                     default_value = kwargs.get("default", None)
                     qleverfile_value = qleverfile_config.get(
-                            section, arg_name, fallback=None)
+                        section, arg_name, fallback=None
+                    )
                     if qleverfile_value is not None:
                         kwargs_copy["default"] = qleverfile_value
                         kwargs_copy["required"] = False
-                        kwargs_copy["help"] += (f" [default, from Qleverfile:"
-                                                f" {qleverfile_value}]")
+                        kwargs_copy["help"] += (
+                            f" [default, from Qleverfile:" f" {qleverfile_value}]"
+                        )
                     else:
                         kwargs_copy["help"] += f" [default: {default_value}]"
                 # If `envvars_config` is given, add the corresponding default
@@ -113,9 +125,11 @@ class QleverConfig:
                     if envvars_value is not None:
                         kwargs_copy["default"] = envvars_value
                         kwargs_copy["required"] = False
-                        kwargs_copy["help"] += (f" [default, from environment "
-                                                f"variable `{envvar_name}`: "
-                                                f"{envvars_value}]")
+                        kwargs_copy["help"] += (
+                            f" [default, from environment "
+                            f"variable `{envvar_name}`: "
+                            f"{envvars_value}]"
+                        )
                     else:
                         kwargs_copy["help"] += f" [default: {default_value}]"
                 # Now add the argument to the subparser.
@@ -123,14 +137,18 @@ class QleverConfig:
 
         # Additional arguments that are shared by all commands.
         command_object.additional_arguments(subparser)
-        subparser.add_argument("--show", action="store_true",
-                               default=False,
-                               help="Only show what would be executed"
-                                    ", but don't execute it")
-        subparser.add_argument("--log-level",
-                               choices=log_levels.keys(),
-                               default="INFO",
-                               help="Set the log level")
+        subparser.add_argument(
+            "--show",
+            action="store_true",
+            default=False,
+            help="Only show what would be executed" ", but don't execute it",
+        )
+        subparser.add_argument(
+            "--log-level",
+            choices=log_levels.keys(),
+            default="INFO",
+            help="Set the log level",
+        )
 
     def parse_args(self):
         # Determine whether we are in autocomplete mode or not.
@@ -141,11 +159,13 @@ class QleverConfig:
         argcomplete_enabled = os.environ.get("QLEVER_ARGCOMPLETE_ENABLED")
         if not argcomplete_enabled and not argcomplete_check_off:
             log.info("")
-            log.warn(f"To enable autocompletion, run the following command, "
-                     f"and consider adding it to your `.bashrc` or `.zshrc`:"
-                     f"\n\n"
-                     f"eval \"$(register-python-argcomplete {script_name})\""
-                     f" && export QLEVER_ARGCOMPLETE_ENABLED=1")
+            log.warn(
+                f"To enable autocompletion, run the following command, "
+                f"and consider adding it to your `.bashrc` or `.zshrc`:"
+                f"\n\n"
+                f'eval "$(register-python-argcomplete {script_name})"'
+                f" && export QLEVER_ARGCOMPLETE_ENABLED=1"
+            )
             log.info("")
 
         # Create a temporary parser only to parse the `--qleverfile` option, in
@@ -154,8 +174,8 @@ class QleverConfig:
         # want the values from the Qleverfile to be shown in the help strings,
         # but only if this is actually necessary.
         def add_qleverfile_option(parser):
-            parser.add_argument("--qleverfile", "-q", type=str,
-                                default="Qleverfile")
+            parser.add_argument("--qleverfile", "-q", type=str, default="Qleverfile")
+
         qleverfile_parser = argparse.ArgumentParser(add_help=False)
         add_qleverfile_option(qleverfile_parser)
         qleverfile_parser.add_argument("command", type=str, nargs="?")
@@ -169,14 +189,17 @@ class QleverConfig:
         # We need this again further down in the code, so remember it.
         qleverfile_path = Path(qleverfile_path_name)
         qleverfile_exists = qleverfile_path.is_file()
-        qleverfile_is_default = qleverfile_path_name \
-            == qleverfile_parser.get_default("qleverfile")
+        qleverfile_is_default = qleverfile_path_name == qleverfile_parser.get_default(
+            "qleverfile"
+        )
         # If a Qleverfile with a non-default name was specified, but it does
         # not exist, that's an error.
         if not qleverfile_exists and not qleverfile_is_default:
-            raise ConfigException(f"Qleverfile with non-default name "
-                                  f"`{qleverfile_path_name}` specified, "
-                                  f"but it does not exist")
+            raise ConfigException(
+                f"Qleverfile with non-default name "
+                f"`{qleverfile_path_name}` specified, "
+                f"but it does not exist"
+            )
         # If it exists and we are not in the autocompletion mode, parse it.
         #
         # IMPORTANT: No need to parse the Qleverfile in autocompletion mode and
@@ -189,8 +212,7 @@ class QleverConfig:
                 qleverfile_config = Qleverfile.read(qleverfile_path)
             except Exception as e:
                 log.info("")
-                log.error(f"Error parsing Qleverfile `{qleverfile_path}`"
-                          f": {e}")
+                log.error(f"Error parsing Qleverfile `{qleverfile_path}`" f": {e}")
                 log.info("")
                 exit(1)
         else:
@@ -203,35 +225,50 @@ class QleverConfig:
         # Check that at most one of `qleverfile_config` and `envvars_config` is
         # not `None`, unless the command is `config` (which can be used to
         # produce a `Qleverfile` or unset all environment variables).
-        if qleverfile_args.command != "config" \
-                and qleverfile_config is not None \
-                and envvars_config is not None:
-            raise ConfigException(
-                    "You both have a `Qleverfile` and environment variables "
-                    "of the QLEVER_SECTION_VARIABLE. This is not supported "
-                    "because it is bound to lead to unexpected behavior. "
-                    "Either remove the `Qleverfile` (just delete it), or the "
-                    "environment variables (use `qlever config "
-                    "--unset-envvars`).")
+        if (
+            qleverfile_args.command != "setup-config"
+            and qleverfile_config is not None
+            and envvars_config is not None
+        ):
+            log.info("")
+            log.error(
+                "You have a `Qleverfile` _and_ environment variables "
+                "of the form QLEVER_SECTION_VARIABLE. This is not supported "
+                "because it is bound to lead to unexpected behavior. "
+                "Either remove the `Qleverfile` (just delete it), or the "
+                "environment variables (use `qlever setup-config "
+                "--unset-envvars`)."
+            )
+            log.info("")
+            exit(1)
 
         # Now the regular parser with commands and a subparser for each
         # command. We have a dedicated class for each command. These classes
         # are defined in the modules in `qlever/commands`. In `__init__.py`
         # an object of each class is created and stored in `command_objects`.
         parser = argparse.ArgumentParser(
-                description=colored("This is the qlever command line tool, "
-                                    "it's all you need to work with QLever",
-                                    attrs=["bold"]))
-        parser.add_argument("--version", action="version",
-                            version=f"%(prog)s {version('qlever')}")
+            description=colored(
+                "This is the qlever command line tool, "
+                "it's all you need to work with QLever",
+                attrs=["bold"],
+            )
+        )
+        parser.add_argument(
+            "--version", action="version", version=f"%(prog)s {version('qlever')}"
+        )
         add_qleverfile_option(parser)
-        subparsers = parser.add_subparsers(dest='command')
+        subparsers = parser.add_subparsers(dest="command")
         subparsers.required = True
         all_args = Qleverfile.all_arguments()
         for command_name, command_object in command_objects.items():
             self.add_subparser_for_command(
-                    subparsers, command_name, command_object,
-                    all_args, qleverfile_config, envvars_config)
+                subparsers,
+                command_name,
+                command_object,
+                all_args,
+                qleverfile_config,
+                envvars_config,
+            )
 
         # Enable autocompletion for the commands and their options.
         #

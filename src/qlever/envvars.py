@@ -34,9 +34,9 @@ class Envvars:
         For example, for `QLEVER_SERVER_PORT=8000`, there would be an entry
         `config['server']['port'] = 8000`.
 
-        NOTE: If no environment variables was found at all, the method will
-        return `None`. Otherwise, there will be an entry for each section, even
-        if it is empty.
+        NOTE: If no environment variables are found at all, the method returns
+        `None`. Otherwise, there is an entry for each section, even if there
+        are no environment variables for that section.
         """
 
         all_args = Qleverfile.all_arguments()

@@ -49,3 +49,27 @@ jobs:
             echo -e "\x1b[34mAll checks passed for ${QLEVERFILE}\x1b[0m"
             echo
           done
+
+      - name: Repeat this check using environment variables (derived from the Qleverfile)
+        working-directory: ${{github.workspace}}/qlever-control
+        run: |
+          export QLEVER_ARGCOMPLETE_ENABLED=1
+          for QLEVERFILE in src/qlever/Qleverfiles/Qleverfile.*; do
+            echo
+            echo -e "\x1b[1;34mChecking ${QLEVERFILE} via environment variables\x1b[0m"
+            echo
+            NAME=${QLEVERFILE##*.}
+            rm -f Qleverfile
+            qlever setup-config $NAME
+            qlever setup-config --set-envvars-from-qleverfile --file set-envvars.sh
+            source set-envvars.sh && rm -f Qleverfile
+            qlever get-data --show
+            qlever index --show
+            qlever start --show
+            qlever ui --show
+            qlever setup-config --unset-envvars --file unset-envvars.sh
+            source unset-envvars.sh
+            echo
+            echo -e "\x1b[34mAll checks passed for ${QLEVERFILE}\x1b[0m"
+            echo
+          done

@@ -31,7 +31,7 @@ SETTINGS_JSON   = { "num-triples-per-batch": 1000000 }
 # URL parameter `access_token`. It should not be easily guessable, unless you
 # don't mind others to get privileged access to your server.
 [server]
-PORT         =
+PORT         = 8888
 ACCESS_TOKEN = 
 
 # Use SYSTEM = docker to run QLever inside a docker container; the Docker image
@@ -47,5 +47,5 @@ IMAGE  = docker.io/adfreiburg/qlever:latest
 # It determines the example queries and which SPARQL queries are launched to
 # obtain suggestions as you type a query.
 [ui]
-UI_PORT   = 7000
+UI_PORT   = 8176
 UI_CONFIG = default

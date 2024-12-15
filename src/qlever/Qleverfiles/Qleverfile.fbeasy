@@ -13,13 +13,13 @@ TEXT_DESCRIPTION  = Sentences from Wikipedia that mention at least one Freebase 
 
 [index]
 INPUT_FILES     = fbeasy.nt
-CAT_INPUT_FILES = cat ${RDF_FILES}
+CAT_INPUT_FILES = cat ${INPUT_FILES}
 SETTINGS_JSON   = { "ascii-prefixes-only": true, "num-triples-per-batch": 10000000 }
 
 [server]
-PORT                        = 7003
-ACCESS_TOKEN                = ${data:NAME}_12631403
-MEMORY_FOR_QUERIES          = 5G
+PORT               = 7003
+ACCESS_TOKEN       = ${data:NAME}
+MEMORY_FOR_QUERIES = 5G
 
 [runtime]
 SYSTEM = docker

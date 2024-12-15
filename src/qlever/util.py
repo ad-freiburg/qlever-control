@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import errno
 import re
 import secrets
+import socket
 import shlex
 import shutil
 import string
@@ -27,8 +29,9 @@ def get_total_file_size(patterns: list[str]) -> int:
     return total_size
 
 
-def run_command(cmd: str, return_output: bool = False,
-                show_output: bool = False) -> Optional[str]:
+def run_command(
+    cmd: str, return_output: bool = False, show_output: bool = False
+) -> Optional[str]:
     """
     Run the given command and throw an exception if the exit code is non-zero.
     If `return_output` is `True`, return what the command wrote to `stdout`.
@@ -43,7 +46,7 @@ def run_command(cmd: str, return_output: bool = False,
         "shell": True,
         "text": True,
         "stdout": None if show_output else subprocess.PIPE,
-        "stderr": subprocess.PIPE
+        "stderr": subprocess.PIPE,
     }
     result = subprocess.run(f"set -o pipefail; {cmd}", **subprocess_args)
     # If the exit code is non-zero, throw an exception. If something was
@@ -61,17 +64,20 @@ def run_command(cmd: str, return_output: bool = False,
             raise Exception(result.stderr.replace("\n", " ").strip())
         else:
             raise Exception(
-                    f"Command failed with exit code {result.returncode}"
-                    f" but nothing written to stderr")
+                f"Command failed with exit code {result.returncode}"
+                f" but nothing written to stderr"
+            )
     # Optionally, return what was written to `stdout`.
     if return_output:
         return result.stdout
 
 
-def run_curl_command(url: str,
-                     headers: dict[str, str] = {},
-                     params: dict[str, str] = {},
-                     result_file: Optional[str] = None) -> str:
+def run_curl_command(
+    url: str,
+    headers: dict[str, str] = {},
+    params: dict[str, str] = {},
+    result_file: Optional[str] = None,
+) -> str:
     """
     Run `curl` with the given `url`, `headers`, and `params`. If `result_file`
     is `None`, return the output, otherwise, write the output to the given file
@@ -81,22 +87,29 @@ def run_curl_command(url: str,
     # Construct and run the `curl` command.
     default_result_file = "/tmp/qlever.curl.result"
     actual_result_file = result_file if result_file else default_result_file
-    curl_cmd = (f"curl -s -o \"{actual_result_file}\""
-                f" -w \"%{{http_code}}\n\" {url}"
-                + "".join([f" -H \"{key}: {value}\""
-                           for key, value in headers.items()])
-                + "".join([f" --data-urlencode {key}={shlex.quote(value)}"
-                           for key, value in params.items()]))
-    result = subprocess.run(curl_cmd, shell=True, text=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+    curl_cmd = (
+        f'curl -s -o "{actual_result_file}"'
+        f' -w "%{{http_code}}\n" {url}'
+        + "".join([f' -H "{key}: {value}"' for key, value in headers.items()])
+        + "".join(
+            [
+                f" --data-urlencode {key}={shlex.quote(value)}"
+                for key, value in params.items()
+            ]
+        )
+    )
+    result = subprocess.run(
+        curl_cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     # Case 1: An error occurred, raise an exception.
     if result.returncode != 0:
         if len(result.stderr) > 0:
             raise Exception(result.stderr)
         else:
-            raise Exception(f"curl command failed with exit code "
-                            f"{result.returncode}, stderr is empty")
+            raise Exception(
+                f"curl command failed with exit code "
+                f"{result.returncode}, stderr is empty"
+            )
     # Case 2: Return output (read from `default_result_file`).
     if result_file is None:
         result_file_path = Path(default_result_file)
@@ -115,9 +128,9 @@ def is_qlever_server_alive(port: str) -> bool:
 
     message = "from the qlever script".replace(" ", "%20")
     curl_cmd = f"curl -s http://localhost:{port}/ping?msg={message}"
-    exit_code = subprocess.call(curl_cmd, shell=True,
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL)
+    exit_code = subprocess.call(
+        curl_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
     return exit_code == 0
 
 
@@ -150,15 +163,15 @@ def show_process_info(psutil_process, cmdline_regex, show_heading=True):
 
     try:
         pinfo = psutil_process.as_dict(
-                attrs=['pid', 'username', 'create_time',
-                       'memory_info', 'cmdline'])
+            attrs=["pid", "username", "create_time", "memory_info", "cmdline"]
+        )
         # Note: pinfo[`cmdline`] is `None` if the process is a zombie.
-        cmdline = " ".join(pinfo['cmdline'] or [])
+        cmdline = " ".join(pinfo["cmdline"] or [])
         if len(cmdline) == 0 or not re.search(cmdline_regex, cmdline):
             return False
-        pid = pinfo['pid']
-        user = pinfo['username'] if pinfo['username'] else ""
-        start_time = datetime.fromtimestamp(pinfo['create_time'])
+        pid = pinfo["pid"]
+        user = pinfo["username"] if pinfo["username"] else ""
+        start_time = datetime.fromtimestamp(pinfo["create_time"])
         if start_time.date() == date.today():
             start_time = start_time.strftime("%H:%M")
         else:
@@ -180,3 +193,35 @@ def get_random_string(length: int) -> str:
     """
     characters = string.ascii_letters + string.digits
     return "".join(secrets.choice(characters) for _ in range(length))
+
+
+def is_port_used(port: int) -> bool:
+    """
+    Try to bind to the port on all interfaces to check if the port is already in use.
+    If the port is already in use, `socket.bind` will raise an `OSError` with errno EADDRINUSE.
+    """
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Ensure that the port is not blocked after the check.
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("", port))
+        sock.close()
+        return False
+    except OSError as err:
+        if err.errno != errno.EADDRINUSE:
+            log.warning(f"Failed to determine if port is used: {err}")
+        return True
+
+
+def format_size(bytes, suffix="B"):
+    """
+    Scale bytes to its proper format
+    e.g:
+        1253656 => '1.20MB'
+        1253656678 => '1.17GB'
+    """
+    factor = 1024
+    for unit in ["", "K", "M", "G", "T", "P"]:
+        if bytes < factor:
+            return f"{bytes:.2f} {unit}{suffix}"
+        bytes /= factor

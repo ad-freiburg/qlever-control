@@ -27,5 +27,4 @@ SYSTEM = docker
 IMAGE  = docker.io/adfreiburg/qlever:latest
 
 [ui]
-UI_PORT   = 7000
 UI_CONFIG = dbpedia

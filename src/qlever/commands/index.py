@@ -123,7 +123,7 @@ class IndexCommand(QleverCommand):
                 input_cmds = [input_spec["cmd"]]
             else:
                 try:
-                    files = glob.glob(input_spec["for-each"])
+                    files = sorted(glob.glob(input_spec["for-each"]))
                 except Exception as e:
                     raise self.InvalidInputJson(
                         f"Element {i} in `MULTI_INPUT_JSON` contains an "

@@ -21,10 +21,7 @@ class ExampleQueriesCommand(QleverCommand):
     """
 
     def __init__(self):
-        self.presets = {
-            "virtuoso-wikidata": "https://wikidata.demo.openlinksw.com/sparql",
-            "qlever-wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
-        }
+        pass
 
     def description(self) -> str:
         return "Show how much of the cache is currently being used"
@@ -41,8 +38,15 @@ class ExampleQueriesCommand(QleverCommand):
         )
         subparser.add_argument(
             "--sparql-endpoint-preset",
-            choices=self.presets.keys(),
-            help="Shortcut for setting the SPARQL endpoint",
+            choices=[
+                "https://qlever.dev/api/wikidata",
+                "https://qlever.dev/api/uniprot",
+                "https://qlever.dev/api/pubchem",
+                "https://qlever.dev/api/osm-planet",
+                "https://wikidata.demo.openlinksw.com/sparql",
+                "https://sparql.uniprot.org/sparql",
+            ],
+            help="SPARQL endpoint from fixed list (to save typing)",
         )
         subparser.add_argument(
             "--get-queries-cmd",
@@ -86,7 +90,7 @@ class ExampleQueriesCommand(QleverCommand):
                 "application/sparql-results+json",
                 "text/turtle",
             ],
-            default="text/tab-separated-values",
+            default="application/sparql-results+json",
             help="Accept header for the SPARQL query",
         )
         subparser.add_argument(
@@ -119,12 +123,19 @@ class ExampleQueriesCommand(QleverCommand):
             default="never",
             help="Show the queries that will be executed (always, never, on error)",
         )
+        subparser.add_argument(
+            "--show-prefixes",
+            action="store_true",
+            default=False,
+            help="When showing the query, also show the prefixes",
+        )
 
-    def pretty_print_query(self, query: str) -> None:
+    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
+        remove_prefixes_cmd = " | sed '/^PREFIX /Id'" if not show_prefixes else ""
         pretty_print_query_cmd = (
             f"echo {shlex.quote(query)}"
             f" | docker run -i --rm sparqling/sparql-formatter"
-            f" | sed '/^PREFIX /Id' | grep -v '^$'"
+            f"{remove_prefixes_cmd} | grep -v '^$'"
         )
         try:
             query_pp = run_command(pretty_print_query_cmd, return_output=True)
@@ -154,9 +165,8 @@ class ExampleQueriesCommand(QleverCommand):
                 return False
 
         # Handle shotcuts for SPARQL endpoint.
-        if args.sparql_endpoint_preset in self.presets:
-            args.sparql_endpoint = self.presets[args.sparql_endpoint_preset]
-            args.ui_config = args.sparql_endpoint_preset.split("-")[1]
+        if args.sparql_endpoint_preset:
+            args.sparql_endpoint = args.sparql_endpoint_preset
 
         # Limit only works with full result.
         if args.limit and args.download_or_count == "count":
@@ -286,7 +296,7 @@ class ExampleQueriesCommand(QleverCommand):
             query = re.sub(r"\s*\.\s*\}", " }", query)
             if args.show_query == "always":
                 log.info("")
-                self.pretty_print_query(query)
+                self.pretty_print_query(query, args.show_prefixes)
 
             # Launch query.
             try:
@@ -420,7 +430,7 @@ class ExampleQueriesCommand(QleverCommand):
                     f"{colored(error_msg['long'], 'red')}"
                 )
                 if args.show_query == "on-error":
-                    self.pretty_print_query(query)
+                    self.pretty_print_query(query, args.show_prefixes)
                     log.info("")
 
         # Check that each query has a time and a result size, or it failed.

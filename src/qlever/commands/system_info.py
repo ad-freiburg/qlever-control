@@ -58,7 +58,7 @@ class SystemInfoCommand(QleverCommand):
         # Say what the command is doing.
         self.show("Show system information and Qleverfile", only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Show system information.
         show_heading("System Information")

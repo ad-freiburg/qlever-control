@@ -35,7 +35,7 @@ class StatusCommand(QleverCommand):
                   f"the command line matches {args.cmdline_regex}"
                   f" using Python's psutil library", only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Show the results as a table.
         num_processes_found = 0
@@ -47,3 +47,4 @@ class StatusCommand(QleverCommand):
                 num_processes_found += 1
         if num_processes_found == 0:
             print("No processes found")
+        return True

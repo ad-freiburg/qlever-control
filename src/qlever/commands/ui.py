@@ -70,8 +70,10 @@ class UiCommand(QleverCommand):
             "\n".join(["Stop running containers", pull_cmd, run_cmd, exec_cmd]),
             only_show=args.show,
         )
-        if qlever_is_running_in_container or args.show:
+        if qlever_is_running_in_container:
             return False
+        if args.show:
+            return True
 
         # Stop running containers.
         for container_system in Containerize.supported_systems():

@@ -21,10 +21,7 @@ class ExampleQueriesCommand(QleverCommand):
     """
 
     def __init__(self):
-        self.presets = {
-            "virtuoso-wikidata": "https://wikidata.demo.openlinksw.com/sparql",
-            "qlever-wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
-        }
+        pass
 
     def description(self) -> str:
         return "Show how much of the cache is currently being used"
@@ -41,8 +38,15 @@ class ExampleQueriesCommand(QleverCommand):
         )
         subparser.add_argument(
             "--sparql-endpoint-preset",
-            choices=self.presets.keys(),
-            help="Shortcut for setting the SPARQL endpoint",
+            choices=[
+                "https://qlever.dev/api/wikidata",
+                "https://qlever.dev/api/uniprot",
+                "https://qlever.dev/api/pubchem",
+                "https://qlever.dev/api/osm-planet",
+                "https://wikidata.demo.openlinksw.com/sparql",
+                "https://sparql.uniprot.org/sparql",
+            ],
+            help="SPARQL endpoint from fixed list (to save typing)",
         )
         subparser.add_argument(
             "--get-queries-cmd",
@@ -86,7 +90,7 @@ class ExampleQueriesCommand(QleverCommand):
                 "application/sparql-results+json",
                 "text/turtle",
             ],
-            default="text/tab-separated-values",
+            default="application/sparql-results+json",
             help="Accept header for the SPARQL query",
         )
         subparser.add_argument(
@@ -98,7 +102,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--width-query-description",
             type=int,
-            default=40,
+            default=70,
             help="Width for printing the query description",
         )
         subparser.add_argument(
@@ -113,6 +117,32 @@ class ExampleQueriesCommand(QleverCommand):
             default=14,
             help="Width for printing the result size",
         )
+        subparser.add_argument(
+            "--show-query",
+            choices=["always", "never", "on-error"],
+            default="never",
+            help="Show the queries that will be executed (always, never, on error)",
+        )
+        subparser.add_argument(
+            "--show-prefixes",
+            action="store_true",
+            default=False,
+            help="When showing the query, also show the prefixes",
+        )
+
+    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
+        remove_prefixes_cmd = " | sed '/^PREFIX /Id'" if not show_prefixes else ""
+        pretty_print_query_cmd = (
+            f"echo {shlex.quote(query)}"
+            f" | docker run -i --rm sparqling/sparql-formatter"
+            f"{remove_prefixes_cmd} | grep -v '^$'"
+        )
+        try:
+            query_pp = run_command(pretty_print_query_cmd, return_output=True)
+            log.info(colored(query_pp.rstrip(), "cyan"))
+        except Exception as e:
+            log.error(f"Failed to pretty-print query: {e}")
+            log.info(colored(query.rstrip(), "cyan"))
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -135,9 +165,8 @@ class ExampleQueriesCommand(QleverCommand):
                 return False
 
         # Handle shotcuts for SPARQL endpoint.
-        if args.sparql_endpoint_preset in self.presets:
-            args.sparql_endpoint = self.presets[args.sparql_endpoint_preset]
-            args.ui_config = args.sparql_endpoint_preset.split("-")[1]
+        if args.sparql_endpoint_preset:
+            args.sparql_endpoint = args.sparql_endpoint_preset
 
         # Limit only works with full result.
         if args.limit and args.download_or_count == "count":
@@ -178,7 +207,7 @@ class ExampleQueriesCommand(QleverCommand):
             only_show=args.show,
         )
         if args.show:
-            return False
+            return True
 
         # Get the example queries.
         try:
@@ -210,8 +239,11 @@ class ExampleQueriesCommand(QleverCommand):
             if args.clear_cache == "yes":
                 args.server_url = sparql_endpoint
                 args.complete = False
+                clear_cache_successful = False
                 with mute_log():
-                    ClearCacheCommand().execute(args)
+                    clear_cache_successful = ClearCacheCommand().execute(args)
+                if not clear_cache_successful:
+                    log.warn("Failed to clear the cache")
 
             # Remove OFFSET and LIMIT (after the last closing bracket).
             if args.remove_offset_and_limit or args.limit:
@@ -262,6 +294,9 @@ class ExampleQueriesCommand(QleverCommand):
             # A bit of pretty-printing.
             query = re.sub(r"\s+", " ", query)
             query = re.sub(r"\s*\.\s*\}", " }", query)
+            if args.show_query == "always":
+                log.info("")
+                self.pretty_print_query(query, args.show_prefixes)
 
             # Launch query.
             try:
@@ -282,55 +317,81 @@ class ExampleQueriesCommand(QleverCommand):
                     params={"query": query},
                     result_file=result_file,
                 ).strip()
-                if http_code != "200":
-                    raise Exception(
-                        f"HTTP code {http_code}" f"  {Path(result_file).read_text()}"
-                    )
-                time_seconds = time.time() - start_time
-                error_msg = None
+                if http_code == "200":
+                    time_seconds = time.time() - start_time
+                    error_msg = None
+                else:
+                    error_msg = {
+                        "short": f"HTTP code: {http_code}",
+                        "long": re.sub(r"\s+", " ", Path(result_file).read_text()),
+                    }
             except Exception as e:
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
-                error_msg = re.sub(r"\s+", " ", str(e))
+                error_msg = {
+                    "short": "Exception",
+                    "long": re.sub(r"\s+", " ", str(e)),
+                }
 
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                try:
-                    if args.download_or_count == "count":
-                        if args.accept == "text/tab-separated-values":
-                            result_size = run_command(
-                                f"sed 1d {result_file}", return_output=True
-                            )
-                        else:
+                # CASE 0: Rhe result is empty despite a 200 HTTP code.
+                if Path(result_file).stat().st_size == 0:
+                    result_size = 0
+                    error_msg = {
+                        "short": "Empty result",
+                        "long": "curl returned with code 200, "
+                        "but the result is empty",
+                    }
+
+                # CASE 1: Just counting the size of the result (TSV or JSON).
+                elif args.download_or_count == "count":
+                    if args.accept == "text/tab-separated-values":
+                        result_size = run_command(
+                            f"sed 1d {result_file}", return_output=True
+                        )
+                    else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings[0]'
                                 f" | to_entries[0].value.value"
                                 f' | tonumber" {result_file}',
                                 return_output=True,
                             )
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": "curl returned with code 200, "
+                                "but the JSON is malformed: "
+                                + re.sub(r"\s+", " ", str(e)),
+                            }
+
+                # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
+                else:
+                    if (
+                        args.accept == "text/tab-separated-values"
+                        or args.accept == "text/csv"
+                    ):
+                        result_size = run_command(
+                            f"sed 1d {result_file} | wc -l", return_output=True
+                        )
+                    elif args.accept == "text/turtle":
+                        result_size = run_command(
+                            f"sed '1d;/^@prefix/d;/^\\s*$/d' " f"{result_file} | wc -l",
+                            return_output=True,
+                        )
                     else:
-                        if (
-                            args.accept == "text/tab-separated-values"
-                            or args.accept == "text/csv"
-                        ):
-                            result_size = run_command(
-                                f"sed 1d {result_file} | wc -l", return_output=True
-                            )
-                        elif args.accept == "text/turtle":
-                            result_size = run_command(
-                                f"sed '1d;/^@prefix/d;/^\\s*$/d' "
-                                f"{result_file} | wc -l",
-                                return_output=True,
-                            )
-                        else:
+                        try:
                             result_size = run_command(
                                 f'jq -r ".results.bindings | length"' f" {result_file}",
                                 return_output=True,
                             )
-                    result_size = int(result_size)
-                except Exception as e:
-                    error_msg = str(e)
+                        except Exception as e:
+                            error_msg = {
+                                "short": "Malformed JSON",
+                                "long": re.sub(r"\s+", " ", str(e)),
+                            }
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -341,6 +402,7 @@ class ExampleQueriesCommand(QleverCommand):
                 description = description[: args.width_query_description - 3]
                 description += "..."
             if error_msg is None:
+                result_size = int(result_size)
                 log.info(
                     f"{description:<{args.width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
@@ -352,16 +414,24 @@ class ExampleQueriesCommand(QleverCommand):
                 num_failed += 1
                 if (
                     args.width_error_message > 0
-                    and len(error_msg) > args.width_error_message
+                    and len(error_msg["long"]) > args.width_error_message
                     and args.log_level != "DEBUG"
+                    and args.show_query != "on-error"
                 ):
-                    error_msg = error_msg[: args.width_error_message - 3]
-                    error_msg += "..."
-                log.error(
+                    error_msg["long"] = (
+                        error_msg["long"][: args.width_error_message - 3] + "..."
+                    )
+                seperator_short_long = "\n" if args.show_query == "on-error" else "  "
+                log.info(
                     f"{description:<{args.width_query_description}}    "
-                    f"failed   "
-                    f"{colored(error_msg, 'red')}"
+                    f"{colored('FAILED   ', 'red')}"
+                    f"{colored(error_msg['short'], 'red'):>{args.width_result_size}}"
+                    f"{seperator_short_long}"
+                    f"{colored(error_msg['long'], 'red')}"
                 )
+                if args.show_query == "on-error":
+                    self.pretty_print_query(query, args.show_prefixes)
+                    log.info("")
 
         # Check that each query has a time and a result size, or it failed.
         assert len(result_sizes) == len(query_times)

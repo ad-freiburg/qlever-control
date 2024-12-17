@@ -63,14 +63,14 @@ class StartCommand(QleverCommand):
         # TODO: This is currently disabled because I never used it once over
         # the past weeks and it is not clear to me what the use case is.
         if False:  # or args.kill_existing_with_same_name:
-            args.cmdline_regex = f"^ServerMain.* -i {args.name}"
+            args.cmdline_regex = f"^{args.server_binary}.* -i {args.name}"
             args.no_containers = True
             StopCommand().execute(args)
             log.info("")
 
         # Kill existing server on the same port if so desired.
         if args.kill_existing_with_same_port:
-            args.cmdline_regex = f"^ServerMain.* -p {args.port}"
+            args.cmdline_regex = f"^{args.server_binary}.* -p {args.port}"
             args.no_containers = True
             if not StopCommand().execute(args):
                 log.error("Stopping the existing server failed")
@@ -141,7 +141,7 @@ class StartCommand(QleverCommand):
                      "--kill-existing-with-same-port`")
 
             # Show output of status command.
-            args.cmdline_regex = f"^ServerMain.* -p *{port}"
+            args.cmdline_regex = f"^{args.server_binary}.* -p *{port}"
             log.info("")
             StatusCommand().execute(args)
 

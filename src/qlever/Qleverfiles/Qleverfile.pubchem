@@ -1,29 +1,32 @@
 # Qleverfile for PubChem, use with the QLever CLI (`pip install qlever`)
 #
-# qlever get-data  # ~2 hours, ~150 GB, ~19 billion triples
-# qlever index     # ~7 hours, ~20 GB RAM, ~400 GB disk space
+# qlever get-data  # ~2 hours, ~120 GB, ~19 billion triples
+# qlever index     # ~6 hours, ~20 GB RAM, ~350 GB disk space (for the index)
 # qlever start     # a few seconds
 #
-# Measured on an AMD Ryzen 9 7950X with 128 GB RAM, and NVMe SSD (13.11.2024)
+# Measured on an AMD Ryzen 9 7950X with 128 GB RAM, and NVMe SSD (17.12.2024)
 #
-# NOTE: `qlever get-data` does not only download the PubChem RDF data, but also
+# NOTE 1: `qlever get-data` does not only download the PubChem RDF data, but also
 # a number of ontologies. These are very useful to obtain names for IRIs like
 # `sio:SIO_000008` or `obo:IAO_0000412` (otherwise very hard to understand).
 # The ontologies BAO and NDF-RT are occasionally updated; for latest versions,
 # see the download links at https://bioportal.bioontology.org/ontologies/BAO
 # and https://bioportal.bioontology.org/ontologies/NDF-RT .
+#
+# NOTE 2: The `MULTI_INPUT_JSON` zcats selected files together in one input
+# stream because there are too many files and the command line triggered by
+# `qlever index` would be too long otherwise.
 
 [data]
-NAME               = pubchem
-GET_DATA_URL       = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
-ONTOLOGIES_DIR     = RDF.ontologies
-PUBCHEM_DIR        = RDF.pubchem
-ONTOLOGIES_CSV     = ontologies.csv
-CHECK_REQUIREMENTS = for CMD in docker parallel; do $$CMD --version >/dev/null 2>&1 || (echo "Requires \"$$CMD\", please install it"; false); done
-GET_DATA_CMD_1     = mkdir -p ${ONTOLOGIES_DIR} && cd ${ONTOLOGIES_DIR} && cat ${ONTOLOGIES_CSV} | parallel --colsep "," 'FILE={2} && URL={3} && ERRFILE=$${FILE%.*}.jena-stderr; echo "Processing $$URL ($$FILE) ..." && curl -sLRo $$FILE $$URL && docker run --rm -v $$(pwd):/data stain/jena riot --output=NT /data/$$FILE 2> $$ERRFILE | gzip -c > $${FILE%.*}.nt.gz && rm -f $$FILE; if [ -s $$ERRFILE ]; then grep -q "ERROR *riot" $$ERRFILE && echo "riot ERRORs in $$FILE, check $$ERRFILE"; else rm $$ERRFILE; fi'
-GET_DATA_CMD_2     = mkdir -p ${PUBCHEM_DIR} && cd ${PUBCHEM_DIR} && curl -LRO ${GET_DATA_URL}/void.ttl && grep -oP "${GET_DATA_URL}/.*?\.ttl\.gz" void.ttl | parallel -j 8 'URL={1} && FILE=$$(echo $$URL | sed "s,^${GET_DATA_URL}/,,") && curl --retry 10 --create-dirs -sLRo "$$FILE" "$$URL" && echo "DONE downloading $$URL" || echo "ERROR downloading $$URL [error code $$?]"'
-GET_DATA_CMD        = ${GET_DATA_CMD_2}
-# GET_DATA_CMD        = ${CHECK_REQUIREMENTS} && (${GET_DATA_CMD_1} && ${GET_DATA_CMD_2}) 2>&1 | tee pubchem.get-data-log.txt
+NAME                = pubchem
+GET_DATA_URL        = ftp://ftp.ncbi.nlm.nih.gov/pubchem/RDF
+ONTOLOGIES_DIR      = RDF.ontologies
+PUBCHEM_DIR         = RDF.pubchem
+ONTOLOGIES_CSV      = ontologies.csv
+CHECK_REQUIREMENTS  = for CMD in docker parallel; do $$CMD --version >/dev/null 2>&1 || (echo "Requires \"$$CMD\", please install it"; false); done
+GET_DATA_CMD_1      = mkdir -p ${ONTOLOGIES_DIR} && cd ${ONTOLOGIES_DIR} && cat ${ONTOLOGIES_CSV} | parallel --colsep "," 'FILE={2} && URL={3} && ERRFILE=$${FILE%.*}.jena-stderr; echo "Processing $$URL ($$FILE) ..." && curl -sLRo $$FILE $$URL && docker run --rm -v $$(pwd):/data stain/jena riot --output=NT /data/$$FILE 2> $$ERRFILE | gzip -c > $${FILE%.*}.nt.gz && rm -f $$FILE; if [ -s $$ERRFILE ]; then grep -q "ERROR *riot" $$ERRFILE && echo "riot ERRORs in $$FILE, check $$ERRFILE"; else rm $$ERRFILE; fi'
+GET_DATA_CMD_2      = mkdir -p ${PUBCHEM_DIR} && wget -r -nv -nH --cut-dirs=2 --no-parent -P ${PUBCHEM_DIR} ${GET_DATA_URL}
+GET_DATA_CMD        = ${CHECK_REQUIREMENTS} && ${GET_DATA_CMD_1} | tee pubchem.get-data-log.txt && ${GET_DATA_CMD_2} | tee -a pubchem.get-data-log.txt
 VERSION             = $$(date -r void.ttl +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION         = PubChem RDF from ${GET_DATA_URL} (version ${VERSION}) + associated ontologies (bao, bfo, biopax-level3, chebi, cheminf, cito, dublin_core_terms, fabio, go, iao, ncit, obi, pr, ro, sio, skos, so, uo)
 MAKE_ONTOLOGIES_CSV = $$(mkdir -p ${ONTOLOGIES_DIR} && echo "BAO - BioAssay Ontology,bao.owl,https://data.bioontology.org/ontologies/BAO/submissions/56/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nBFO - Basic Formal Ontology,bfo.owl,http://purl.obolibrary.org/obo/bfo.owl\nBioPAX - biological pathway data,bp.owl,http://www.biopax.org/release/biopax-level3.owl\nCHEMINF - Chemical Information Ontology,cheminf.owl,http://purl.obolibrary.org/obo/cheminf.owl\nChEBI - Chemical Entities of Biological Interest,chebi.owl,http://purl.obolibrary.org/obo/chebi.owl\nCiTO,cito.nt,http://purl.org/spar/cito.nt\nDCMI Terms,dcterms.nt,https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.nt\nFaBiO,fabio.nt,http://purl.org/spar/fabio.nt\nGO - Gene Ontology,go.owl,http://purl.obolibrary.org/obo/go.owl\nIAO - Information Artifact Ontology,iao.owl,http://purl.obolibrary.org/obo/iao.owl\nNCIt,ncit.owl,http://purl.obolibrary.org/obo/ncit.owl\nNDF-RT,ndfrt.owl,https://data.bioontology.org/ontologies/NDF-RT/submissions/1/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb\nOBI - Ontology for Biomedical Investigations,obi.owl,http://purl.obolibrary.org/obo/obi.owl\nOWL,owl.ttl,http://www.w3.org/2002/07/owl.ttl\nPDBo,pdbo.owl,http://rdf.wwpdb.org/schema/pdbx-v40.owl\nPR - PRotein Ontology (PRO),pr.owl,http://purl.obolibrary.org/obo/pr.owl\nRDF Schema,rdfs.ttl,https://www.w3.org/2000/01/rdf-schema.ttl\nRDF,rdf.ttl,http://www.w3.org/1999/02/22-rdf-syntax-ns.ttl\nRO - Relation Ontology,ro.owl,http://purl.obolibrary.org/obo/ro.owl\nSIO - Semanticscience Integrated Ontology,sio.owl,http://semanticscience.org/ontology/sio.owl\nSKOS,skos.rdf,http://www.w3.org/TR/skos-reference/skos.rdf\nSO - Sequence types and features ontology,so.owl,http://purl.obolibrary.org/obo/so.owl\nUO - Units of measurement ontology,uo.owl,http://purl.obolibrary.org/obo/uo.owl" > ${ONTOLOGIES_DIR}/${ONTOLOGIES_CSV})
@@ -111,7 +114,7 @@ MULTI_INPUT_JSON = [{ "cmd": "zcat ${data:ONTOLOGIES_DIR}/*.nt.gz", "graph": "${
                     { "cmd": "zcat {}", "graph": "${BASE_URL}/substance", "for-each": "${data:PUBCHEM_DIR}/substance/*[!0-9].ttl.gz" },
                     { "cmd": "zcat {}", "graph": "${BASE_URL}/synonym", "for-each": "${data:PUBCHEM_DIR}/synonym/*.ttl.gz" },
                     { "cmd": "zcat {}", "graph": "${BASE_URL}/taxonomy", "for-each": "${data:PUBCHEM_DIR}/taxonomy/*.ttl.gz" }]
-SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
+SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "num-triples-per-batch": 10000000 }
 STXXL_MEMORY    = 20G
 
 [server]

@@ -3,7 +3,7 @@ from __future__ import annotations
 import psutil
 
 from qlever.command import QleverCommand
-from qlever.util import show_process_info, name_from_path
+from qlever.util import show_process_info
 
 
 class StatusCommand(QleverCommand):
@@ -25,16 +25,21 @@ class StatusCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--cmdline-regex",
-                               default="^(ServerMain|IndexBuilderMain)",
+                               default="^(%%SERVER_BINARY%%|%%INDEX_BINARY%%)",
                                help="Show only processes where the command "
                                     "line matches this regex")
 
     def execute(self, args) -> bool:
-        server_binary = name_from_path(args.server_binary)
-        index_binary = name_from_path(args.index_binary)
-        cmdline_regex = (args.cmdline_regex
-                         .replace("ServerMain", server_binary)
-                         .replace("IndexBuilderMain", index_binary))
+        cmdline_regex = args.cmdline_regex
+        # Other commands call status with a custom `cmdline_regex` that contains
+        # less or no variables. Doing the replacement on-demand has the benefit
+        # that only the variables that are actually used have to be provided by
+        # the calling command. For example: the `cmdline_regex` used by start
+        # has no variables and requiring the index binary for it would be strange.
+        if "%%SERVER_BINARY%%" in cmdline_regex:
+            cmdline_regex = cmdline_regex.replace("%%SERVER_BINARY%%", args.server_binary)
+        if "%%INDEX_BINARY%%" in cmdline_regex:
+            cmdline_regex = cmdline_regex.replace("%%INDEX_BINARY%%", args.index_binary)
 
         # Show action description.
         self.show(f"Show all processes on this machine where "

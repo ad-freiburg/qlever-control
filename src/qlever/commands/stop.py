@@ -8,7 +8,7 @@ from qlever.command import QleverCommand
 from qlever.commands.status import StatusCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import show_process_info, name_from_path
+from qlever.util import show_process_info
 
 
 class StopCommand(QleverCommand):
@@ -33,7 +33,7 @@ class StopCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--cmdline-regex",
-                               default="ServerMain.* -i [^ ]*%%NAME%%",
+                               default="%%SERVER_BINARY%%.* -i [^ ]*%%NAME%%",
                                help="Show only processes where the command "
                                     "line matches this regex")
         subparser.add_argument("--no-containers", action="store_true",
@@ -42,11 +42,9 @@ class StopCommand(QleverCommand):
                                     "native processes")
 
     def execute(self, args) -> bool:
-        server_binary = name_from_path(args.server_binary)
-
         # Show action description.
         cmdline_regex = args.cmdline_regex.replace("%%NAME%%", args.name)
-        cmdline_regex = cmdline_regex.replace("ServerMain", server_binary)
+        cmdline_regex = cmdline_regex.replace("%%SERVER_BINARY%%", args.server_binary)
         description = f"Checking for processes matching \"{cmdline_regex}\""
         if not args.no_containers:
             description += (f" and for Docker container with name "
@@ -99,7 +97,7 @@ class StopCommand(QleverCommand):
         message = "No matching process found" if args.no_containers else \
                   "No matching process or container found"
         log.error(message)
-        args.cmdline_regex = f"^{server_binary}.* -i [^ ]*"
+        args.cmdline_regex = f"^{args.server_binary}.* -i [^ ]*"
         log.info("")
         StatusCommand().execute(args)
         return True

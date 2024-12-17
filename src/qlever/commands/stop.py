@@ -28,8 +28,7 @@ class StopCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
                 "server": ["server_binary", "port"],
-                "runtime": ["server_container"],
-                "index": ["index_binary"]}
+                "runtime": ["server_container"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--cmdline-regex",

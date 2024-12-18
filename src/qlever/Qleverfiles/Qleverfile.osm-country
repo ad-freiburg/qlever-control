@@ -1,48 +1,38 @@
-# Qleverfile for OSM of some country, use with https://github.com/ad-freiburg/qlever-control
+# Qleverfile for OSM subsets, use with the QLever CLI (`pip install qlever`)
 #
-# qlever get-data  # downloads .pbf file from Geofabrik und builds .ttl.bz2 using osm2rdf
-# qlever index     # for example Germany takes ~30 minutes and ~10 GB RAM (on an AMD Ryzen 9 5900X)
-# qlever start     # starts the server
+# For example. for the OSM data of Switzerland (~1% of the full OSM data):
 #
-# Make sure that osm2rdf is in your path. Set CONTINENT and COUNTRY such that
-# the link under GET_DATA_CMD exists (the names are usually the canonical
-# names). The time for osm2rdf is around the same as that for "qlever index".
+# qlever get-data  # ~40 seconds, ~4 GB (compressed), ~0.7 B triples
+# qlever index     # ~10 minutes, ~5 GB RAM, ~15 GB index size on disk
+# qlever start     # a few seconds, adjust MEMORY_FOR_QUERIES as needed
+#
+# Measured on an AMD Ryzen 9 7950X with 128 GB RAM, and NVMe SSD (18.12.2024)
 
-# Dataset settings
 [data]
-CONTINENT         = europe
-COUNTRY           = switzerland
-NAME              = osm-${COUNTRY}
-PBF               = ${NAME}.pbf
-WITH_TEXT         = false
-VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6)
-GET_DATA_CMD      = wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${NAME}.*.bz2; ( time osm2rdf ${PBF} -o ${NAME}.ttl --cache . ) 2>&1 | tee ${NAME}.osm2rdf-log.txt; rm -f spatial-*
-DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
+NAME              = che
+TTL_FILE          = ${data:NAME}.osm.ttl.bz2
+GET_DATA_URL      = https://osm2rdf.cs.uni-freiburg.de/ttl/${TTL_FILE}
+GET_DATA_CMD      = wget -O ${TTL_FILE} ${GET_DATA_URL}
+VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${TTL_FILE} 2> /dev/null | cut -d' ' -f6)
+DESCRIPTION       = OSM data from ${GET_DATA_URL} (version ${VERSION})
 
-# Indexer settings
 [index]
-INPUT_FILES       = ${data:NAME}.ttl.bz2
-CAT_INPUT_FILES   = bzcat ${data:NAME}.ttl.bz2
+INPUT_FILES       = ${data:TTL_FILE}
+CAT_INPUT_FILES   = lbzcat -n 4 ${data:TTL_FILE}
+PARALLEL_PARSING  = true
 STXXL_MEMORY      = 10G
-SETTINGS_JSON     = { "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(", "\"POLYGON(" ], "ascii-prefixes-only": false, "num-triples-per-batch": 1000000 }
+SETTINGS_JSON     = { "prefixes-external": [""], "languages-internal": [], "num-triples-per-batch": 5000000 }
 
-# Server settings
 [server]
 HOSTNAME                    = localhost
 PORT                        = 7025
-ACCESS_TOKEN                = ${data:NAME}_%RANDOM%
-MEMORY_FOR_QUERIES          = 20G
-CACHE_MAX_SIZE              = 10G
-CACHE_MAX_SIZE_SINGLE_ENTRY = 5G
-CACHE_MAX_NUM_ENTRIES       = 100
-TIMEOUT                     = 100s
+ACCESS_TOKEN                = ${data:NAME}
+MEMORY_FOR_QUERIES          = 10G
 
-# Runtime to use
 [runtime]
 SYSTEM = docker
 IMAGE = docker.io/adfreiburg/qlever:latest
 
-# Qlever UI
 [ui]
 UI_PORT   = 7000
 UI_CONFIG = osm

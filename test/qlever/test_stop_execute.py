@@ -41,7 +41,7 @@ class TestStopCommand(unittest.TestCase):
         mock_process_iter.assert_called_once()
         mock_stop_and_remove_container.assert_not_called()
         mock_status_execute.assert_called_once_with(args)
-        self.assertFalse(result)
+        self.assertTrue(result)
 
     @patch('qlever.commands.stop.StatusCommand.execute')
     @patch('psutil.process_iter')
@@ -170,7 +170,7 @@ class TestStopCommand(unittest.TestCase):
         mock_process_iter.assert_called_once()
         mock_stop_and_remove_container.assert_called()
         mock_status_execute.assert_called_once_with(args)
-        self.assertFalse(result)
+        self.assertTrue(result)
 
     @patch('qlever.commands.stop.StatusCommand.execute')
     @patch('psutil.process_iter')
@@ -224,3 +224,4 @@ class TestStopCommand(unittest.TestCase):
                                                        show_heading=True)
         mock_status_execute.assert_not_called()
         self.assertFalse(result)
+

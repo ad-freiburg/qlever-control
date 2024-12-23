@@ -64,7 +64,7 @@ class AddTextIndexCommand(QleverCommand):
         # Show the command line.
         self.show(add_text_index_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
@@ -74,6 +74,7 @@ class AddTextIndexCommand(QleverCommand):
                 log.error(f"Running \"{args.index_binary}\" failed ({e}), "
                           f"set `--index-binary` to a different binary or "
                           f"use `--container_system`")
+                return False
 
         # Check if text index files already exist.
         existing_text_index_files = get_existing_index_files(

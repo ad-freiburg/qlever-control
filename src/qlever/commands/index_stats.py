@@ -18,32 +18,45 @@ class IndexStatsCommand(QleverCommand):
         pass
 
     def description(self) -> str:
-        return ("Breakdown of the time and space used for the index build")
+        return "Breakdown of the time and space used for the index build"
 
     def should_have_qleverfile(self) -> bool:
         return False
 
-    def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {"data": ["name"]}
 
     def additional_arguments(self, subparser) -> None:
-        subparser.add_argument("--only-time", action="store_true",
-                               default=False,
-                               help="Show only the time used")
-        subparser.add_argument("--only-space", action="store_true",
-                               default=False,
-                               help="Show only the space used")
-        subparser.add_argument("--ignore-text-index", action="store_true",
-                               default=False,
-                               help="Ignore the text index")
-        subparser.add_argument("--time-unit",
-                               choices=["s", "min", "h", "auto"],
-                               default="auto",
-                               help="The time unit")
-        subparser.add_argument("--size-unit",
-                               choices=["B", "MB", "GB", "TB", "auto"],
-                               default="auto",
-                               help="The size unit")
+        subparser.add_argument(
+            "--only-time",
+            action="store_true",
+            default=False,
+            help="Show only the time used",
+        )
+        subparser.add_argument(
+            "--only-space",
+            action="store_true",
+            default=False,
+            help="Show only the space used",
+        )
+        subparser.add_argument(
+            "--ignore-text-index",
+            action="store_true",
+            default=False,
+            help="Ignore the text index",
+        )
+        subparser.add_argument(
+            "--time-unit",
+            choices=["s", "min", "h", "auto"],
+            default="auto",
+            help="The time unit",
+        )
+        subparser.add_argument(
+            "--size-unit",
+            choices=["B", "MB", "GB", "TB", "auto"],
+            default="auto",
+            help="The size unit",
+        )
 
     def execute_time(self, args, log_file_name) -> bool:
         """
@@ -65,8 +78,9 @@ class IndexStatsCommand(QleverCommand):
                 with open(text_log_file_name, "r") as text_log_file:
                     lines.extend(text_log_file.readlines())
         except Exception as e:
-            log.error(f"Problem reading text index log file "
-                      f"{text_log_file_name}: {e}")
+            log.error(
+                f"Problem reading text index log file " f"{text_log_file_name}: {e}"
+            )
             return False
 
         # Helper function that finds the next line matching the given `regex`,
@@ -95,12 +109,14 @@ class IndexStatsCommand(QleverCommand):
                 if regex_match:
                     try:
                         return datetime.strptime(
-                                re.match(timestamp_regex, line).group(),
-                                timestamp_format), regex_match
+                            re.match(timestamp_regex, line).group(), timestamp_format
+                        ), regex_match
                     except Exception as e:
-                        log.error(f"Could not parse timestamp of form "
-                                  f"\"{timestamp_regex}\" from line "
-                                  f" \"{line.rstrip()}\" ({e})")
+                        log.error(
+                            f"Could not parse timestamp of form "
+                            f'"{timestamp_regex}" from line '
+                            f' "{line.rstrip()}" ({e})'
+                        )
             # If we get here, we did not find a matching line.
             if not update_current_line:
                 current_line = current_line_backup
@@ -119,26 +135,32 @@ class IndexStatsCommand(QleverCommand):
             # file (old format: "Creating a pair" + names of permutations in
             # line "Writing meta data for ..."; new format: name of
             # permutations already in line "Creating permutations ...").
-            perm_begin, _ = find_next_line(r"INFO:\s*Creating a pair",
-                                           update_current_line=False)
+            perm_begin, _ = find_next_line(
+                r"INFO:\s*Creating a pair", update_current_line=False
+            )
             if perm_begin is None:
                 perm_begin, perm_info = find_next_line(
                     r"INFO:\s*Creating permutations ([A-Z]+ and [A-Z]+)",
-                    update_current_line=False)
+                    update_current_line=False,
+                )
             else:
                 _, perm_info = find_next_line(
                     r"INFO:\s*Writing meta data for ([A-Z]+ and [A-Z]+)",
-                    update_current_line=False)
+                    update_current_line=False,
+                )
             if perm_info is None:
                 break
             perm_begin_and_info.append((perm_begin, perm_info))
-        convert_end = (perm_begin_and_info[0][0] if
-                       len(perm_begin_and_info) > 0 else None)
+        convert_end = (
+            perm_begin_and_info[0][0] if len(perm_begin_and_info) > 0 else None
+        )
         normal_end, _ = find_next_line(r"INFO:\s*Index build completed")
-        text_begin, _ = find_next_line(r"INFO:\s*Adding text index",
-                                       update_current_line=False)
-        text_end, _ = find_next_line(r"INFO:\s*Text index build comp",
-                                     update_current_line=False)
+        text_begin, _ = find_next_line(
+            r"INFO:\s*Adding text index", update_current_line=False
+        )
+        text_end, _ = find_next_line(
+            r"INFO:\s*Text index build comp", update_current_line=False
+        )
         if args.ignore_text_index:
             text_begin = text_end = None
 
@@ -147,9 +169,11 @@ class IndexStatsCommand(QleverCommand):
             log.error("Missing line that index build has started")
             return False
         if overall_begin and not merge_begin:
-            log.error("According to the log file, the index build "
-                      "has started, but is still in its first "
-                      "phase (parsing the input)")
+            log.error(
+                "According to the log file, the index build "
+                "has started, but is still in its first "
+                "phase (parsing the input)"
+            )
             return False
 
         # Helper function that shows the duration for a phase (if the start and
@@ -187,22 +211,24 @@ class IndexStatsCommand(QleverCommand):
         show_duration("Convert to global IDs", [(convert_begin, convert_end)])
         for i in range(len(perm_begin_and_info)):
             perm_begin, perm_info = perm_begin_and_info[i]
-            perm_end = perm_begin_and_info[i + 1][0] if i + 1 < len(
-                    perm_begin_and_info) else normal_end
-            perm_info_text = (perm_info.group(1).replace(" and ", " & ")
-                              if perm_info else f"#{i + 1}")
-            show_duration(f"Permutation {perm_info_text}",
-                          [(perm_begin, perm_end)])
+            perm_end = (
+                perm_begin_and_info[i + 1][0]
+                if i + 1 < len(perm_begin_and_info)
+                else normal_end
+            )
+            perm_info_text = (
+                perm_info.group(1).replace(" and ", " & ") if perm_info else f"#{i + 1}"
+            )
+            show_duration(f"Permutation {perm_info_text}", [(perm_begin, perm_end)])
         show_duration("Text index", [(text_begin, text_end)])
         if text_begin and text_end:
             log.info("")
-            show_duration("TOTAL time",
-                          [(overall_begin, normal_end),
-                           (text_begin, text_end)])
+            show_duration(
+                "TOTAL time", [(overall_begin, normal_end), (text_begin, text_end)]
+            )
         elif normal_end:
             log.info("")
-            show_duration("TOTAL time",
-                          [(overall_begin, normal_end)])
+            show_duration("TOTAL time", [(overall_begin, normal_end)])
         return True
 
     def execute_space(self, args) -> bool:
@@ -252,24 +278,29 @@ class IndexStatsCommand(QleverCommand):
         return True
 
     def execute(self, args) -> bool:
-        ret_value = args.show
+        return_value = True
 
         # The "time" part of the command.
         if not args.only_space:
             log_file_name = f"{args.name}.index-log.txt"
-            self.show(f"Breakdown of the time used for "
-                      f"building the index, based on the timestamps for key "
-                      f"lines in \"{log_file_name}\"", only_show=args.show)
+            self.show(
+                f"Breakdown of the time used for "
+                f"building the index, based on the timestamps for key "
+                f'lines in "{log_file_name}"',
+                only_show=args.show,
+            )
             if not args.show:
-                ret_value &= self.execute_time(args, log_file_name)
+                return_value &= self.execute_time(args, log_file_name)
             if not args.only_time:
                 log.info("")
 
         # The "space" part of the command.
         if not args.only_time:
-            self.show("Breakdown of the space used for building the index",
-                      only_show=args.show)
+            self.show(
+                "Breakdown of the space used for building the index",
+                only_show=args.show,
+            )
             if not args.show:
-                ret_value &= self.execute_space(args)
+                return_value &= self.execute_space(args)
 
-        return ret_value
+        return return_value

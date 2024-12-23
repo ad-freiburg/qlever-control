@@ -545,7 +545,7 @@ class TestStartCommand(unittest.TestCase):
         mock_run_containerize.return_value = "TestStart2"
 
         # mock StopCommand
-        mock_stop.return_value = None
+        mock_stop.return_value = True
 
         # Mock CacheStatsCommand
         mock_cache_stats_command.return_value = None
@@ -596,4 +596,4 @@ class TestStartCommand(unittest.TestCase):
         mock_construct_cmd_line.return_value = "Test_start_cmd"
 
         # Execute the function and check if return is False
-        self.assertFalse(StartCommand().execute(args))
+        self.assertTrue(StartCommand().execute(args))

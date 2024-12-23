@@ -49,7 +49,7 @@ class StopCommand(QleverCommand):
                             f"\"{args.server_container}\"")
         self.show(description, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # First check if there is container running and if yes, stop and remove
         # it (unless the user has specified `--no-containers`).
@@ -90,14 +90,12 @@ class StopCommand(QleverCommand):
                     return False
                 return True
 
-        # No matching process found.
+        # If no matching process found, show a message and the output of the
+        # status command.
         message = "No matching process found" if args.no_containers else \
                   "No matching process or container found"
         log.error(message)
-
-        # Show output of status command.
         args.cmdline_regex = "^ServerMain.* -i [^ ]*"
         log.info("")
         StatusCommand().execute(args)
-
-        return False
+        return True

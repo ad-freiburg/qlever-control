@@ -35,31 +35,38 @@ def main():
         log.info("")
         log.info(colored(f"Command: {args.command}", attrs=["bold"]))
         log.info("")
-        command_object.execute(args)
+        commandWasSuccesful = command_object.execute(args)
         log.info("")
+        if not commandWasSuccesful:
+            exit(1)
     except KeyboardInterrupt:
         log.info("")
         log.info("Ctrl-C pressed, exiting ...")
         log.info("")
-        exit(0)
+        exit(1)
     except Exception as e:
         # Check if it's a certain kind of `AttributeError` and give a hint in
         # that case.
         match_error = re.search(r"object has no attribute '(.+)'", str(e))
-        match_trace = re.search(r"(qlever/commands/.+\.py)\", line (\d+)",
-                                traceback.format_exc())
+        match_trace = re.search(
+            r"(qlever/commands/.+\.py)\", line (\d+)", traceback.format_exc()
+        )
         if isinstance(e, AttributeError) and match_error and match_trace:
             attribute = match_error.group(1)
             trace_command = match_trace.group(1)
             trace_line = match_trace.group(2)
             log.error(f"{e} in `{trace_command}` at line {trace_line}")
             log.info("")
-            log.info(f"Likely cause: you used `args.{attribute}`, but it was "
-                     f"neither defined in `relevant_qleverfile_arguments` "
-                     f"nor in `additional_arguments`")
+            log.info(
+                f"Likely cause: you used `args.{attribute}`, but it was "
+                f"neither defined in `relevant_qleverfile_arguments` "
+                f"nor in `additional_arguments`"
+            )
             log.info("")
-            log.info(f"If you did not implement `{trace_command}` yourself, "
-                     f"please report this issue")
+            log.info(
+                f"If you did not implement `{trace_command}` yourself, "
+                f"please report this issue"
+            )
             log.info("")
         else:
             log.error(f"An unexpected error occurred: {e}")

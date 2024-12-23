@@ -31,10 +31,18 @@ class TestIndexCommand(unittest.TestCase):
         result = self.index_command.relevant_qleverfile_arguments()
 
         self.assertEqual(result, {"data": ["name", "format"],
-                "index": ["input_files", "cat_input_files", "multi_input_json",
-                          "settings_json", "index_binary",
-                          "only_pso_and_pos_permutations", "use_patterns",
-                          "text_index", "stxxl_memory"],
+                "index": [
+                    "input_files",
+                    "cat_input_files",
+                    "multi_input_json",
+                    "parallel_parsing",
+                    "settings_json",
+                    "index_binary",
+                    "only_pso_and_pos_permutations",
+                    "use_patterns",
+                    "text_index",
+                    "stxxl_memory",
+                ],
                 "runtime": ["system", "image", "index_container"]})
 
     def test_additional_arguments(self):
@@ -66,8 +74,8 @@ class TestIndexCommand(unittest.TestCase):
         result = self.index_command.get_input_options_for_json(args)
 
         # Expected command-line options string based on the JSON data
-        expected_result = ('-f <(test_data1) -F json -g "-" -p false -f '
-                           '<(test_data2) -F jsonld -g "-" -p false')
+        expected_result = ('-f <(test_data1) -g - -F json -f '
+                           '<(test_data2) -g - -F jsonld')
         self.assertEqual(result, expected_result)
 
     @patch('qlever.commands.index.json')
@@ -87,7 +95,8 @@ class TestIndexCommand(unittest.TestCase):
         # Check if the correct error message is in the raised exception
         self.assertEqual(
             context.exception.error_message,
-            "Failed to parse `MULTI_INPUT_JSON` (Wrong format)"
+            "Failed to parse `MULTI_INPUT_JSON` as either JSON "
+            "or JSONL (Wrong format)"
         )
         self.assertEqual(
             context.exception.additional_info,
@@ -104,11 +113,10 @@ class TestIndexCommand(unittest.TestCase):
 
         # Verify error message mentions array requirement
         self.assertEqual(
-            context.exception.error_message,
-            "`MULTI_INPUT_JSON` must be a JSON array"
-        )
-        self.assertEqual(context.exception.additional_info,
-                         args.multi_input_json)
+            "Element 0 in `MULTI_INPUT_JSON` must contain a key `cmd`",
+            context.exception.error_message)
+        self.assertEqual({"key": "test_data1"},
+                         context.exception.additional_info)
 
     def test_get_input_options_for_json_empty(self):
         # Mock args with an empty JSON array

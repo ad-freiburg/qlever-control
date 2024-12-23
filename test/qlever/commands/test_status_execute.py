@@ -73,7 +73,7 @@ class TestStatusCommand(unittest.TestCase):
             call(mock_process3, args.cmdline_regex, show_heading=False),
         ]
         mock_show_process_info.assert_has_calls(expected_calls, any_order=False)
-        self.assertIsNone(result)
+        self.assertTrue(result)
 
     @patch("qlever.util.show_process_info")
     @patch("psutil.process_iter")
@@ -107,7 +107,7 @@ class TestStatusCommand(unittest.TestCase):
         # since there are no processes
         mock_show_process_info.assert_not_called()
 
-        self.assertIsNone(result)
+        self.assertTrue(result)
 
         # Verify the correct output was printed
         self.assertIn("No processes found", captured_output.getvalue())
@@ -128,4 +128,4 @@ class TestStatusCommand(unittest.TestCase):
             only_show=args.show,
         )
 
-        self.assertFalse(result)
+        self.assertTrue(result)

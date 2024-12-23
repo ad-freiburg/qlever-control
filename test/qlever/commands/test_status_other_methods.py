@@ -6,7 +6,9 @@ import argparse
 class TestStatusCommand(unittest.TestCase):
     def test_description(self):
         result = StatusCommand().description()
-        self.assertEqual(result, "Show QLever processes running on this machine")
+        self.assertEqual(
+            result, "Show QLever processes running on this machine"
+        )
 
     def test_should_have_qleverfile(self):
         self.assertFalse(StatusCommand().should_have_qleverfile())

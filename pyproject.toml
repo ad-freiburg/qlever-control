@@ -35,3 +35,6 @@ package-data = { "qlever" = ["Qleverfiles/*"] }
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 79 

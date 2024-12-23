@@ -19,7 +19,9 @@ class TestStatusCommand(unittest.TestCase):
     # testing execute for 2 processes. Just the second one is a qlever process.
     # Mocking the process_iter and show_process_info method and testing
     # if the methods are called correctly.
-    def test_execute_processes_found(self, mock_process_iter, mock_show_process_info):
+    def test_execute_processes_found(
+        self, mock_process_iter, mock_show_process_info
+    ):
         # Mocking the input for the execute function
         [args, args.cmdline_regex, args.show] = get_mock_args(False)
 
@@ -51,7 +53,11 @@ class TestStatusCommand(unittest.TestCase):
 
         # Mock the return value of process_iter
         # to be a list of these mocked process objects
-        mock_process_iter.return_value = [mock_process1, mock_process2, mock_process3]
+        mock_process_iter.return_value = [
+            mock_process1,
+            mock_process2,
+            mock_process3,
+        ]
 
         # Simulate show_process_info returning False for the first
         # True for the second and False for the third process
@@ -72,7 +78,9 @@ class TestStatusCommand(unittest.TestCase):
             call(mock_process2, args.cmdline_regex, show_heading=True),
             call(mock_process3, args.cmdline_regex, show_heading=False),
         ]
-        mock_show_process_info.assert_has_calls(expected_calls, any_order=False)
+        mock_show_process_info.assert_has_calls(
+            expected_calls, any_order=False
+        )
         self.assertTrue(result)
 
     @patch("qlever.util.show_process_info")

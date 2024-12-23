@@ -1,9 +1,10 @@
+import sys
 import unittest
-from unittest.mock import patch, MagicMock, call
+from io import StringIO
+from unittest.mock import MagicMock, call, patch
+
 import qlever.command
 from qlever.commands.status import StatusCommand
-from io import StringIO
-import sys
 
 
 def get_mock_args(only_show):

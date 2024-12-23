@@ -1,6 +1,7 @@
-import unittest
-from qlever.commands.status import StatusCommand
 import argparse
+import unittest
+
+from qlever.commands.status import StatusCommand
 
 
 class TestStatusCommand(unittest.TestCase):

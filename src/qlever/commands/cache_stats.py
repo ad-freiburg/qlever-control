@@ -47,7 +47,7 @@ class CacheStatsCommand(QleverCommand):
         self.show("\n".join([cache_stats_cmd, cache_settings_cmd]),
                   only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Execute them.
         try:

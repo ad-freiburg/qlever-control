@@ -1,20 +1,24 @@
-# Qleverfile for DBLP, use with https://github.com/ad-freiburg/qlever-control
+# Qleverfile for DBLP, use with QLever CLI (`pip install qlever`)
 #
-# qlever get-data  # takes ~3 mins (downloads .ttl.gz file of size ~3 GB)
-# qlever index     # takes ~4 mins (on an AMD Ryzen 9 5900X)
-# qlever start     # takes a few seconds
+# qlever get-data  # ~1 min, ~5 GB compressed, 1.3 B triples
+# qlever index     # ~30 min, ~20 GB RAM, ~25 GB index size on disk
+# qlever start     # ~3 s, adjust MEMORY_FOR_QUERIES as needed
+#
+# Measured on an AMD Ryzen 9 5950X with 128 GB RAM, and NVMe SSD (25.10.2024)
 
 [data]
 NAME         = dblp
-GET_DATA_URL = https://dblp.org/rdf/dblp.ttl.gz
-GET_DATA_CMD = curl -LRC - -O ${GET_DATA_URL} 2>&1 | tee ${data:NAME}.download-log.txt
+DATA_TARFILE = dblp_KG_with_associated_data.tar
+GET_DATA_URL = https://sparql.dblp.org/download/${DATA_TARFILE}
+GET_DATA_CMD = (curl -LROC - ${GET_DATA_URL} && tar -xf ${DATA_TARFILE}) 2>&1 | tee ${NAME}.download-log.txt && rm -f ${DATA_TARFILE}
 VERSION      = $$(date -r dblp.ttl.gz +"%d.%m.%Y %H:%M" || echo "NO_DATE")
-DESCRIPTION  = DBLP computer science bibliography, data from ${GET_DATA_URL} (version ${VERSION})
+DESCRIPTION  = DBLP computer science bibliography + citations from OpenCitations, data from ${GET_DATA_URL} (version ${VERSION})
+FORMAT       = ttl
 
 [index]
-INPUT_FILES     = dblp.ttl.gz
-CAT_INPUT_FILES = zcat ${INPUT_FILES}
-SETTINGS_JSON   = { "ascii-prefixes-only": false, "num-triples-per-batch": 1000000, "prefixes-external": [""] }
+INPUT_FILES      = *.gz
+MULTI_INPUT_JSON = { "cmd": "zcat {}", "for-each": "*.gz" }
+SETTINGS_JSON    = { "ascii-prefixes-only": false, "num-triples-per-batch": 5000000, "prefixes-external": [""] }
 
 [server]
 PORT               = 7015

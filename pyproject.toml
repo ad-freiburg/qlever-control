@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qlever"
 description = "Script for using the QLever SPARQL engine."
-version = "0.5.6"
+version = "0.5.14"
 authors = [
     { name = "Hannah Bast", email = "bast@cs.uni-freiburg.de" }
 ]
@@ -35,3 +35,8 @@ package-data = { "qlever" = ["Qleverfiles/*"] }
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 79 
+[tool.ruff.lint]
+extend-select = ["I"]

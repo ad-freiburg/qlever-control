@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from qlever.commands.stop import StopCommand
 
 
@@ -38,7 +40,8 @@ class TestStopCommand(unittest.TestCase):
 
         # Assertions
         mock_show.assert_called_once_with(
-            f'Checking for processes matching "{expected_regex}"', only_show=False
+            f'Checking for processes matching "{expected_regex}"',
+            only_show=False,
         )
         mock_process_iter.assert_called_once()
         mock_stop_and_remove_container.assert_not_called()
@@ -90,7 +93,8 @@ class TestStopCommand(unittest.TestCase):
 
         # Assertions
         mock_show.assert_called_once_with(
-            f'Checking for processes matching "{expected_regex}"', only_show=False
+            f'Checking for processes matching "{expected_regex}"',
+            only_show=False,
         )
         mock_process_iter.assert_called_once()
         mock_stop_and_remove_container.assert_not_called()
@@ -231,7 +235,8 @@ class TestStopCommand(unittest.TestCase):
 
         # Assertions
         mock_show.assert_called_once_with(
-            f'Checking for processes matching "{expected_regex}"', only_show=False
+            f'Checking for processes matching "{expected_regex}"',
+            only_show=False,
         )
         mock_process_iter.assert_called_once()
         mock_stop_and_remove_container.assert_not_called()

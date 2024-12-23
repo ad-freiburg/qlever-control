@@ -25,8 +25,9 @@ class TestIndexCommand(unittest.TestCase):
         args.input_files = "*.nt"
         args.only_pso_and_pos_permutations = False
         args.use_patterns = True
+        args.parallel_parsing = False
         args.text_index = "Test Index"
-        args.stxxl_memory = None
+        args.stxxl_memory = False
         args.system = "native"
         args.show = False
         args.overwrite_existing = False
@@ -197,6 +198,7 @@ class TestIndexCommand(unittest.TestCase):
         args.input_files = "*.nt"
         args.only_pso_and_pos_permutations = False
         args.use_patterns = True
+        args.parallel_parsing = False
         args.text_index = None
         args.stxxl_memory = None
         args.system = "native"
@@ -244,7 +246,8 @@ class TestIndexCommand(unittest.TestCase):
         # Instantiate IndexCommand and execute the function
         result = IndexCommand().execute(args)
 
-        error_msg = "Failed to parse `MULTI_INPUT_JSON` (Wrong format)"
+        error_msg = ("Failed to parse `MULTI_INPUT_JSON` as either JSON or "
+                     "JSONL (Wrong format)")
         # Asserts
         # Verify that the error message was logged
         mock_log.error.assert_called_once_with(error_msg)
@@ -322,4 +325,4 @@ class TestIndexCommand(unittest.TestCase):
         # Verify that show was called with the right parameters
         mock_show.assert_called_once_with(f"{settings_json_cmd}\n"
                                 f"{expected_index_cmd}", only_show = args.show)
-        assert not result
+        assert result

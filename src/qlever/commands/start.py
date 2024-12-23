@@ -37,13 +37,22 @@ def construct_command_line(args) -> str:
     return start_cmd
 
 
-# Kill existing server on the same port
-def kill_existing_server(args) -> None:
+# Kill existing server on the same port. Trust that StopCommand() works?
+# Maybe return StopCommand().execute(args) and handle it with a try except?
+def kill_existing_server(args) -> bool:
     args.cmdline_regex = f"^ServerMain.* -p {args.port}"
     args.no_containers = True
-    StopCommand().execute(args)
+    if not StopCommand().execute(args):
+        log.error("Stopping the existing server failed")
+        return False
     log.info("")
-
+    return True
+"""def kill_existing_server(args) -> bool:
+    args.cmdline_regex = f"^ServerMain.* -p {args.port}"
+    args.no_containers = True
+    log.info("")
+    return StopCommand().execute(args)
+    """
 
 # Run the command in a container
 def run_command_in_container(args, start_cmd) -> str:
@@ -75,7 +84,7 @@ def check_binary(binary) -> bool:
 
 
 # Set the access token if specified. Try to set the index description
-def setting_index_description(access_arg, port, desc) -> None:
+def setting_index_description(access_arg, port, desc) -> bool:
     curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                 f" --data-urlencode \"index-description={desc}\""
                 f" {access_arg} > /dev/null")
@@ -84,10 +93,12 @@ def setting_index_description(access_arg, port, desc) -> None:
         run_command(curl_cmd)
     except Exception as e:
         log.error(f"Setting the index description failed ({e})")
+        return False
+    return True
 
 
 # Set the access token if specified. Try to set the text description
-def setting_text_description(access_arg, port, text_desc) -> None:
+def setting_text_description(access_arg, port, text_desc) -> bool:
     curl_cmd = (f"curl -Gs http://localhost:{port}/api"
                 f" --data-urlencode \"text-description={text_desc}\""
                 f" {access_arg} > /dev/null")
@@ -96,6 +107,8 @@ def setting_text_description(access_arg, port, text_desc) -> None:
         run_command(curl_cmd)
     except Exception as e:
         log.error(f"Setting the text description failed ({e})")
+        return False
+    return True
 
 
 class StartCommand(QleverCommand):
@@ -155,7 +168,11 @@ class StartCommand(QleverCommand):
 
         # Kill existing server on the same port if so desired.
         if args.kill_existing_with_same_port:
-            kill_existing_server(args)
+            """ if not kill_existing_server(args):
+                log.error(f"Kill existing QLever server failed ")
+                return False"""
+            if not kill_existing_server(args):
+                return False
 
         # Construct the command line based on the config file.
         start_cmd = construct_command_line(args)
@@ -170,7 +187,7 @@ class StartCommand(QleverCommand):
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
@@ -229,10 +246,13 @@ class StartCommand(QleverCommand):
 
         # Set the access token if specified.
         access_arg = f"--data-urlencode \"access-token={args.access_token}\""
-        if args.description:
-            setting_index_description(access_arg, port, args.description)
-        if args.text_description:
-            setting_text_description(access_arg, port, args.text_description)
+        if (args.description
+        and not setting_index_description(access_arg, port, args.description)):
+            return False
+
+        if (args.text_description
+    and not setting_text_description(access_arg, port, args.text_description)):
+            return False
 
         # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
         tail_proc.terminate()
@@ -240,7 +260,9 @@ class StartCommand(QleverCommand):
         # Execute the warmup command.
         if args.warmup_cmd and not args.no_warmup:
             log.info("")
-            WarmupCommand().execute(args)
+            if not WarmupCommand().execute(args):
+                log.error("Warmup failed")
+                return False
 
         # Show cache stats.
         log.info("")

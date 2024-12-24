@@ -13,6 +13,99 @@ from qlever.log import log
 from qlever.util import is_qlever_server_alive, run_command
 
 
+# Construct the command line based on the config file.
+def construct_command_line(args) -> str:
+    start_cmd = (f"{args.server_binary}"
+                 f" -i {args.name}"
+                 f" -j {args.num_threads}"
+                 f" -p {args.port}"
+                 f" -m {args.memory_for_queries}"
+                 f" -c {args.cache_max_size}"
+                 f" -e {args.cache_max_size_single_entry}"
+                 f" -k {args.cache_max_num_entries}")
+
+    if args.timeout:
+        start_cmd += f" -s {args.timeout}"
+    if args.access_token:
+        start_cmd += f" -a {args.access_token}"
+    if args.only_pso_and_pos_permutations:
+        start_cmd += " --only-pso-and-pos-permutations"
+    if not args.use_patterns:
+        start_cmd += " --no-patterns"
+    if args.use_text_index == "yes":
+        start_cmd += " -t"
+    start_cmd += f" > {args.name}.server-log.txt 2>&1"
+    return start_cmd
+
+
+# Kill existing server on the same port. Trust that StopCommand() works?
+# Maybe return StopCommand().execute(args) and handle it with a try except?
+def kill_existing_server(args) -> bool:
+    args.cmdline_regex = f"^ServerMain.* -p {args.port}"
+    args.no_containers = True
+    if not StopCommand().execute(args):
+        log.error("Stopping the existing server failed")
+        return False
+    log.info("")
+    return True
+
+# Run the command in a container
+def run_command_in_container(args, start_cmd) -> str:
+    if not args.server_container:
+        args.server_container = f"qlever.server.{args.name}"
+    start_cmd = Containerize().containerize_command(
+        start_cmd,
+        args.system, "run -d --restart=unless-stopped",
+        args.image,
+        args.server_container,
+        volumes=[("$(pwd)", "/index")],
+        ports=[(args.port, args.port)],
+        working_directory="/index")
+    return start_cmd
+
+
+# When running natively, check if the binary exists and works.
+def check_binary(binary) -> bool:
+    try:
+        run_command(f"{binary} --help")
+        return True
+    except Exception as e:
+        log.error(f"Running \"{binary}\" failed, "
+                  f"set `--server-binary` to a different binary or "
+                  f"set `--system to a container system`")
+        log.info("")
+        log.info(f"The error message was: {e}")
+        return False
+
+
+# Set the access token if specified. Try to set the index description
+def setting_index_description(access_arg, port, desc) -> bool:
+    curl_cmd = (f"curl -Gs http://localhost:{port}/api"
+                f" --data-urlencode \"index-description={desc}\""
+                f" {access_arg} > /dev/null")
+    log.debug(curl_cmd)
+    try:
+        run_command(curl_cmd)
+    except Exception as e:
+        log.error(f"Setting the index description failed ({e})")
+        return False
+    return True
+
+
+# Set the access token if specified. Try to set the text description
+def setting_text_description(access_arg, port, text_desc) -> bool:
+    curl_cmd = (f"curl -Gs http://localhost:{port}/api"
+                f" --data-urlencode \"text-description={text_desc}\""
+                f" {access_arg} > /dev/null")
+    log.debug(curl_cmd)
+    try:
+        run_command(curl_cmd)
+    except Exception as e:
+        log.error(f"Setting the text description failed ({e})")
+        return False
+    return True
+
+
 class StartCommand(QleverCommand):
     """
     Class for executing the `start` command.
@@ -70,47 +163,17 @@ class StartCommand(QleverCommand):
 
         # Kill existing server on the same port if so desired.
         if args.kill_existing_with_same_port:
-            args.cmdline_regex = f"^ServerMain.* -p {args.port}"
-            args.no_containers = True
-            if not StopCommand().execute(args):
-                log.error("Stopping the existing server failed")
+            if (args.kill_existing_with_same_port and
+                    not kill_existing_server(args)):
                 return False
-            log.info("")
 
         # Construct the command line based on the config file.
-        start_cmd = (f"{args.server_binary}"
-                     f" -i {args.name}"
-                     f" -j {args.num_threads}"
-                     f" -p {args.port}"
-                     f" -m {args.memory_for_queries}"
-                     f" -c {args.cache_max_size}"
-                     f" -e {args.cache_max_size_single_entry}"
-                     f" -k {args.cache_max_num_entries}")
-        if args.timeout:
-            start_cmd += f" -s {args.timeout}"
-        if args.access_token:
-            start_cmd += f" -a {args.access_token}"
-        if args.only_pso_and_pos_permutations:
-            start_cmd += " --only-pso-and-pos-permutations"
-        if not args.use_patterns:
-            start_cmd += " --no-patterns"
-        if args.use_text_index == "yes":
-            start_cmd += " -t"
-        start_cmd += f" > {args.name}.server-log.txt 2>&1"
+        start_cmd = construct_command_line(args)
 
         # Run the command in a container (if so desired). Otherwise run with
         # `nohup` so that it keeps running after the shell is closed.
         if args.system in Containerize.supported_systems():
-            if not args.server_container:
-                args.server_container = f"qlever.server.{args.name}"
-            start_cmd = Containerize().containerize_command(
-                    start_cmd,
-                    args.system, "run -d --restart=unless-stopped",
-                    args.image,
-                    args.server_container,
-                    volumes=[("$(pwd)", "/index")],
-                    ports=[(args.port, args.port)],
-                    working_directory="/index")
+            start_cmd = run_command_in_container(args, start_cmd)
         else:
             start_cmd = f"nohup {start_cmd} &"
 
@@ -121,14 +184,7 @@ class StartCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            try:
-                run_command(f"{args.server_binary} --help")
-            except Exception as e:
-                log.error(f"Running \"{args.server_binary}\" failed, "
-                          f"set `--server-binary` to a different binary or "
-                          f"set `--system to a container system`")
-                log.info("")
-                log.info(f"The error message was: {e}")
+            if not check_binary(args.server_binary):
                 return False
 
         # Check if a QLever server is already running on this port.
@@ -144,7 +200,6 @@ class StartCommand(QleverCommand):
             args.cmdline_regex = f"^ServerMain.* -p *{port}"
             log.info("")
             StatusCommand().execute(args)
-
             return False
 
         # Remove already existing container.
@@ -184,28 +239,13 @@ class StartCommand(QleverCommand):
 
         # Set the access token if specified.
         access_arg = f"--data-urlencode \"access-token={args.access_token}\""
-        if args.description:
-            desc = args.description
-            curl_cmd = (f"curl -Gs http://localhost:{port}/api"
-                        f" --data-urlencode \"index-description={desc}\""
-                        f" {access_arg} > /dev/null")
-            log.debug(curl_cmd)
-            try:
-                run_command(curl_cmd)
-            except Exception as e:
-                log.error(f"Setting the index description failed ({e})")
-                return False
-        if args.text_description:
-            text_desc = args.text_description
-            curl_cmd = (f"curl -Gs http://localhost:{port}/api"
-                        f" --data-urlencode \"text-description={text_desc}\""
-                        f" {access_arg} > /dev/null")
-            log.debug(curl_cmd)
-            try:
-                run_command(curl_cmd)
-            except Exception as e:
-                log.error(f"Setting the text description failed ({e})")
-                return False
+        if (args.description
+        and not setting_index_description(access_arg, port, args.description)):
+            return False
+
+        if (args.text_description
+    and not setting_text_description(access_arg, port, args.text_description)):
+            return False
 
         # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
         tail_proc.terminate()

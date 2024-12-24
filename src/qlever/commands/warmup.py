@@ -30,7 +30,7 @@ class WarmupCommand(QleverCommand):
         # Show what the command is doing.
         self.show(args.warmup_cmd, only_show=args.show)
         if args.show:
-            return False
+            return True
 
         # Execute the command.
         try:

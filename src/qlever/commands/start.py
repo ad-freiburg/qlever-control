@@ -23,6 +23,7 @@ def construct_command_line(args) -> str:
                  f" -c {args.cache_max_size}"
                  f" -e {args.cache_max_size_single_entry}"
                  f" -k {args.cache_max_num_entries}")
+
     if args.timeout:
         start_cmd += f" -s {args.timeout}"
     if args.access_token:
@@ -47,12 +48,6 @@ def kill_existing_server(args) -> bool:
         return False
     log.info("")
     return True
-"""def kill_existing_server(args) -> bool:
-    args.cmdline_regex = f"^ServerMain.* -p {args.port}"
-    args.no_containers = True
-    log.info("")
-    return StopCommand().execute(args)
-    """
 
 # Run the command in a container
 def run_command_in_container(args, start_cmd) -> str:
@@ -168,10 +163,8 @@ class StartCommand(QleverCommand):
 
         # Kill existing server on the same port if so desired.
         if args.kill_existing_with_same_port:
-            """ if not kill_existing_server(args):
-                log.error(f"Kill existing QLever server failed ")
-                return False"""
-            if not kill_existing_server(args):
+            if (args.kill_existing_with_same_port and
+                    not kill_existing_server(args)):
                 return False
 
         # Construct the command line based on the config file.

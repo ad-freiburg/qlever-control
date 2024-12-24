@@ -33,6 +33,7 @@ jobs:
       - name: Check that all the files in `src/qlever/Qleverfiles` parse.
         working-directory: ${{github.workspace}}/qlever-control
         run: |
+          export QLEVER_ARGCOMPLETE_ENABLED=1
           for QLEVERFILE in src/qlever/Qleverfiles/Qleverfile.*; do
             echo
             echo -e "\x1b[1;34mChecking ${QLEVERFILE}\x1b[0m"

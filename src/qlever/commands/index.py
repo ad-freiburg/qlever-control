@@ -147,7 +147,7 @@ class IndexCommand(QleverCommand):
                 raise self.InvalidInputJson(
                     f"Element {i} in `MULTI_INPUT_JSON` must only contain "
                     "the keys `format`, `graph`, and `parallel`. Contains "
-                    "extra keys {extra_keys}.",
+                    f"extra keys {extra_keys}.",
                     input_spec,
                 )
             # Add the command-line options for this input stream. We use

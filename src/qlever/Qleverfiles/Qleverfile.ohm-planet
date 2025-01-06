@@ -1,27 +1,27 @@
-# Qleverfile for Wikidata, use with the QLever CLI (`pip install qlever`)
+# Qleverfile for OpenHistoricalMap, use with the QLever CLI (`pip install qlever`)
 #
-# qlever get-data  # ~7 hours, ~110 GB (compressed), ~20 billion triples
-# qlever index     # ~5 hours, ~20 GB RAM, ~500 GB index size on disk
+# qlever get-data  # ~1 hour, ~14 GB (ttl.gz), ~3.4 B triples (with osm2rdf)
+# qlever index     # ~1 hour, ~10 GB RAM, ~60 GB index size on disk
 # qlever start     # a few seconds, adjust MEMORY_FOR_QUERIES as needed
 #
-# Adding a text index takes an additional ~2 hours and ~50 GB of disk space
-#
-# Measured on an AMD Ryzen 9 5950X with 128 GB RAM, and NVMe SSD (18.10.2024)
+# Measured on an AMD Ryzen 9 5900X with 128 GB RAM, and NVMe SSD (04.01.2025)
 
 [data]
 NAME           = ohm-planet
 GET_DATA_URL   = https://planet.openhistoricalmap.org/planet
 CHECK_BINARIES = osm2rdf -h > /dev/null || (echo "osm2rdf not found, make sure that it's installed and in your PATH" && exit 1)
-GET_DATA_CMD_1 = curl -LRf -o ${NAME}.pbf $$(curl -s ${GET_DATA_URL}/state.txt) 2>&1 | tee ${NAME}.download-log.txt
-GET_DATA_CMD_2 = osm2rdf ${NAME}.pbf -o ${NAME}.ttl --source-dataset OHM --cache . --add-way-node-order --add-way-node-geometry 2>&1 | tee ${NAME}.osm2rdf-log.txt
+GET_DATA_CMD_1 = unbuffer wget -O ${NAME}.pbf $$(curl -s ${GET_DATA_URL}/state.txt) 2>&1 | tee ${NAME}.download-log.txt
+GET_DATA_CMD_2 = osm2rdf ${NAME}.pbf -o ${NAME}.ttl --source-dataset OHM --cache . --add-way-node-order --no-untagged-nodes-geometric-relations 2>&1 | tee ${NAME}.osm2rdf-log.txt
 GET_DATA_CMD   = ${CHECK_BINARIES} && ${GET_DATA_CMD_1} && echo && ${GET_DATA_CMD_2}
 VERSION        = $$(date -r ${NAME}.pbf +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION    = OHM Planet, data from ${GET_DATA_URL} version ${VERSION} (with GeoSPARQL predicates ogc:sfContains and ogc:sfIntersects)
 
 [index]
-INPUT_FILES      = ${data:NAME}.ttl.bz2
-CAT_INPUT_FILES  = bzcat -f ${INPUT_FILES}
-SETTINGS_JSON    = { "prefixes-external": [""], "ascii-prefixes-only": false, "num-triples-per-batch": 5000000 }
+INPUT_FILES        = ${data:NAME}.ttl.bz2
+MULTI_INPUT_JSON   = { "cmd": "lbzcat -n 4 ${INPUT_FILES}", "parallel": "true" }
+STXXL_MEMORY       = 5G
+PARSER_BUFFER_SIZE = 20M
+SETTINGS_JSON      = { "num-triples-per-batch": 5000000 }
 
 [server]
 PORT                        = 7037

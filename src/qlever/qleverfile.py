@@ -113,9 +113,15 @@ class Qleverfile:
         index_args["stxxl_memory"] = arg(
             "--stxxl-memory",
             type=str,
-            default="5G",
             help="The amount of memory to use for the index build "
             "(the name of the option has historical reasons)",
+        )
+        index_args["parser_buffer_size"] = arg(
+            "--parser-buffer-size",
+            type=str,
+            help="Each parser thread reads the input in batches of this size"
+            "; in parallel parsing, each batch that is not the last must be "
+            "larger enough to contain then end of at least one statement",
         )
         index_args["only_pso_and_pos_permutations"] = arg(
             "--only-pso-and-pos-permutations",

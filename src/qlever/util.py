@@ -120,18 +120,20 @@ def run_curl_command(
     return result.stdout
 
 
-def is_qlever_server_alive(port: str) -> bool:
+def is_qlever_server_alive(endpoint_url: str) -> bool:
     """
     Helper function that checks if a QLever server is running on the given
-    port.
+    endpoint.
     """
 
-    message = "from the qlever script".replace(" ", "%20")
-    curl_cmd = f"curl -s http://localhost:{port}/ping?msg={message}"
-    exit_code = subprocess.call(
-        curl_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    return exit_code == 0
+    message = "from the `qlever` CLI"
+    curl_cmd = f"curl -s {endpoint_url}/ping --data-urlencode msg={message}"
+    log.debug(curl_cmd)
+    try:
+        run_command(curl_cmd)
+        return True
+    except Exception as e:
+        return False
 
 
 def get_existing_index_files(basename: str) -> list[str]:

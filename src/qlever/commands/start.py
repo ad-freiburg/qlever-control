@@ -188,7 +188,7 @@ class StartCommand(QleverCommand):
                 return False
 
         # Check if a QLever server is already running on this port.
-        port = args.port
+        endpoint_url = f"http://localhost:{args.port}"
         if is_qlever_server_alive(port):
             log.error(f"QLever server already running on port {port}")
             log.info("")

@@ -70,7 +70,6 @@ class ExtractQueriesCommand(QleverCommand):
                 # Skipe line that start with #
                 if not re.match(log_line_regex, line):
                     if not re.match(r"^\s*#", line):
-                        print(line, end="")
                         line = re.sub(r" #.*", "", line)
                         query.append(line)
                 else:

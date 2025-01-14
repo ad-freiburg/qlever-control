@@ -70,7 +70,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--download-or-count",
             choices=["download", "count"],
-            default="count",
+            default="download",
             help="Whether to download the full result "
             "or just compute the size of the result",
         )
@@ -92,9 +92,12 @@ class ExampleQueriesCommand(QleverCommand):
                 "application/sparql-results+json",
                 "application/qlever-results+json",
                 "text/turtle",
+                "AUTO",
             ],
             default="application/sparql-results+json",
-            help="Accept header for the SPARQL query",
+            help="Accept header for the SPARQL query; AUTO means "
+            "`text/turtle` for CONSTRUCT AND DESCRIBE queries, "
+            "`application/sparql-results+json` for all others",
         )
         subparser.add_argument(
             "--clear-cache",
@@ -121,6 +124,13 @@ class ExampleQueriesCommand(QleverCommand):
             help="Width for printing the result size",
         )
         subparser.add_argument(
+            "--add-query-type-to-description",
+            action="store_true",
+            default=False,
+            help="Add the query type (SELECT, ASK, CONSTRUCT, DESCRIBE, "
+            "UNKNOWN) to the description",
+        )
+        subparser.add_argument(
             "--show-query",
             choices=["always", "never", "on-error"],
             default="never",
@@ -133,7 +143,7 @@ class ExampleQueriesCommand(QleverCommand):
             help="When showing the query, also show the prefixes",
         )
 
-    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
+    def pretty_printed_query(self, query: str, show_prefixes: bool) -> str:
         remove_prefixes_cmd = (
             " | sed '/^PREFIX /Id'" if not show_prefixes else ""
         )
@@ -143,11 +153,28 @@ class ExampleQueriesCommand(QleverCommand):
             f"{remove_prefixes_cmd} | grep -v '^$'"
         )
         try:
-            query_pp = run_command(pretty_print_query_cmd, return_output=True)
-            log.info(colored(query_pp.rstrip(), "cyan"))
-        except Exception as e:
-            log.error(f"Failed to pretty-print query: {e}")
-            log.info(colored(query.rstrip(), "cyan"))
+            query_pretty_printed = run_command(
+                pretty_print_query_cmd, return_output=True
+            )
+            return query_pretty_printed.rstrip()
+        except Exception:
+            log.error(
+                "Failed to pretty-print query, "
+                "returning original query: {e}"
+            )
+            return query.rstrip()
+
+    def sparql_query_type(self, query: str) -> str:
+        query_without_prefixes = self.pretty_printed_query(query, False)
+        if re.match(r"\s*SELECT ", query_without_prefixes, re.IGNORECASE):
+            return "SELECT"
+        if re.match(r"\s*ASK ", query_without_prefixes, re.IGNORECASE):
+            return "ASK"
+        if re.match(r"\s*CONSTRUCT ", query_without_prefixes, re.IGNORECASE):
+            return "CONSTRUCT"
+        if re.match(r"\s*DESCRIBE ", query_without_prefixes, re.IGNORECASE):
+            return "DESCRIBE"
+        return "UNKNOWN"
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -156,10 +183,11 @@ class ExampleQueriesCommand(QleverCommand):
             return False
 
         # If `args.accept` is `application/sparql-results+json` or
-        # `application/qlever-results+json`, we need `jq`.
+        # `application/qlever-results+json` or `AUTO`, we need `jq`.
         if (
             args.accept == "application/sparql-results+json"
             or args.accept == "application/qlever-results+json"
+            or args.accept == "AUTO"
         ):
             try:
                 subprocess.run(
@@ -248,6 +276,9 @@ class ExampleQueriesCommand(QleverCommand):
                 log.info("")
                 log.info(example_query_line)
                 return False
+            if args.add_query_type_to_description or args.accept == "AUTO":
+                query_type = self.sparql_query_type(query)
+                description = f"{description} [{query_type}]"
 
             # Clear the cache.
             if args.clear_cache == "yes":
@@ -312,14 +343,29 @@ class ExampleQueriesCommand(QleverCommand):
             query = re.sub(r"\s*\.\s*\}", " }", query)
             if args.show_query == "always":
                 log.info("")
-                self.pretty_print_query(query, args.show_prefixes)
+                log.info(
+                    colored(
+                        self.pretty_printed_query(query, args.show_prefixes),
+                        "cyan",
+                    )
+                )
+
+            # Accept header. For "AUTO", use `text/turtle` for CONSTRUCT
+            # queries and `application/sparql-results+json` for all others.
+            accept_header = args.accept
+            if accept_header == "AUTO":
+                query_type = self.sparql_query_type(query)
+                if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
+                    accept_header = "text/turtle"
+                else:
+                    accept_header = "application/sparql-results+json"
 
             # Launch query.
             try:
                 curl_cmd = (
                     f"curl -s {sparql_endpoint}"
                     f' -w "HTTP code: %{{http_code}}\\n"'
-                    f' -H "Accept: {args.accept}"'
+                    f' -H "Accept: {accept_header}"'
                     f" --data-urlencode query={shlex.quote(query)}"
                 )
                 log.debug(curl_cmd)
@@ -330,7 +376,7 @@ class ExampleQueriesCommand(QleverCommand):
                 start_time = time.time()
                 http_code = run_curl_command(
                     sparql_endpoint,
-                    headers={"Accept": args.accept},
+                    headers={"Accept": accept_header},
                     params={"query": query},
                     result_file=result_file,
                 ).strip()
@@ -366,7 +412,7 @@ class ExampleQueriesCommand(QleverCommand):
 
                 # CASE 1: Just counting the size of the result (TSV or JSON).
                 elif args.download_or_count == "count":
-                    if args.accept == "text/tab-separated-values":
+                    if accept_header == "text/tab-separated-values":
                         result_size = run_command(
                             f"sed 1d {result_file}", return_output=True
                         )
@@ -389,19 +435,19 @@ class ExampleQueriesCommand(QleverCommand):
                 # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
                 else:
                     if (
-                        args.accept == "text/tab-separated-values"
-                        or args.accept == "text/csv"
+                        accept_header == "text/tab-separated-values"
+                        or accept_header == "text/csv"
                     ):
                         result_size = run_command(
                             f"sed 1d {result_file} | wc -l", return_output=True
                         )
-                    elif args.accept == "text/turtle":
+                    elif accept_header == "text/turtle":
                         result_size = run_command(
                             f"sed '1d;/^@prefix/d;/^\\s*$/d' "
                             f"{result_file} | wc -l",
                             return_output=True,
                         )
-                    elif args.accept == "application/qlever-results+json":
+                    elif accept_header == "application/qlever-results+json":
                         result_size = run_command(
                             f'jq -r ".resultsize" {result_file}',
                             return_output=True,
@@ -459,7 +505,14 @@ class ExampleQueriesCommand(QleverCommand):
                     f"{colored(error_msg['long'], 'red')}"
                 )
                 if args.show_query == "on-error":
-                    self.pretty_print_query(query, args.show_prefixes)
+                    log.info(
+                        colored(
+                            self.pretty_printed_query(
+                                query, args.show_prefixes
+                            ),
+                            "cyan",
+                        )
+                    )
                     log.info("")
 
         # Check that each query has a time and a result size, or it failed.

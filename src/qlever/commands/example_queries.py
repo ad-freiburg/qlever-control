@@ -165,16 +165,13 @@ class ExampleQueriesCommand(QleverCommand):
             return query.rstrip()
 
     def sparql_query_type(self, query: str) -> str:
-        query_without_prefixes = self.pretty_printed_query(query, False)
-        if re.match(r"\s*SELECT ", query_without_prefixes, re.IGNORECASE):
-            return "SELECT"
-        if re.match(r"\s*ASK ", query_without_prefixes, re.IGNORECASE):
-            return "ASK"
-        if re.match(r"\s*CONSTRUCT ", query_without_prefixes, re.IGNORECASE):
-            return "CONSTRUCT"
-        if re.match(r"\s*DESCRIBE ", query_without_prefixes, re.IGNORECASE):
-            return "DESCRIBE"
-        return "UNKNOWN"
+        match = re.search(
+            r"(SELECT|ASK|CONSTRUCT|DESCRIBE)\s", query, re.IGNORECASE
+        )
+        if match:
+            return match.group(1).upper()
+        else:
+            return "UNKNOWN"
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -269,15 +266,15 @@ class ExampleQueriesCommand(QleverCommand):
         result_sizes = []
         num_failed = 0
         for example_query_line in example_query_lines:
-            # Parse description and query.
+            # Parse description and query, and determine query type.
             description, query = example_query_line.split("\t")
             if len(query) == 0:
                 log.error("Could not parse description and query, line is:")
                 log.info("")
                 log.info(example_query_line)
                 return False
+            query_type = self.sparql_query_type(query)
             if args.add_query_type_to_description or args.accept == "AUTO":
-                query_type = self.sparql_query_type(query)
                 description = f"{description} [{query_type}]"
 
             # Clear the cache.
@@ -354,7 +351,6 @@ class ExampleQueriesCommand(QleverCommand):
             # queries and `application/sparql-results+json` for all others.
             accept_header = args.accept
             if accept_header == "AUTO":
-                query_type = self.sparql_query_type(query)
                 if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
                     accept_header = "text/turtle"
                 else:
@@ -401,8 +397,12 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                # CASE 0: The result is empty despite a 200 HTTP code.
-                if Path(result_file).stat().st_size == 0:
+                # CASE 0: The result is empty despite a 200 HTTP code (not a
+                # problem for CONSTRUCT and DESCRIBE queries).
+                if Path(result_file).stat().st_size == 0 and (
+                    not query_type == "CONSTRUCT"
+                    and not query_type == "DESCRIBE"
+                ):
                     result_size = 0
                     error_msg = {
                         "short": "Empty result",

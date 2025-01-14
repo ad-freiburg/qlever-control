@@ -3,9 +3,9 @@ from __future__ import annotations
 import errno
 import re
 import secrets
-import socket
 import shlex
 import shutil
+import socket
 import string
 import subprocess
 from datetime import date, datetime
@@ -99,7 +99,11 @@ def run_curl_command(
         )
     )
     result = subprocess.run(
-        curl_cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        curl_cmd,
+        shell=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     # Case 1: An error occurred, raise an exception.
     if result.returncode != 0:
@@ -123,16 +127,19 @@ def run_curl_command(
 def is_qlever_server_alive(endpoint_url: str) -> bool:
     """
     Helper function that checks if a QLever server is running on the given
-    endpoint.
+    endpoint. Return `True` if the server is alive, `False` otherwise.
     """
 
     message = "from the `qlever` CLI"
-    curl_cmd = f"curl -s {endpoint_url}/ping --data-urlencode msg={message}"
+    curl_cmd = (
+        f"curl -s {endpoint_url}/ping"
+        f" --data-urlencode msg={shlex.quote(message)}"
+    )
     log.debug(curl_cmd)
     try:
         run_command(curl_cmd)
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 

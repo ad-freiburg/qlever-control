@@ -381,7 +381,8 @@ class TestStartCommand(unittest.TestCase):
 
         # Assertions
         # Ensure the server status was checked
-        mock_is_qlever_server_alive.assert_called_once_with(args.port)
+        endpoint_url = f"http://localhost:{args.port}"
+        mock_is_qlever_server_alive.assert_called_once_with(endpoint_url)
         # Check that `run_command` was called only for the `--help` check,
         # but not the actual start command
         mock_run_command.assert_called_once_with(

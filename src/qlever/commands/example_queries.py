@@ -259,6 +259,12 @@ class ExampleQueriesCommand(QleverCommand):
             log.error(f"Failed to get example queries: {e}")
             return False
 
+        # We want the width of the query description to be an uneven number (in
+        # case we have to truncated it, in which case we want to have a " ... "
+        # in the middle).
+        width_query_description_half = args.width_query_description // 2
+        width_query_description = 2 * width_query_description_half + 1
+
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query
         # processing time (seconds).
@@ -470,13 +476,16 @@ class ExampleQueriesCommand(QleverCommand):
                 Path(result_file).unlink(missing_ok=True)
 
             # Print description, time, result in tabular form.
-            if len(description) > args.width_query_description:
-                description = description[: args.width_query_description - 3]
-                description += "..."
+            if len(description) > width_query_description:
+                description = (
+                    description[: width_query_description_half - 2]
+                    + " ... "
+                    + description[-width_query_description_half + 2 :]
+                )
             if error_msg is None:
                 result_size = int(result_size)
                 log.info(
-                    f"{description:<{args.width_query_description}}  "
+                    f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
                 )
@@ -498,7 +507,7 @@ class ExampleQueriesCommand(QleverCommand):
                     "\n" if args.show_query == "on-error" else "  "
                 )
                 log.info(
-                    f"{description:<{args.width_query_description}}    "
+                    f"{description:<{width_query_description}}    "
                     f"{colored('FAILED   ', 'red')}"
                     f"{colored(error_msg['short'], 'red'):>{args.width_result_size}}"
                     f"{seperator_short_long}"
@@ -532,19 +541,19 @@ class ExampleQueriesCommand(QleverCommand):
             description = f"TOTAL   for {n} {query_or_queries}"
             log.info("")
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{total_query_time:6.2f} s  "
                 f"{total_result_size:>14,}"
             )
             description = f"AVERAGE for {n} {query_or_queries}"
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{average_query_time:6.2f} s  "
                 f"{average_result_size:>14,}"
             )
             description = f"MEDIAN  for {n} {query_or_queries}"
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{median_query_time:6.2f} s  "
                 f"{median_result_size:>14,}"
             )
@@ -558,7 +567,7 @@ class ExampleQueriesCommand(QleverCommand):
                 num_failed_string += "  [all]"
             log.info(
                 colored(
-                    f"{description:<{args.width_query_description}}  "
+                    f"{description:<{width_query_description}}  "
                     f"{num_failed:>24}",
                     "red",
                 )

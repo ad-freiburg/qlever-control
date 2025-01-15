@@ -25,11 +25,11 @@ class ExtractQueriesCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
-            "--description-format",
+            "--description-base",
             type=str,
-            default="Log query {i}",
-            help="Prefix for the description of the extracted queries"
-            " (default: `Log query {i}`)",
+            default="Log extract",
+            help="Base name for the query descriptions"
+            " (default: `Log extract`)",
         )
         subparser.add_argument(
             "--output-file",
@@ -59,22 +59,34 @@ class ExtractQueriesCommand(QleverCommand):
         log_file = open(log_file_name, "r")
         queries_file = open(args.output_file, "w")
         query = None
-        query_index = 0
+        description_base = args.description_base
+        description_base_count = {}
         tsv_line_short_width = 150
         for line in log_file:
+            # An "Alive check" message contains a tag, which we use as the base
+            # name of the query description.
+            alive_check_regex = r"Alive check with message \"(.*)\""
+            match = re.search(alive_check_regex, line)
+            if match:
+                description_base = match.group(1)
+                continue
+
+            # A new query in the log.
             if "Processing the following SPARQL query" in line:
                 query = []
-                query_index += 1
+                query_index = description_base_count.get(description_base, 0) + 1
+                description_base_count[description_base] = query_index
                 continue
+            # If we have started a query: extend until we meet the next log
+            # line, then push the query. Remove comments.
             if query is not None:
-                # Skipe line that start with #
                 if not re.match(log_line_regex, line):
                     if not re.match(r"^\s*#", line):
                         line = re.sub(r" #.*", "", line)
                         query.append(line)
                 else:
                     query = re.sub(r"\s+", " ", "\n".join(query)).strip()
-                    description = args.description_format.format(i=query_index)
+                    description = f"{description_base}, Query #{query_index}"
                     tsv_line = f"{description}\t{query}"
                     tsv_line_short = (
                         tsv_line
@@ -84,6 +96,7 @@ class ExtractQueriesCommand(QleverCommand):
                     log.info(tsv_line_short)
                     print(tsv_line, file=queries_file)
                     query = None
+
         log_file.close()
         queries_file.close()
         return True

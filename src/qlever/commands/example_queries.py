@@ -7,6 +7,7 @@ import time
 import traceback
 from pathlib import Path
 
+import yaml
 from termcolor import colored
 
 from qlever.command import QleverCommand
@@ -51,7 +52,18 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--get-queries-cmd",
             type=str,
-            help="Command to get example queries as TSV " "(description, query)",
+            help="Command to get example queries as TSV (description, query)",
+        )
+        subparser.add_argument(
+            "--queries-file",
+            type=str,
+            help=(
+                "Path to a YAML file containing queries.  "
+                "The YAML file should have a top-level "
+                "key called 'queries', which is a list of dictionaries. "
+                "Each dictionary should contain 'query' for the query name "
+                "and 'sparql' for the SPARQL query."
+            ),
         )
         subparser.add_argument(
             "--query-ids",
@@ -129,6 +141,12 @@ class ExampleQueriesCommand(QleverCommand):
             default=False,
             help="When showing the query, also show the prefixes",
         )
+        subparser.add_argument(
+            "--generate-output-file",
+            action="store_true",
+            default=False,
+            help="Generate output file in the 'output' directory",
+        )
 
     def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
         remove_prefixes_cmd = " | sed '/^PREFIX /Id'" if not show_prefixes else ""
@@ -143,6 +161,70 @@ class ExampleQueriesCommand(QleverCommand):
         except Exception as e:
             log.error(f"Failed to pretty-print query: {e}")
             log.info(colored(query.rstrip(), "cyan"))
+
+    @staticmethod
+    def parse_queries_file(queries_file: str) -> dict:
+        """
+        Parse a YAML file and validate its structure.
+        """
+        with open(queries_file, "r", encoding="utf-8") as file:
+            try:
+                data = yaml.safe_load(file)  # Load YAML safely
+            except yaml.YAMLError as exc:
+                log.error(f"Error parsing {queries_file} file: {exc}")
+
+        error_msg = (
+            "Error: YAML file must contain a top-level 'queries' key."
+            "Error: 'queries' must be a list."
+            "Error: Each item in 'queries' must contain 'query' and 'sparql' keys."
+        )
+        # Validate the structure
+        if not isinstance(data, dict) or "queries" not in data:
+            log.error(error_msg)
+
+        if not isinstance(data["queries"], list):
+            log.error(error_msg)
+
+        for item in data["queries"]:
+            if (
+                not isinstance(item, dict)
+                or "query" not in item
+                or "sparql" not in item
+            ):
+                log.error(error_msg)
+
+        return data
+
+    def get_example_queries(
+        self, queries_file: str = None, get_queries_cmd: str = None
+    ) -> list[str]:
+        """
+        Get example queries from get_queries_cmd or by reading the yaml file
+        """
+        # yaml file case -> convert to tsv (description \t query) 
+        if queries_file is not None:
+            queries_data = self.parse_queries_file(queries_file)
+            queries = queries_data["queries"]
+            example_query_lines = [
+                f"{query['query']}\t{query['sparql']}\n" for query in queries
+            ]
+            return example_query_lines
+        
+        # get_queries_cmd case -> run the command
+        if get_queries_cmd is not None:
+            # Get the example queries.
+            try:
+                example_query_lines = run_command(
+                    get_queries_cmd, return_output=True
+                )
+                if len(example_query_lines) == 0:
+                    return []
+                example_query_lines = example_query_lines.splitlines()
+                return example_query_lines
+            except Exception as e:
+                log.error(f"Failed to get example queries: {e}")
+                return []
+        return []
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -209,16 +291,14 @@ class ExampleQueriesCommand(QleverCommand):
         if args.show:
             return True
 
-        # Get the example queries.
-        try:
-            example_query_lines = run_command(get_queries_cmd, return_output=True)
-            if len(example_query_lines) == 0:
-                log.error("No example queries matching the criteria found")
-                return False
-            example_query_lines = example_query_lines.splitlines()
-        except Exception as e:
-            log.error(f"Failed to get example queries: {e}")
-            return False
+        example_query_lines = (
+            self.get_example_queries(get_queries_cmd=get_queries_cmd)
+            if args.queries_file is None
+            else self.get_example_queries(queries_file=args.queries_file)
+        )
+
+        if len(example_query_lines) == 0:
+            log.error("No example queries matching the criteria found")
 
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query

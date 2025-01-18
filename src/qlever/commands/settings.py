@@ -28,6 +28,7 @@ class SettingsCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         all_keys = [
+            "always-multiply-unions",
             "cache-max-num-entries",
             "cache-max-size",
             "cache-max-size-single-entry",

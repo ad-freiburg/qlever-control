@@ -51,13 +51,15 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--get-queries-cmd",
             type=str,
-            help="Command to get example queries as TSV " "(description, query)",
+            help="Command to get example queries as TSV "
+            "(description, query)",
         )
         subparser.add_argument(
             "--query-ids",
             type=str,
             default="1-$",
-            help="Query IDs as comma-separated list of " "ranges (e.g., 1-5,7,12-$)",
+            help="Query IDs as comma-separated list of "
+            "ranges (e.g., 1-5,7,12-$)",
         )
         subparser.add_argument(
             "--query-regex",
@@ -68,7 +70,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--download-or-count",
             choices=["download", "count"],
-            default="count",
+            default="download",
             help="Whether to download the full result "
             "or just compute the size of the result",
         )
@@ -88,10 +90,14 @@ class ExampleQueriesCommand(QleverCommand):
                 "text/tab-separated-values",
                 "text/csv",
                 "application/sparql-results+json",
+                "application/qlever-results+json",
                 "text/turtle",
+                "AUTO",
             ],
             default="application/sparql-results+json",
-            help="Accept header for the SPARQL query",
+            help="Accept header for the SPARQL query; AUTO means "
+            "`text/turtle` for CONSTRUCT AND DESCRIBE queries, "
+            "`application/sparql-results+json` for all others",
         )
         subparser.add_argument(
             "--clear-cache",
@@ -118,6 +124,13 @@ class ExampleQueriesCommand(QleverCommand):
             help="Width for printing the result size",
         )
         subparser.add_argument(
+            "--add-query-type-to-description",
+            action="store_true",
+            default=False,
+            help="Add the query type (SELECT, ASK, CONSTRUCT, DESCRIBE, "
+            "UNKNOWN) to the description",
+        )
+        subparser.add_argument(
             "--show-query",
             choices=["always", "never", "on-error"],
             default="never",
@@ -130,19 +143,35 @@ class ExampleQueriesCommand(QleverCommand):
             help="When showing the query, also show the prefixes",
         )
 
-    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
-        remove_prefixes_cmd = " | sed '/^PREFIX /Id'" if not show_prefixes else ""
+    def pretty_printed_query(self, query: str, show_prefixes: bool) -> str:
+        remove_prefixes_cmd = (
+            " | sed '/^PREFIX /Id'" if not show_prefixes else ""
+        )
         pretty_print_query_cmd = (
             f"echo {shlex.quote(query)}"
             f" | docker run -i --rm sparqling/sparql-formatter"
             f"{remove_prefixes_cmd} | grep -v '^$'"
         )
         try:
-            query_pp = run_command(pretty_print_query_cmd, return_output=True)
-            log.info(colored(query_pp.rstrip(), "cyan"))
-        except Exception as e:
-            log.error(f"Failed to pretty-print query: {e}")
-            log.info(colored(query.rstrip(), "cyan"))
+            query_pretty_printed = run_command(
+                pretty_print_query_cmd, return_output=True
+            )
+            return query_pretty_printed.rstrip()
+        except Exception:
+            log.error(
+                "Failed to pretty-print query, "
+                "returning original query: {e}"
+            )
+            return query.rstrip()
+
+    def sparql_query_type(self, query: str) -> str:
+        match = re.search(
+            r"(SELECT|ASK|CONSTRUCT|DESCRIBE)\s", query, re.IGNORECASE
+        )
+        if match:
+            return match.group(1).upper()
+        else:
+            return "UNKNOWN"
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -150,8 +179,13 @@ class ExampleQueriesCommand(QleverCommand):
             log.error("Cannot have both --remove-offset-and-limit and --limit")
             return False
 
-        # If `args.accept` is `application/sparql-results+json`, we need `jq`.
-        if args.accept == "application/sparql-results+json":
+        # If `args.accept` is `application/sparql-results+json` or
+        # `application/qlever-results+json` or `AUTO`, we need `jq`.
+        if (
+            args.accept == "application/sparql-results+json"
+            or args.accept == "application/qlever-results+json"
+            or args.accept == "AUTO"
+        ):
             try:
                 subprocess.run(
                     "jq --version",
@@ -174,8 +208,9 @@ class ExampleQueriesCommand(QleverCommand):
             return False
 
         # Clear cache only works for QLever.
-        is_qlever = not args.sparql_endpoint or args.sparql_endpoint.startswith(
-            "https://qlever"
+        is_qlever = (
+            not args.sparql_endpoint
+            or args.sparql_endpoint.startswith("https://qlever")
         )
         if args.clear_cache == "yes" and not is_qlever:
             log.warning("Clearing the cache only works for QLever")
@@ -193,7 +228,9 @@ class ExampleQueriesCommand(QleverCommand):
         if args.query_regex:
             get_queries_cmd += f" | grep -Pi {shlex.quote(args.query_regex)}"
         sparql_endpoint = (
-            args.sparql_endpoint if args.sparql_endpoint else f"localhost:{args.port}"
+            args.sparql_endpoint
+            if args.sparql_endpoint
+            else f"localhost:{args.port}"
         )
         self.show(
             f"Obtain queries via: {get_queries_cmd}\n"
@@ -211,7 +248,9 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Get the example queries.
         try:
-            example_query_lines = run_command(get_queries_cmd, return_output=True)
+            example_query_lines = run_command(
+                get_queries_cmd, return_output=True
+            )
             if len(example_query_lines) == 0:
                 log.error("No example queries matching the criteria found")
                 return False
@@ -220,6 +259,12 @@ class ExampleQueriesCommand(QleverCommand):
             log.error(f"Failed to get example queries: {e}")
             return False
 
+        # We want the width of the query description to be an uneven number (in
+        # case we have to truncated it, in which case we want to have a " ... "
+        # in the middle).
+        width_query_description_half = args.width_query_description // 2
+        width_query_description = 2 * width_query_description_half + 1
+
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query
         # processing time (seconds).
@@ -227,13 +272,16 @@ class ExampleQueriesCommand(QleverCommand):
         result_sizes = []
         num_failed = 0
         for example_query_line in example_query_lines:
-            # Parse description and query.
+            # Parse description and query, and determine query type.
             description, query = example_query_line.split("\t")
             if len(query) == 0:
                 log.error("Could not parse description and query, line is:")
                 log.info("")
                 log.info(example_query_line)
                 return False
+            query_type = self.sparql_query_type(query)
+            if args.add_query_type_to_description or args.accept == "AUTO":
+                description = f"{description} [{query_type}]"
 
             # Clear the cache.
             if args.clear_cache == "yes":
@@ -267,7 +315,9 @@ class ExampleQueriesCommand(QleverCommand):
             # Count query.
             if args.download_or_count == "count":
                 # First find out if there is a FROM clause.
-                regex_from_clause = re.compile(r"\s*FROM\s+<[^>]+>\s*", re.IGNORECASE)
+                regex_from_clause = re.compile(
+                    r"\s*FROM\s+<[^>]+>\s*", re.IGNORECASE
+                )
                 match_from_clause = re.search(regex_from_clause, query)
                 from_clause = " "
                 if match_from_clause:
@@ -296,24 +346,39 @@ class ExampleQueriesCommand(QleverCommand):
             query = re.sub(r"\s*\.\s*\}", " }", query)
             if args.show_query == "always":
                 log.info("")
-                self.pretty_print_query(query, args.show_prefixes)
+                log.info(
+                    colored(
+                        self.pretty_printed_query(query, args.show_prefixes),
+                        "cyan",
+                    )
+                )
+
+            # Accept header. For "AUTO", use `text/turtle` for CONSTRUCT
+            # queries and `application/sparql-results+json` for all others.
+            accept_header = args.accept
+            if accept_header == "AUTO":
+                if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
+                    accept_header = "text/turtle"
+                else:
+                    accept_header = "application/sparql-results+json"
 
             # Launch query.
             try:
                 curl_cmd = (
                     f"curl -s {sparql_endpoint}"
                     f' -w "HTTP code: %{{http_code}}\\n"'
-                    f' -H "Accept: {args.accept}"'
+                    f' -H "Accept: {accept_header}"'
                     f" --data-urlencode query={shlex.quote(query)}"
                 )
                 log.debug(curl_cmd)
                 result_file = (
-                    f"qlever.example_queries.result." f"{abs(hash(curl_cmd))}.tmp"
+                    f"qlever.example_queries.result."
+                    f"{abs(hash(curl_cmd))}.tmp"
                 )
                 start_time = time.time()
                 http_code = run_curl_command(
                     sparql_endpoint,
-                    headers={"Accept": args.accept},
+                    headers={"Accept": accept_header},
                     params={"query": query},
                     result_file=result_file,
                 ).strip()
@@ -323,7 +388,9 @@ class ExampleQueriesCommand(QleverCommand):
                 else:
                     error_msg = {
                         "short": f"HTTP code: {http_code}",
-                        "long": re.sub(r"\s+", " ", Path(result_file).read_text()),
+                        "long": re.sub(
+                            r"\s+", " ", Path(result_file).read_text()
+                        ),
                     }
             except Exception as e:
                 if args.log_level == "DEBUG":
@@ -336,8 +403,12 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                # CASE 0: Rhe result is empty despite a 200 HTTP code.
-                if Path(result_file).stat().st_size == 0:
+                # CASE 0: The result is empty despite a 200 HTTP code (not a
+                # problem for CONSTRUCT and DESCRIBE queries).
+                if Path(result_file).stat().st_size == 0 and (
+                    not query_type == "CONSTRUCT"
+                    and not query_type == "DESCRIBE"
+                ):
                     result_size = 0
                     error_msg = {
                         "short": "Empty result",
@@ -347,7 +418,7 @@ class ExampleQueriesCommand(QleverCommand):
 
                 # CASE 1: Just counting the size of the result (TSV or JSON).
                 elif args.download_or_count == "count":
-                    if args.accept == "text/tab-separated-values":
+                    if accept_header == "text/tab-separated-values":
                         result_size = run_command(
                             f"sed 1d {result_file}", return_output=True
                         )
@@ -370,21 +441,28 @@ class ExampleQueriesCommand(QleverCommand):
                 # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
                 else:
                     if (
-                        args.accept == "text/tab-separated-values"
-                        or args.accept == "text/csv"
+                        accept_header == "text/tab-separated-values"
+                        or accept_header == "text/csv"
                     ):
                         result_size = run_command(
                             f"sed 1d {result_file} | wc -l", return_output=True
                         )
-                    elif args.accept == "text/turtle":
+                    elif accept_header == "text/turtle":
                         result_size = run_command(
-                            f"sed '1d;/^@prefix/d;/^\\s*$/d' " f"{result_file} | wc -l",
+                            f"sed '1d;/^@prefix/d;/^\\s*$/d' "
+                            f"{result_file} | wc -l",
+                            return_output=True,
+                        )
+                    elif accept_header == "application/qlever-results+json":
+                        result_size = run_command(
+                            f'jq -r ".resultsize" {result_file}',
                             return_output=True,
                         )
                     else:
                         try:
                             result_size = run_command(
-                                f'jq -r ".results.bindings | length"' f" {result_file}",
+                                f'jq -r ".results.bindings | length"'
+                                f" {result_file}",
                                 return_output=True,
                             )
                         except Exception as e:
@@ -398,13 +476,16 @@ class ExampleQueriesCommand(QleverCommand):
                 Path(result_file).unlink(missing_ok=True)
 
             # Print description, time, result in tabular form.
-            if len(description) > args.width_query_description:
-                description = description[: args.width_query_description - 3]
-                description += "..."
+            if len(description) > width_query_description:
+                description = (
+                    description[: width_query_description_half - 2]
+                    + " ... "
+                    + description[-width_query_description_half + 2 :]
+                )
             if error_msg is None:
                 result_size = int(result_size)
                 log.info(
-                    f"{description:<{args.width_query_description}}  "
+                    f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
                 )
@@ -419,18 +500,28 @@ class ExampleQueriesCommand(QleverCommand):
                     and args.show_query != "on-error"
                 ):
                     error_msg["long"] = (
-                        error_msg["long"][: args.width_error_message - 3] + "..."
+                        error_msg["long"][: args.width_error_message - 3]
+                        + "..."
                     )
-                seperator_short_long = "\n" if args.show_query == "on-error" else "  "
+                seperator_short_long = (
+                    "\n" if args.show_query == "on-error" else "  "
+                )
                 log.info(
-                    f"{description:<{args.width_query_description}}    "
+                    f"{description:<{width_query_description}}    "
                     f"{colored('FAILED   ', 'red')}"
                     f"{colored(error_msg['short'], 'red'):>{args.width_result_size}}"
                     f"{seperator_short_long}"
                     f"{colored(error_msg['long'], 'red')}"
                 )
                 if args.show_query == "on-error":
-                    self.pretty_print_query(query, args.show_prefixes)
+                    log.info(
+                        colored(
+                            self.pretty_printed_query(
+                                query, args.show_prefixes
+                            ),
+                            "cyan",
+                        )
+                    )
                     log.info("")
 
         # Check that each query has a time and a result size, or it failed.
@@ -450,19 +541,19 @@ class ExampleQueriesCommand(QleverCommand):
             description = f"TOTAL   for {n} {query_or_queries}"
             log.info("")
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{total_query_time:6.2f} s  "
                 f"{total_result_size:>14,}"
             )
             description = f"AVERAGE for {n} {query_or_queries}"
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{average_query_time:6.2f} s  "
                 f"{average_result_size:>14,}"
             )
             description = f"MEDIAN  for {n} {query_or_queries}"
             log.info(
-                f"{description:<{args.width_query_description}}  "
+                f"{description:<{width_query_description}}  "
                 f"{median_query_time:6.2f} s  "
                 f"{median_result_size:>14,}"
             )
@@ -476,7 +567,7 @@ class ExampleQueriesCommand(QleverCommand):
                 num_failed_string += "  [all]"
             log.info(
                 colored(
-                    f"{description:<{args.width_query_description}}  "
+                    f"{description:<{width_query_description}}  "
                     f"{num_failed:>24}",
                     "red",
                 )

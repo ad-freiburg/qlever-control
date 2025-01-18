@@ -32,6 +32,12 @@ class ExtractQueriesCommand(QleverCommand):
             " (default: `Log extract`)",
         )
         subparser.add_argument(
+            "--log-file",
+            type=str,
+            help="Name of the log file to extract queries from"
+            " (default: `<name>.server-log.txt`)",
+        )
+        subparser.add_argument(
             "--output-file",
             type=str,
             default="log-queries.txt",
@@ -40,7 +46,10 @@ class ExtractQueriesCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Show what the command does.
-        log_file_name = f"{args.name}.server-log.txt"
+        if args.log_file is not None:
+            log_file_name = args.log_file
+        else:
+            log_file_name = f"{args.name}.server-log.txt"
         self.show(
             f"Extract SPARQL queries from `{log_file_name}`"
             f" and write them to `{args.output_file}`",
@@ -74,7 +83,9 @@ class ExtractQueriesCommand(QleverCommand):
             # A new query in the log.
             if "Processing the following SPARQL query" in line:
                 query = []
-                query_index = description_base_count.get(description_base, 0) + 1
+                query_index = (
+                    description_base_count.get(description_base, 0) + 1
+                )
                 description_base_count[description_base] = query_index
                 continue
             # If we have started a query: extend until we meet the next log

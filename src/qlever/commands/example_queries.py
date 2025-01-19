@@ -69,7 +69,8 @@ class ExampleQueriesCommand(QleverCommand):
             "--query-ids",
             type=str,
             default="1-$",
-            help="Query IDs as comma-separated list of " "ranges (e.g., 1-5,7,12-$)",
+            help="Query IDs as comma-separated list of "
+            "ranges (e.g., 1-5,7,12-$)",
         )
         subparser.add_argument(
             "--query-regex",
@@ -121,7 +122,7 @@ class ExampleQueriesCommand(QleverCommand):
             "--width-error-message",
             type=int,
             default=80,
-            help="Width for printing the error message " "(0 = no limit)",
+            help="Width for printing the error message (0 = no limit)",
         )
         subparser.add_argument(
             "--width-result-size",
@@ -196,20 +197,22 @@ class ExampleQueriesCommand(QleverCommand):
         return data
 
     def get_example_queries(
-        self, queries_file: str = None, get_queries_cmd: str = None
+        self,
+        queries_file: str | None = None,
+        get_queries_cmd: str | None = None,
     ) -> list[str]:
         """
         Get example queries from get_queries_cmd or by reading the yaml file
         """
-        # yaml file case -> convert to tsv (description \t query) 
+        # yaml file case -> convert to tsv (description \t query)
         if queries_file is not None:
             queries_data = self.parse_queries_file(queries_file)
             queries = queries_data["queries"]
             example_query_lines = [
-                f"{query['query']}\t{query['sparql']}\n" for query in queries
+                f"{query['query']}\t{query['sparql']}" for query in queries
             ]
             return example_query_lines
-        
+
         # get_queries_cmd case -> run the command
         if get_queries_cmd is not None:
             # Get the example queries.
@@ -275,7 +278,9 @@ class ExampleQueriesCommand(QleverCommand):
         if args.query_regex:
             get_queries_cmd += f" | grep -Pi {shlex.quote(args.query_regex)}"
         sparql_endpoint = (
-            args.sparql_endpoint if args.sparql_endpoint else f"localhost:{args.port}"
+            args.sparql_endpoint
+            if args.sparql_endpoint
+            else f"localhost:{args.port}"
         )
         self.show(
             f"Obtain queries via: {get_queries_cmd}\n"
@@ -347,7 +352,9 @@ class ExampleQueriesCommand(QleverCommand):
             # Count query.
             if args.download_or_count == "count":
                 # First find out if there is a FROM clause.
-                regex_from_clause = re.compile(r"\s*FROM\s+<[^>]+>\s*", re.IGNORECASE)
+                regex_from_clause = re.compile(
+                    r"\s*FROM\s+<[^>]+>\s*", re.IGNORECASE
+                )
                 match_from_clause = re.search(regex_from_clause, query)
                 from_clause = " "
                 if match_from_clause:
@@ -388,7 +395,7 @@ class ExampleQueriesCommand(QleverCommand):
                 )
                 log.debug(curl_cmd)
                 result_file = (
-                    f"qlever.example_queries.result." f"{abs(hash(curl_cmd))}.tmp"
+                    f"qlever.example_queries.result.{abs(hash(curl_cmd))}.tmp"
                 )
                 start_time = time.time()
                 http_code = run_curl_command(
@@ -403,7 +410,9 @@ class ExampleQueriesCommand(QleverCommand):
                 else:
                     error_msg = {
                         "short": f"HTTP code: {http_code}",
-                        "long": re.sub(r"\s+", " ", Path(result_file).read_text()),
+                        "long": re.sub(
+                            r"\s+", " ", Path(result_file).read_text()
+                        ),
                     }
             except Exception as e:
                 if args.log_level == "DEBUG":
@@ -458,13 +467,15 @@ class ExampleQueriesCommand(QleverCommand):
                         )
                     elif args.accept == "text/turtle":
                         result_size = run_command(
-                            f"sed '1d;/^@prefix/d;/^\\s*$/d' " f"{result_file} | wc -l",
+                            f"sed '1d;/^@prefix/d;/^\\s*$/d' "
+                            f"{result_file} | wc -l",
                             return_output=True,
                         )
                     else:
                         try:
                             result_size = run_command(
-                                f'jq -r ".results.bindings | length"' f" {result_file}",
+                                f'jq -r ".results.bindings | length"'
+                                f" {result_file}",
                                 return_output=True,
                             )
                         except Exception as e:
@@ -499,9 +510,12 @@ class ExampleQueriesCommand(QleverCommand):
                     and args.show_query != "on-error"
                 ):
                     error_msg["long"] = (
-                        error_msg["long"][: args.width_error_message - 3] + "..."
+                        error_msg["long"][: args.width_error_message - 3]
+                        + "..."
                     )
-                seperator_short_long = "\n" if args.show_query == "on-error" else "  "
+                seperator_short_long = (
+                    "\n" if args.show_query == "on-error" else "  "
+                )
                 log.info(
                     f"{description:<{args.width_query_description}}    "
                     f"{colored('FAILED   ', 'red')}"

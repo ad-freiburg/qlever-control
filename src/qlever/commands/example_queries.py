@@ -7,7 +7,8 @@ import time
 import traceback
 from pathlib import Path
 
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.scalarstring import LiteralScalarString
 from termcolor import colored
 
 from qlever.command import QleverCommand
@@ -196,9 +197,10 @@ class ExampleQueriesCommand(QleverCommand):
         """
         Parse a YAML file and validate its structure.
         """
+        yaml = YAML(typ="safe")
         with open(queries_file, "r", encoding="utf-8") as file:
             try:
-                data = yaml.safe_load(file)  # Load YAML safely
+                data = yaml.load(file)  # Load YAML safely
             except yaml.YAMLError as exc:
                 log.error(f"Error parsing {queries_file} file: {exc}")
 
@@ -357,6 +359,7 @@ class ExampleQueriesCommand(QleverCommand):
         # processing time (seconds).
         query_times = []
         result_sizes = []
+        yaml_records = {"queries": []}
         num_failed = 0
         for example_query_line in example_query_lines:
             # Parse description and query, and determine query type.
@@ -696,3 +699,15 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Return success (has nothing to do with how many queries failed).
         return True
+
+    @staticmethod
+    def write_query_data_to_yaml(
+        query_data: dict[str, list[dict[str, Any]]], out_file: str
+    ) -> None:
+        """
+        Write yaml record for all queries to output yaml file
+        """
+        yaml = YAML()
+        yaml.default_flow_style = False
+        with open(out_file, "wb") as yaml_file:
+            yaml.dump(query_data, yaml_file)

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 import shlex
 import subprocess
 import time
 import traceback
 from pathlib import Path
+from typing import Any
 
 from ruamel.yaml import YAML
 from ruamel.yaml.scalarstring import LiteralScalarString
@@ -15,6 +17,8 @@ from qlever.command import QleverCommand
 from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
+
+MAX_RESULT_SIZE = 1000
 
 
 class ExampleQueriesCommand(QleverCommand):
@@ -160,6 +164,16 @@ class ExampleQueriesCommand(QleverCommand):
             action="store_true",
             default=False,
             help="Generate output file in the 'output' directory",
+        )
+        subparser.add_argument(
+            "--backend-name",
+            default=None,
+            help="Name for the backend that would be used in performance comparison",
+        )
+        subparser.add_argument(
+            "--output-basename",
+            default=None,
+            help="Name for the dataset that would be used in performance comparison",
         )
 
     def pretty_printed_query(self, query: str, show_prefixes: bool) -> str:
@@ -340,6 +354,7 @@ class ExampleQueriesCommand(QleverCommand):
 
         if len(example_query_lines) == 0:
             log.error("No example queries matching the criteria found")
+            return False
 
         # We want the width of the query description to be an uneven number (in
         # case we have to truncated it, in which case we want to have a " ... "
@@ -614,9 +629,44 @@ class ExampleQueriesCommand(QleverCommand):
                     )
                     log.info("")
 
+            # Get the yaml record if output file needs to be generated
+            if args.generate_output_file:
+                result_length = None if error_msg is not None else 1
+                result_length = (
+                    result_size
+                    if args.download_or_count == "download"
+                    and result_length is not None
+                    else result_length
+                )
+                results_for_yaml = (
+                    error_msg if error_msg is not None else result_file
+                )
+                yaml_record = self.get_record_for_yaml(
+                    query=description,
+                    sparql=self.get_pretty_printed_query(query, True),
+                    client_time=time_seconds,
+                    result=results_for_yaml,
+                    result_size=result_length,
+                    is_qlever=is_qlever,
+                )
+                yaml_records["queries"].append(yaml_record)
+
+            # Remove the result file (unless in debug mode).
+            if args.log_level != "DEBUG":
+                Path(result_file).unlink(missing_ok=True)
+
         # Check that each query has a time and a result size, or it failed.
         assert len(result_sizes) == len(query_times)
         assert len(query_times) + num_failed == len(example_query_lines)
+
+        if len(yaml_records["queries"]) != 0:
+            outfile = (
+                f"{args.output_basename}.{args.backend_name}.results.yaml"
+            )
+            self.write_query_data_to_yaml(
+                query_data=yaml_records,
+                out_file=outfile,
+            )
 
         # Show statistics.
         if len(query_times) > 0:
@@ -665,6 +715,70 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Return success (has nothing to do with how many queries failed).
         return True
+
+    def get_record_for_yaml(
+        self,
+        query: str,
+        sparql: str,
+        client_time: float,
+        result: str | dict[str, str],
+        result_size: int | None,
+        is_qlever: bool,
+    ) -> dict[str, Any]:
+        """
+        Construct a dictionary with query information for yaml file
+        """
+        record = {
+            "query": query,
+            "sparql": LiteralScalarString(sparql),
+            "runtime_info": {},
+        }
+        if result_size is None:
+            results = f"{result['short']}: {result['long']}"
+            headers = []
+        else:
+            result_size = (
+                MAX_RESULT_SIZE
+                if result_size > MAX_RESULT_SIZE
+                else result_size
+            )
+            headers, results = self.get_query_results(
+                result, result_size, is_qlever
+            )
+            if is_qlever:
+                runtime_info_cmd = (
+                    f"jq 'if .runtimeInformation then"
+                    f" .runtimeInformation else"
+                    f' "null" end\' {result}'
+                )
+                runtime_info_str = run_command(
+                    runtime_info_cmd, return_output=True
+                )
+                if runtime_info_str != "null":
+                    record["runtime_info"] = json.loads(runtime_info_str)
+        record["runtime_info"]["client_time"] = client_time
+        record["headers"] = headers
+        record["results"] = results
+        return record
+
+    def get_query_results(
+        self, result_file: str, result_size: int, is_qlever: bool
+    ) -> tuple[list[str], list[list[str]]]:
+        """
+        Return headers and results as a tuple
+        """
+        if not is_qlever:
+            get_result_cmd = f"sed -n '1,{result_size + 1}p' {result_file}"
+            results_str = run_command(get_result_cmd, return_output=True)
+            results = results_str.splitlines()
+            headers = [header for header in results[0].split("\t")]
+            results = [result.split("\t") for result in results[1:]]
+            return headers, results
+        else:
+            get_result_cmd = f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' {result_file}"
+            results_str = run_command(get_result_cmd, return_output=True)
+            results_json = json.loads(results_str)
+            return results_json["headers"], results_json["results"]
 
     @staticmethod
     def write_query_data_to_yaml(

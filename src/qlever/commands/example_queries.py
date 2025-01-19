@@ -101,6 +101,7 @@ class ExampleQueriesCommand(QleverCommand):
                 "text/tab-separated-values",
                 "text/csv",
                 "application/sparql-results+json",
+                "application/qlever-results+json",
                 "text/turtle",
             ],
             default="application/sparql-results+json",
@@ -236,7 +237,10 @@ class ExampleQueriesCommand(QleverCommand):
             return False
 
         # If `args.accept` is `application/sparql-results+json`, we need `jq`.
-        if args.accept == "application/sparql-results+json":
+        if args.accept in (
+            "application/sparql-results+json",
+            "application/qlever-results+json",
+        ):
             try:
                 subprocess.run(
                     "jq --version",
@@ -422,6 +426,15 @@ class ExampleQueriesCommand(QleverCommand):
                     "long": re.sub(r"\s+", " ", str(e)),
                 }
 
+            def get_json_error_msg(e: Exception) -> dict[str, str]:
+                error_msg = {
+                    "short": "Malformed JSON",
+                    "long": "curl returned with code 200, "
+                    "but the JSON is malformed: "
+                    + re.sub(r"\s+", " ", str(e)),
+                }
+                return error_msg
+
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
@@ -440,6 +453,16 @@ class ExampleQueriesCommand(QleverCommand):
                         result_size = run_command(
                             f"sed 1d {result_file}", return_output=True
                         )
+                    elif args.accept == "application/qlever-results+json":
+                        try:
+                            # sed cmd to get the number between 2nd and 3rd double_quotes
+                            result_size = run_command(
+                                f"jq '.res[0]' {result_file}"
+                                " | sed 's/[^0-9]*\\([0-9]*\\).*/\\1/'",
+                                return_output=True,
+                            )
+                        except Exception as e:
+                            error_msg = get_json_error_msg(e)
                     else:
                         try:
                             result_size = run_command(
@@ -449,12 +472,7 @@ class ExampleQueriesCommand(QleverCommand):
                                 return_output=True,
                             )
                         except Exception as e:
-                            error_msg = {
-                                "short": "Malformed JSON",
-                                "long": "curl returned with code 200, "
-                                "but the JSON is malformed: "
-                                + re.sub(r"\s+", " ", str(e)),
-                            }
+                            error_msg = get_json_error_msg(e)
 
                 # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
                 else:
@@ -471,6 +489,14 @@ class ExampleQueriesCommand(QleverCommand):
                             f"{result_file} | wc -l",
                             return_output=True,
                         )
+                    elif args.accept == "application/qlever-results+json":
+                        try:
+                            result_size = run_command(
+                                f"jq '.resultsize | tonumber' {result_file}",
+                                return_output=True,
+                            )
+                        except Exception as e:
+                            error_msg = get_json_error_msg(e)
                     else:
                         try:
                             result_size = run_command(
@@ -479,14 +505,7 @@ class ExampleQueriesCommand(QleverCommand):
                                 return_output=True,
                             )
                         except Exception as e:
-                            error_msg = {
-                                "short": "Malformed JSON",
-                                "long": re.sub(r"\s+", " ", str(e)),
-                            }
-
-            # Remove the result file (unless in debug mode).
-            if args.log_level != "DEBUG":
-                Path(result_file).unlink(missing_ok=True)
+                            error_msg = get_json_error_msg(e)
 
             # Print description, time, result in tabular form.
             if len(description) > args.width_query_description:

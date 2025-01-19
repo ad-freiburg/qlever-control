@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 import shlex
 import subprocess
 import time
 import traceback
 from pathlib import Path
+from typing import Any
 
 from ruamel.yaml import YAML
 from ruamel.yaml.scalarstring import LiteralScalarString
@@ -15,6 +17,8 @@ from qlever.command import QleverCommand
 from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
+
+MAX_RESULT_SIZE = 1000
 
 
 class ExampleQueriesCommand(QleverCommand):
@@ -150,9 +154,27 @@ class ExampleQueriesCommand(QleverCommand):
             default=False,
             help="Generate output file in the 'output' directory",
         )
+        subparser.add_argument(
+            "--backend-name",
+            default=None,
+            help="Name for the backend that would be used in performance comparison",
+        )
+        subparser.add_argument(
+            "--output-basename",
+            default=None,
+            help="Name for the dataset that would be used in performance comparison",
+        )
 
-    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
-        remove_prefixes_cmd = " | sed '/^PREFIX /Id'" if not show_prefixes else ""
+    @staticmethod
+    def get_pretty_printed_query(
+        query: str, show_prefixes: bool
+    ) -> str | None:
+        """
+        Get pretty-printed sparql query or None if there is an exception.
+        """
+        remove_prefixes_cmd = (
+            " | sed '/^PREFIX /Id'" if not show_prefixes else ""
+        )
         pretty_print_query_cmd = (
             f"echo {shlex.quote(query)}"
             f" | docker run -i --rm sparqling/sparql-formatter"
@@ -160,10 +182,18 @@ class ExampleQueriesCommand(QleverCommand):
         )
         try:
             query_pp = run_command(pretty_print_query_cmd, return_output=True)
-            log.info(colored(query_pp.rstrip(), "cyan"))
+            return query_pp
         except Exception as e:
             log.error(f"Failed to pretty-print query: {e}")
             log.info(colored(query.rstrip(), "cyan"))
+            return None
+
+    def pretty_print_query(self, query: str, show_prefixes: bool) -> None:
+        query_pp = self.get_pretty_printed_query(
+            query=query, show_prefixes=show_prefixes
+        )
+        if query_pp is not None:
+            log.info(colored(query_pp.rstrip(), "cyan"))
 
     @staticmethod
     def parse_queries_file(queries_file: str) -> dict:
@@ -238,6 +268,45 @@ class ExampleQueriesCommand(QleverCommand):
             log.error("Cannot have both --remove-offset-and-limit and --limit")
             return False
 
+        # Handle shotcuts for SPARQL endpoint.
+        if args.sparql_endpoint_preset:
+            args.sparql_endpoint = args.sparql_endpoint_preset
+
+        # Limit only works with full result.
+        if args.limit and args.download_or_count == "count":
+            log.error("Limit only works with full result")
+            return False
+
+        # Clear cache only works for QLever.
+        is_qlever = (
+            not args.sparql_endpoint
+            or args.sparql_endpoint.startswith("https://qlever")
+        )
+        if args.clear_cache == "yes" and not is_qlever:
+            log.warning("Clearing the cache only works for QLever")
+            args.clear_cache = "no"
+
+        if args.generate_output_file:
+            if args.output_basename is None or args.backend_name is None:
+                log.error(
+                    "Both --output-basename and --backend-name parameters"
+                    " must be passed when --generate-output-file is passed"
+                )
+                return False
+            is_qlever = is_qlever or "qlever" in args.backend_name.lower()
+            args.accept = (
+                "application/qlever-results+json"
+                if is_qlever
+                else "text/tab-separated-values"
+            )
+
+        if not is_qlever and args.accept == "application/qlever-results+json":
+            log.error(
+                "Accept header application/qlever-results+json" 
+                "only works for QLever"
+            )
+            return False
+
         # If `args.accept` is `application/sparql-results+json`, we need `jq`.
         if args.accept in (
             "application/sparql-results+json",
@@ -254,23 +323,6 @@ class ExampleQueriesCommand(QleverCommand):
             except Exception as e:
                 log.error(f"Please install `jq` for {args.accept} ({e})")
                 return False
-
-        # Handle shotcuts for SPARQL endpoint.
-        if args.sparql_endpoint_preset:
-            args.sparql_endpoint = args.sparql_endpoint_preset
-
-        # Limit only works with full result.
-        if args.limit and args.download_or_count == "count":
-            log.error("Limit only works with full result")
-            return False
-
-        # Clear cache only works for QLever.
-        is_qlever = not args.sparql_endpoint or args.sparql_endpoint.startswith(
-            "https://qlever"
-        )
-        if args.clear_cache == "yes" and not is_qlever:
-            log.warning("Clearing the cache only works for QLever")
-            args.clear_cache = "no"
 
         # Show what the command will do.
         get_queries_cmd = (
@@ -310,6 +362,7 @@ class ExampleQueriesCommand(QleverCommand):
 
         if len(example_query_lines) == 0:
             log.error("No example queries matching the criteria found")
+            return False
 
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query
@@ -549,9 +602,44 @@ class ExampleQueriesCommand(QleverCommand):
                     self.pretty_print_query(query, args.show_prefixes)
                     log.info("")
 
+            # Get the yaml record if output file needs to be generated
+            if args.generate_output_file:
+                result_length = None if error_msg is not None else 1
+                result_length = (
+                    result_size
+                    if args.download_or_count == "download"
+                    and result_length is not None
+                    else result_length
+                )
+                results_for_yaml = (
+                    error_msg if error_msg is not None else result_file
+                )
+                yaml_record = self.get_record_for_yaml(
+                    query=description,
+                    sparql=self.get_pretty_printed_query(query, True),
+                    client_time=time_seconds,
+                    result=results_for_yaml,
+                    result_size=result_length,
+                    is_qlever=is_qlever,
+                )
+                yaml_records["queries"].append(yaml_record)
+
+            # Remove the result file (unless in debug mode).
+            if args.log_level != "DEBUG":
+                Path(result_file).unlink(missing_ok=True)
+
         # Check that each query has a time and a result size, or it failed.
         assert len(result_sizes) == len(query_times)
         assert len(query_times) + num_failed == len(example_query_lines)
+
+        if len(yaml_records["queries"]) != 0:
+            outfile = (
+                f"{args.output_basename}.{args.backend_name}.results.yaml"
+            )
+            self.write_query_data_to_yaml(
+                query_data=yaml_records,
+                out_file=outfile,
+            )
 
         # Show statistics.
         if len(query_times) > 0:
@@ -600,6 +688,70 @@ class ExampleQueriesCommand(QleverCommand):
 
         # Return success (has nothing to do with how many queries failed).
         return True
+
+    def get_record_for_yaml(
+        self,
+        query: str,
+        sparql: str,
+        client_time: float,
+        result: str | dict[str, str],
+        result_size: int | None,
+        is_qlever: bool,
+    ) -> dict[str, Any]:
+        """
+        Construct a dictionary with query information for yaml file
+        """
+        record = {
+            "query": query,
+            "sparql": LiteralScalarString(sparql),
+            "runtime_info": {},
+        }
+        if result_size is None:
+            results = f"{result['short']}: {result['long']}"
+            headers = []
+        else:
+            result_size = (
+                MAX_RESULT_SIZE
+                if result_size > MAX_RESULT_SIZE
+                else result_size
+            )
+            headers, results = self.get_query_results(
+                result, result_size, is_qlever
+            )
+            if is_qlever:
+                runtime_info_cmd = (
+                    f"jq 'if .runtimeInformation then"
+                    f" .runtimeInformation else"
+                    f' "null" end\' {result}'
+                )
+                runtime_info_str = run_command(
+                    runtime_info_cmd, return_output=True
+                )
+                if runtime_info_str != "null":
+                    record["runtime_info"] = json.loads(runtime_info_str)
+        record["runtime_info"]["client_time"] = client_time
+        record["headers"] = headers
+        record["results"] = results
+        return record
+
+    def get_query_results(
+        self, result_file: str, result_size: int, is_qlever: bool
+    ) -> tuple[list[str], list[list[str]]]:
+        """
+        Return headers and results as a tuple
+        """
+        if not is_qlever:
+            get_result_cmd = f"sed -n '1,{result_size + 1}p' {result_file}"
+            results_str = run_command(get_result_cmd, return_output=True)
+            results = results_str.splitlines()
+            headers = [header for header in results[0].split("\t")]
+            results = [result.split("\t") for result in results[1:]]
+            return headers, results
+        else:
+            get_result_cmd = f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' {result_file}"
+            results_str = run_command(get_result_cmd, return_output=True)
+            results_json = json.loads(results_str)
+            return results_json["headers"], results_json["results"]
 
     @staticmethod
     def write_query_data_to_yaml(

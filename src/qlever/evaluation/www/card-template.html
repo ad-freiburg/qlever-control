@@ -1,0 +1,31 @@
+<template id="cardTemplate">
+    <div class="card text-bg-light mb-4">
+        <div class="card-body" style="padding-bottom: 0px;">
+            <div class="row">
+                <div class="col-6">
+                    <h5>Dataset</h5>
+                </div>
+                <div class="col-6 d-flex justify-content-end pb-2">
+                    <button class="btn btn-outline-primary btn-sm">Compare Results</button>
+                </div>
+            </div>
+                <table class="table table-hover table-bordered table-sm">
+                    <thead>
+                        <tr class="text-center" 
+                        title="Click on a column to sort it in descending or ascending order. Sort multiple columns simultaneously by holding down the Shift key and clicking a second, third or even fourth column header!">
+                            <th>SPARQL Engine</th>
+                            <th>Queries Failed</th>
+                            <th>Avg Runtime (s)</th>
+                            <th>Median Runtime (s)</th>
+                            <th>Runtime <= 1.0s</th>
+                            <th>(1.0s, 5.0s]</th>
+                            <th>Runtime > 5s</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamic content will be added here -->
+                    </tbody>
+                </table>
+        </div>
+    </div>
+</template>

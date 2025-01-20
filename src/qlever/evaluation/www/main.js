@@ -1,0 +1,345 @@
+/**
+ * Create a bootstrap card with engine metrics from cardTemplate for the main page
+ * @param  cardTemplate cardTemplate document node
+ * @param  kb           name of the knowledge base
+ * @param  data         metrics for each SPARQL engine for the given knowledge base
+ * @return A bootstrap card displaying SPARQL Engine metrics for the given kb
+ */
+function populateCard(cardTemplate, kb, data) {
+  const clone = document.importNode(cardTemplate.content, true);
+  const cardTitle = clone.querySelector("h5");
+  clone.querySelector("button").addEventListener("click", handleCompareResultsClick.bind(null, kb));
+  cardTitle.innerHTML = kb[0].toUpperCase() + kb.slice(1);
+  const cardBody = clone.querySelector("tbody");
+
+  data.forEach((engine) => {
+    const row = document.createElement("tr");
+    row.style.cursor = "pointer";
+    row.addEventListener("click", handleRowClick);
+    row.innerHTML = `
+            <td class="text-center">${engine.engine}</td>
+            <td class="text-end" style="padding-right:2rem">${engine.failed}%</td>
+            <td class="text-end" style="padding-right:2rem">${
+              engine.avgRuntime ? formatNumber(parseFloat(engine.avgRuntime)) : "N/A"
+            }</td>
+            <td class="text-end" style="padding-right:2rem">${
+              engine.medianRuntime ? formatNumber(parseFloat(engine.medianRuntime)) : "N/A"
+            }</td>
+            <td class="text-end" style="padding-right:2rem">${
+              engine.under_1s ? formatNumber(parseFloat(engine.under_1s)) + "%" : "N/A"
+            }</td>
+            <td class="text-end" style="padding-right:2rem">${
+              engine.between_1_to_5s ? formatNumber(parseFloat(engine.between_1_to_5s)) + "%" : "N/A"
+            }</td>
+            <td class="text-end" style="padding-right:2rem">${
+              engine.over_5s ? formatNumber(parseFloat(engine.over_5s)) + "%" : "N/A"
+            }</td>
+        `;
+    cardBody.appendChild(row);
+  });
+  return clone;
+}
+
+/**
+ * Get urls for all the eval(tsv) and fail(txt) data
+ * @param  fileList Array of file names in the output directory
+ * @return Array of eval and fail logs for each kb and engine combination
+ */
+function getFileUrls(fileList) {
+  const fileUrls = [];
+  const kb_engine_map = {};
+
+  for (let file of fileList) {
+    const parts = file.split(".");
+    if (parts.length === 5 && parts[2] === "queries") {
+      const kb = parts[0];
+      const engine = parts[1];
+
+      if (!kb_engine_map[kb]) {
+        kb_engine_map[kb] = [];
+      }
+
+      if (!kb_engine_map[kb].includes(engine)) {
+        kb_engine_map[kb].push(engine);
+      }
+    }
+  }
+
+  for (let kb of kbs) {
+    performanceDataPerKb[kb.toLowerCase()] = {};
+    for (let engine of sparqlEngines) {
+      if (kb_engine_map[kb].includes(engine)) {
+        const evalLog = getEvalLog(engine.toLowerCase(), kb.toLowerCase());
+        const failLog = getFailLog(engine.toLowerCase(), kb.toLowerCase());
+        fileUrls.push(evalLog);
+        fileUrls.push(failLog);
+      }
+    }
+  }
+  return fileUrls;
+}
+
+/**
+ * Create promises out of eval and fail logs and return the results
+ * @param  fileUrls fileUrls array from getFileUrls function
+ * @return Promise that is reolved with array of results of fetching eval and fail logs
+ * @async
+ */
+async function fetchAndProcessFiles(fileUrls) {
+  const fetchPromises = fileUrls.map(async (url) => {
+    try {
+      const response = await fetch(outputUrl + url, {
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}`);
+      }
+      const content = await response.text();
+      console.log(`File ${url} content: ${content}`);
+      // Process the content as needed
+      return { status: "fulfilled", value: content };
+    } catch (error) {
+      console.error(`Error fetching ${url}: ${error.message}`);
+      // Handle the error gracefully
+      return { status: "rejected", reason: error.message };
+    }
+  });
+
+  const results = await Promise.allSettled(fetchPromises);
+  return results; // Return the results to be accessed later
+}
+
+/**
+ * Fetch all the relevant metrics required by
+ * populateCard function and construct and display all cards with engine metrics on the main page.
+ * @param  results      Array withresults from fetching eval and fail logs
+ * @param  fileUrls     fileUrls array from getFileUrls function
+ * @param  fragment     Document fragment to which to append the bootstrap cards
+ * @param  cardTemplate cardTemplate document node
+ */
+function processAndDisplayResults(results, fileUrls, fragment, cardTemplate) {
+  sparqlEngineData = [];
+  let currentKb = fileUrls[0].split(".")[0];
+  for (let i = 0; i < results.length; i += 2) {
+    let data = {};
+    let evalUrl = fileUrls[i].split(".");
+    const kb = evalUrl[0];
+    const engine = evalUrl[1];
+    data["engine"] = engine;
+    if (results[i].status == "fulfilled" && results[i].value.status == "fulfilled") {
+      let evalResult = getTsvData(results[i].value.value);
+      performanceDataPerKb[kb][engine] = evalResult.data;
+      data["avgRuntime"] = evalResult.avgTime.toFixed(2);
+      data["medianRuntime"] = evalResult.medianTime.toFixed(2);
+      data["under_1s"] = evalResult.under_1s.toFixed(2);
+      data["over_5s"] = evalResult.over_5s.toFixed(2);
+      data["between_1_to_5s"] = evalResult.between_1_to_5s.toFixed(2);
+      data["failed"] = evalResult.failed.toFixed(2);
+    }
+    if (results[i + 1].status == "fulfilled" && results[i + 1].value.status == "fulfilled") {
+      let failResult = getTxtData(results[i + 1].value.value);
+      data["failedQueries"] = failResult.length;
+    }
+    if (kb != currentKb) {
+      fragment.appendChild(populateCard(cardTemplate, currentKb, sparqlEngineData));
+      sparqlEngineData = [];
+      currentKb = kb;
+    }
+    sparqlEngineData.push(data);
+  }
+  fragment.appendChild(populateCard(cardTemplate, currentKb, sparqlEngineData));
+  document.getElementById("cardsContainer").appendChild(fragment);
+}
+
+/**
+ * Populate global sparqlEngines and kbs array based on files in the output directory
+ * @param  url url of the output directory
+ * @async
+ */
+async function getOutputFiles(url) {
+  try {
+    const response = await fetch(url);
+    const data = await response.text();
+
+    // Parse the HTML response to extract file names
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(data, "text/html");
+    const fileList = Array.from(htmlDoc.querySelectorAll("a")).map((link) => link.textContent.trim());
+    for (const file of fileList) {
+      const parts = file.split(".");
+      if (parts.length === 5 && parts[2] === "queries") {
+        const kb = parts[0];
+        if (!kbs.includes(kb)) kbs.push(kb);
+        const engine = parts[1];
+        if (!sparqlEngines.includes(engine)) sparqlEngines.push(engine);
+      }
+    }
+    return fileList;
+  } catch (error) {
+    console.error("Error fetching file list:", error);
+  }
+}
+
+/**
+ * Hide a modal if it is currently open.
+ * Adds a custom `pop-triggered` attribute to the modal so that modal.hide() doesn't execute any code after closing
+ * @param {HTMLElement} modalNode - The DOM node representing the modal to be hidden.
+ */
+function hideModalIfOpened(modalNode) {
+  if (modalNode.classList.contains("show")) {
+    modalNode.setAttribute("pop-triggered", true);
+    bootstrap.Modal.getInstance(modalNode).hide();
+  }
+}
+
+/**
+ * Handle browser's back button actions by displaying or hiding modals based on the current state.
+ * Dynamically adjusts modal attributes and visibility depending on the `page` property in the `popstate` event's state.
+ * @param {PopStateEvent} event - The popstate event triggered by browser navigation actions.
+ */
+window.addEventListener("popstate", function (event) {
+  const comparisonModal = document.querySelector("#comparisonModal");
+  const queryDetailsModal = document.querySelector("#queryDetailsModal");
+  const compareExecTreesModal = document.querySelector("#compareExecTreeModal");
+
+  const state = event.state || {};
+  const { page, kb, engine, q, t, s1, s2, qid } = state;
+  const { selectedQuery, tab } = getSanitizedQAndT(q, t);
+
+  // Close all modals initially
+  //[comparisonModal, queryDetailsModal, compareExecTreesModal].forEach(hideModalIfOpened);
+
+  switch (page) {
+    case "comparison":
+      [queryDetailsModal, compareExecTreesModal].forEach(hideModalIfOpened);
+      showModal(comparisonModal, { "data-kb": kb }, true);
+      break;
+
+    case "queriesDetails":
+      [comparisonModal, compareExecTreesModal].forEach(hideModalIfOpened);
+      if (queryDetailsModal.classList.contains("show")) {
+        tab ? showTab(tab) : showTab(0);
+      } else {
+        showModal(
+          queryDetailsModal,
+          { "data-kb": kb, "data-engine": engine, "data-query": selectedQuery, "data-tab": tab },
+          true
+        );
+      }
+      break;
+
+    case "compareExecTrees":
+      [comparisonModal, queryDetailsModal].forEach(hideModalIfOpened);
+      showModal(compareExecTreesModal, { "data-kb": kb, "data-s1": s1, "data-s2": s2, "data-qid": qid }, true);
+      break;
+
+    case "main":
+    default:
+      [comparisonModal, queryDetailsModal, compareExecTreesModal].forEach(hideModalIfOpened);
+      // No action needed for the main page
+      break;
+  }
+});
+
+/**
+ * Display appropriate modals based on URL parameters.
+ * Reads URL query parameters to determine the `page` and associated attributes,
+ * then displays the corresponding modal.
+ * If no valid page parameter is found, the URL is reset to the main page.
+ * @async
+ */
+async function showPageFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const page = urlParams.get("page");
+  const kb = urlParams.get("kb")?.toLowerCase();
+  const { selectedQuery, tab } = getSanitizedQAndT(urlParams.get("q"), urlParams.get("t"));
+  const queryDetailsModal = document.querySelector("#queryDetailsModal");
+  const comparisonModal = document.querySelector("#comparisonModal");
+  const compareExecTreesModal = document.querySelector("#compareExecTreeModal");
+
+  switch (page) {
+    case "comparison":
+      showModal(comparisonModal, { "data-kb": kb });
+      break;
+
+    case "queriesDetails":
+      showModal(queryDetailsModal, {
+        "data-kb": kb,
+        "data-engine": urlParams.get("engine")?.toLowerCase(),
+        "data-query": selectedQuery,
+        "data-tab": tab,
+      });
+      break;
+
+    case "compareExecTrees":
+      // Add runtime_info to PerformanceDataPerKb so that trees can be displayed
+      for (const engine of sparqlEngines) {
+        await addRuntimeToPerformanceDataPerKb(kb, engine);
+      }
+      showModal(compareExecTreesModal, {
+        "data-kb": kb,
+        "data-s1": urlParams.get("s1")?.toLowerCase(),
+        "data-s2": urlParams.get("s2")?.toLowerCase(),
+        "data-qid": urlParams.get("qid"),
+      });
+      break;
+
+    default:
+      // Navigate back to the main page if no valid page parameter
+      const url = new URL(window.location);
+      url.search = "";
+      window.history.replaceState({ page: "main" }, "", url);
+      break;
+  }
+}
+
+function getSanitizedQAndT(q, t) {
+  let selectedQuery = parseInt(q);
+  let tab = parseInt(t);
+
+  if (isNaN(tab) || tab < 1 || tab > 3) {
+    tab = "";
+  }
+
+  if (isNaN(selectedQuery) || selectedQuery < 0) {
+    selectedQuery = "";
+  }
+  return { selectedQuery: selectedQuery, tab: tab };
+}
+
+// Use the DOMContentLoaded event listener to ensure the DOM is ready
+document.addEventListener("DOMContentLoaded", async function () {
+  getOutputFiles(outputUrl).then(async function (fileList) {
+    // Fetch the card template
+    const response = await fetch("card-template.html");
+    const templateText = await response.text();
+
+    // Create a virtual DOM element to hold the template
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = templateText;
+    const cardTemplate = tempDiv.querySelector("#cardTemplate");
+
+    const fragment = document.createDocumentFragment();
+
+    const fileUrls = getFileUrls(fileList);
+
+    // For all the tsv files in the output folder, create bootstrap card and display on main page
+    fetchAndProcessFiles(fileUrls).then(async (results) => {
+      processAndDisplayResults(results, fileUrls, fragment, cardTemplate);
+      $("#cardsContainer table").tablesorter({
+        theme: "bootstrap",
+        sortStable: true,
+        sortInitialOrder: "desc",
+      });
+      // Navigate to the correct page (or modal) based on the url
+      await showPageFromUrl();
+    });
+
+    // Setup event listeners for queryDetailsModal, comparisonModal and compareExecModal
+    setListenersForQueriesTabs();
+    setListenersForCompareExecModal();
+    setListenersForEnginesComparison();
+  });
+});

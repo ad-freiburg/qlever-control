@@ -829,5 +829,8 @@ class ExampleQueriesCommand(QleverCommand):
         """
         yaml = YAML()
         yaml.default_flow_style = False
-        with open(out_file, "wb") as yaml_file:
+        output_dir = Path(__file__).parent.parent / "evaluation" / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        yaml_file_path = output_dir / out_file
+        with open(yaml_file_path, "wb") as yaml_file:
             yaml.dump(query_data, yaml_file)

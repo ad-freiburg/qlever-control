@@ -140,8 +140,14 @@ function fixUrlAndState(totalQueries, selectedQuery, tab) {
  * @param {Event} event - The click event triggered by selecting a row.
  */
 async function handleRowClick(event) {
+  if (
+    event.target.classList.contains("row-checkbox") ||
+    event.target.firstElementChild?.classList.contains("row-checkbox")
+  ) {
+    return;
+  }
   const kb = event.currentTarget.closest(".card").querySelector("h5").innerHTML.toLowerCase();
-  const engine = event.currentTarget.querySelector("td").innerHTML.toLowerCase();
+  const engine = event.currentTarget.children[1].innerHTML.toLowerCase();
   const modalNode = document.querySelector("#queryDetailsModal");
   modalNode.setAttribute("data-kb", kb);
   modalNode.setAttribute("data-engine", engine);

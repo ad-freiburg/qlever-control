@@ -18,6 +18,9 @@ function populateCard(cardTemplate, kb) {
     row.style.cursor = "pointer";
     row.addEventListener("click", handleRowClick);
     row.innerHTML = `
+            <td class="text-center" title="Unselecting this will remove this engine from comparison table that shows on clicking the Compare Results Button">
+              <input type="checkbox" class="form-check-input row-checkbox" checked>
+            </td>
             <td class="text-center">${engine}</td>
             <td class="text-end" style="padding-right:2rem">${engineData.failed}%</td>
             <td class="text-end" style="padding-right:2rem">${
@@ -37,47 +40,30 @@ function populateCard(cardTemplate, kb) {
             }</td>
         `;
     cardBody.appendChild(row);
+    addEventListenersForCard(clone.querySelector("table"));
   });
   return clone;
 }
 
-/**
- * Get urls for all the eval(tsv) and fail(txt) data
- * @param  fileList Array of file names in the output directory
- * @return Array of eval and fail logs for each kb and engine combination
- */
-function getFileUrls(fileList) {
-  const fileUrls = [];
-  const kb_engine_map = {};
+function addEventListenersForCard(cardNode) {
+  thead = cardNode.querySelector("thead");
+  tbody = cardNode.querySelector("tbody");
+  // If the header is checked, all the rows must be checked and vice-versa
+  thead.addEventListener("change", function (event) {
+    const headerCheckbox = event.target;
+    const rowCheckboxes = tbody.querySelectorAll(".row-checkbox");
+    rowCheckboxes.forEach((checkbox) => {
+      checkbox.checked = headerCheckbox.checked;
+    });
+  });
 
-  for (let file of fileList) {
-    const parts = file.split(".");
-    if (parts.length === 5 && parts[2] === "queries") {
-      const kb = parts[0];
-      const engine = parts[1];
-
-      if (!kb_engine_map[kb]) {
-        kb_engine_map[kb] = [];
-      }
-
-      if (!kb_engine_map[kb].includes(engine)) {
-        kb_engine_map[kb].push(engine);
-      }
-    }
-  }
-
-  for (let kb of kbs) {
-    performanceDataPerKb[kb.toLowerCase()] = {};
-    for (let engine of sparqlEngines) {
-      if (kb_engine_map[kb].includes(engine)) {
-        const evalLog = getEvalLog(engine.toLowerCase(), kb.toLowerCase());
-        const failLog = getFailLog(engine.toLowerCase(), kb.toLowerCase());
-        fileUrls.push(evalLog);
-        fileUrls.push(failLog);
-      }
-    }
-  }
-  return fileUrls;
+  // Update the checker status of header based on if all rows are selected or not
+  tbody.addEventListener("change", function () {
+    const headerCheckbox = thead.querySelector("input");
+    const rowCheckboxes = tbody.querySelectorAll(".row-checkbox");
+    const allChecked = Array.from(rowCheckboxes).every((checkbox) => checkbox.checked);
+    headerCheckbox.checked = allChecked;
+  });
 }
 
 /**

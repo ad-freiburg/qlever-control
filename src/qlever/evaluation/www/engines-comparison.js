@@ -126,8 +126,28 @@ function compareExecutionTreesClicked() {
  * Display the modal page where all the engine runtimes are compared against each other on a per query basis
  */
 function handleCompareResultsClick(kb) {
+  const enginesToDisplay = getEnginesToDisplay(kb);
+  if (enginesToDisplay.length === 0) {
+    alert("All engines are unselected from comparison! Choose at least one or ideally more for comparison!");
+    return;
+  }
   document.querySelector("#comparisonModal").setAttribute("data-kb", kb);
   showModal(document.querySelector("#comparisonModal"));
+}
+
+function getEnginesToDisplay(kb) {
+  for (const cardBody of document.querySelectorAll(".card-body")) {
+    const selectedKb = cardBody.querySelector("h5").innerHTML.toLowerCase();
+    if (kb === selectedKb) {
+      let enginesToShow = [];
+      for (const row of cardBody.querySelectorAll("tbody tr")) {
+        if (row.children[0].firstElementChild.checked) {
+          enginesToShow.push(row.children[1].innerHTML.toLowerCase())
+        }
+      }
+      return enginesToShow;
+    } 
+  }
 }
 
 /**
@@ -140,6 +160,9 @@ function handleCompareResultsClick(kb) {
  * @param {string} kb - The selected knowledge base
  */
 function openComparisonModal(kb) {
+  const enginesToDisplay = getEnginesToDisplay(kb);
+  console.log(enginesToDisplay);
+
   // Open the previously opened modal without any processing overhead if kb is the same
   if (document.querySelector("#comparisonKb").innerHTML === kb) {
     return;
@@ -185,7 +208,7 @@ function openComparisonModal(kb) {
   } else {
     // Create a DocumentFragment to build the table
     const fragment = document.createDocumentFragment();
-    const table = createCompareResultsTable(kb);
+    const table = createCompareResultsTable(kb, enginesToDisplay);
 
     fragment.appendChild(table);
 
@@ -207,7 +230,7 @@ function openComparisonModal(kb) {
  * @param  kb Name of the knowledge base for which to get engine runtimes
  * @return HTML table with queries as rows and engine runtimes as columns
  */
-function createCompareResultsTable(kb) {
+function createCompareResultsTable(kb, enginesToDisplay) {
   let queryCount = 0;
   const table = document.createElement("table");
   table.classList.add("table", "table-hover", "table-bordered", "w-auto");
@@ -225,7 +248,7 @@ function createCompareResultsTable(kb) {
     `;
   // Create dynamic headers and add them to the header row
   headerRow.innerHTML += "<th>Query</th>";
-  const engines = Object.keys(performanceDataPerKb[kb]);
+  const engines = enginesToDisplay;
   let engineIndexForQueriesList = 0;
   for (let i = 0; i < engines.length; i++) {
     if (performanceDataPerKb[kb][engines[i]]["queries"].length > queryCount) {

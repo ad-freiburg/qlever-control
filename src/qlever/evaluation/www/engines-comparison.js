@@ -56,7 +56,7 @@ function setListenersForEnginesComparison() {
   document.querySelector("#comparisonModal").addEventListener("shown.bs.modal", async function () {
     const kb = document.querySelector("#comparisonModal").getAttribute("data-kb");
     if (kb) {
-      await openComparisonModal(kb);
+      openComparisonModal(kb);
     }
     // Scroll to the previously selected row if user is coming back to this modal
     const activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
@@ -139,7 +139,7 @@ function handleCompareResultsClick(kb) {
  * @async
  * @param {string} kb - The selected knowledge base
  */
-async function openComparisonModal(kb) {
+function openComparisonModal(kb) {
   // Open the previously opened modal without any processing overhead if kb is the same
   if (document.querySelector("#comparisonKb").innerHTML === kb) {
     return;
@@ -154,7 +154,7 @@ async function openComparisonModal(kb) {
   select1.innerHTML = "";
   select2.innerHTML = "";
   for (let engine of sparqlEngines) {
-    await addRuntimeToPerformanceDataPerKb(kb, engine);
+    //await addRuntimeToPerformanceDataPerKb(kb, engine);
     if (performanceDataPerKb[kb].hasOwnProperty(engine) && execTreeEngines.includes(engine)) {
       select1.add(new Option(engine));
       select2.add(new Option(engine));
@@ -202,40 +202,6 @@ async function openComparisonModal(kb) {
 }
 
 /**
- * - Fetch the yaml file query logs for the selected kb and engine
- * - Add full sparql query and runtime info (including execution tree) to PerformanceDataPerKb
- *
- * @async
- * @param {string} kb - The selected knowledge base
- * @param {string} engine - The selected sparql engine
- */
-async function addRuntimeToPerformanceDataPerKb(kb, engine) {
-  let queryResult = null;
-  if (
-    performanceDataPerKb[kb][engine.toLowerCase()]?.length &&
-    !performanceDataPerKb[kb][engine.toLowerCase()][0].hasOwnProperty("Query")
-  ) {
-    const queryLog = getQueryLog(engine.toLowerCase(), kb);
-    queryResult = await getYamlData(queryLog);
-    if (!queryResult) queryResult = [];
-    if (queryResult && !execTreeEngines.includes(engine)) {
-      for (query of queryResult) {
-        if (Array.isArray(query.result) && query.result.length > 0) {
-          if (query.runtime_info.hasOwnProperty("query_execution_tree") && !execTreeEngines.includes(engine)) {
-            execTreeEngines.push(engine);
-          }
-          break;
-        }
-      }
-    }
-    for (i = 0; i < queryResult.length; i++) {
-      performanceDataPerKb[kb][engine.toLowerCase()][i]["Query"] = queryResult[i].sparql;
-      performanceDataPerKb[kb][engine.toLowerCase()][i]["Runtime"] = queryResult[i].runtime_info;
-    }
-  }
-}
-
-/**
  * Uses performanceDataPerKb object to create the engine runtime for each query comparison table
  * Gives the user the ability to selectively hide queries to reduce the clutter
  * @param  kb Name of the knowledge base for which to get engine runtimes
@@ -262,8 +228,8 @@ function createCompareResultsTable(kb) {
   const engines = Object.keys(performanceDataPerKb[kb]);
   let engineIndexForQueriesList = 0;
   for (let i = 0; i < engines.length; i++) {
-    if (performanceDataPerKb[kb][engines[i]].length > queryCount) {
-      queryCount = performanceDataPerKb[kb][engines[i]].length;
+    if (performanceDataPerKb[kb][engines[i]]["queries"].length > queryCount) {
+      queryCount = performanceDataPerKb[kb][engines[i]]["queries"].length;
       engineIndexForQueriesList = i;
     }
     headerRow.innerHTML += `<th>${engines[i]}</th>`;
@@ -282,19 +248,19 @@ function createCompareResultsTable(kb) {
         </td>
       `;
     row.style.cursor = "pointer";
-    const title = performanceDataPerKb[kb][engines[engineIndexForQueriesList]][i]["Query"];
+    const title = performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["sparql"];
     row.innerHTML += `<td title="${title}">${
-      performanceDataPerKb[kb][engines[engineIndexForQueriesList]][i]["Query ID"]
+      performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["query"]
     }</td>`;
     for (let engine of engines) {
-      const result = performanceDataPerKb[kb][engine][i];
+      const result = performanceDataPerKb[kb][engine]["queries"][i];
       if (!result) {
         row.innerHTML += "<td class='text-end'>N/A</td>";
         continue;
       }
-      let runtime = result["Total Client Time (ms)"];
-      let resultClass = result["Query Failed"] === "True" ? "bg-danger bg-opacity-25" : "";
-      let runtimeText = runtime != "" ? `${formatNumber(parseFloat(runtime) / 1000)} s` : "Failed";
+      let runtime = result.runtime_info.client_time;
+      let resultClass = result.headers.length === 0 || !Array.isArray(result.results) ? "bg-danger bg-opacity-25" : "";
+      let runtimeText = `${formatNumber(parseFloat(runtime))} s`;
       row.innerHTML += `<td  class="text-end ${resultClass}">${runtimeText}</td>`;
     }
     row.addEventListener("click", function () {

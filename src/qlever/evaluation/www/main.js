@@ -5,34 +5,35 @@
  * @param  data         metrics for each SPARQL engine for the given knowledge base
  * @return A bootstrap card displaying SPARQL Engine metrics for the given kb
  */
-function populateCard(cardTemplate, kb, data) {
+function populateCard(cardTemplate, kb) {
   const clone = document.importNode(cardTemplate.content, true);
   const cardTitle = clone.querySelector("h5");
   clone.querySelector("button").addEventListener("click", handleCompareResultsClick.bind(null, kb));
   cardTitle.innerHTML = kb[0].toUpperCase() + kb.slice(1);
   const cardBody = clone.querySelector("tbody");
 
-  data.forEach((engine) => {
+  Object.keys(performanceDataPerKb[kb]).forEach((engine) => {
+    const engineData = performanceDataPerKb[kb][engine];
     const row = document.createElement("tr");
     row.style.cursor = "pointer";
     row.addEventListener("click", handleRowClick);
     row.innerHTML = `
-            <td class="text-center">${engine.engine}</td>
-            <td class="text-end" style="padding-right:2rem">${engine.failed}%</td>
+            <td class="text-center">${engine}</td>
+            <td class="text-end" style="padding-right:2rem">${engineData.failed}%</td>
             <td class="text-end" style="padding-right:2rem">${
-              engine.avgRuntime ? formatNumber(parseFloat(engine.avgRuntime)) : "N/A"
+              formatNumber(parseFloat(engineData.avgTime))
             }</td>
             <td class="text-end" style="padding-right:2rem">${
-              engine.medianRuntime ? formatNumber(parseFloat(engine.medianRuntime)) : "N/A"
+              formatNumber(parseFloat(engineData.medianTime))
             }</td>
             <td class="text-end" style="padding-right:2rem">${
-              engine.under_1s ? formatNumber(parseFloat(engine.under_1s)) + "%" : "N/A"
+              formatNumber(parseFloat(engineData.under1s))
             }</td>
             <td class="text-end" style="padding-right:2rem">${
-              engine.between_1_to_5s ? formatNumber(parseFloat(engine.between_1_to_5s)) + "%" : "N/A"
+              formatNumber(parseFloat(engineData.between1to5s)) + "%"
             }</td>
             <td class="text-end" style="padding-right:2rem">${
-              engine.over_5s ? formatNumber(parseFloat(engine.over_5s)) + "%" : "N/A"
+              formatNumber(parseFloat(engineData.over5s)) + "%"
             }</td>
         `;
     cardBody.appendChild(row);
@@ -88,15 +89,15 @@ function getFileUrls(fileList) {
 async function fetchAndProcessFiles(fileUrls) {
   const fetchPromises = fileUrls.map(async (url) => {
     try {
-      const response = await fetch(outputUrl + url, {
+      //const content = await response.text();
+      const content = await getYamlData(url, {
         headers: {
           "Cache-Control": "no-cache",
         },
       });
-      if (!response.ok) {
+      if (content == null) {
         throw new Error(`Failed to fetch ${url}`);
       }
-      const content = await response.text();
       console.log(`File ${url} content: ${content}`);
       // Process the content as needed
       return { status: "fulfilled", value: content };
@@ -112,45 +113,21 @@ async function fetchAndProcessFiles(fileUrls) {
 }
 
 /**
- * Fetch all the relevant metrics required by
- * populateCard function and construct and display all cards with engine metrics on the main page.
- * @param  results      Array withresults from fetching eval and fail logs
- * @param  fileUrls     fileUrls array from getFileUrls function
- * @param  fragment     Document fragment to which to append the bootstrap cards
- * @param  cardTemplate cardTemplate document node
+ * Fetch all the relevant metrics required by populateCard function
+ * @param  results      Array withresults from fetching yaml file
+ * @param  fileList     fileList array from getOutputFiles function
  */
-function processAndDisplayResults(results, fileUrls, fragment, cardTemplate) {
-  sparqlEngineData = [];
-  let currentKb = fileUrls[0].split(".")[0];
-  for (let i = 0; i < results.length; i += 2) {
-    let data = {};
-    let evalUrl = fileUrls[i].split(".");
-    const kb = evalUrl[0];
-    const engine = evalUrl[1];
-    data["engine"] = engine;
+function processResults(results, fileList) {
+  for (let i = 0; i < results.length; i++) {
+    let fileNameComponents = fileList[i].split(".");
+    const kb = fileNameComponents[0];
+    const engine = fileNameComponents[1];
     if (results[i].status == "fulfilled" && results[i].value.status == "fulfilled") {
-      let evalResult = getTsvData(results[i].value.value);
-      performanceDataPerKb[kb][engine] = evalResult.data;
-      data["avgRuntime"] = evalResult.avgTime.toFixed(2);
-      data["medianRuntime"] = evalResult.medianTime.toFixed(2);
-      data["under_1s"] = evalResult.under_1s.toFixed(2);
-      data["over_5s"] = evalResult.over_5s.toFixed(2);
-      data["between_1_to_5s"] = evalResult.between_1_to_5s.toFixed(2);
-      data["failed"] = evalResult.failed.toFixed(2);
+      const queryData = results[i].value.value;
+      addQueryStatistics(queryData);
+      performanceDataPerKb[kb][engine] = queryData;
     }
-    if (results[i + 1].status == "fulfilled" && results[i + 1].value.status == "fulfilled") {
-      let failResult = getTxtData(results[i + 1].value.value);
-      data["failedQueries"] = failResult.length;
-    }
-    if (kb != currentKb) {
-      fragment.appendChild(populateCard(cardTemplate, currentKb, sparqlEngineData));
-      sparqlEngineData = [];
-      currentKb = kb;
-    }
-    sparqlEngineData.push(data);
   }
-  fragment.appendChild(populateCard(cardTemplate, currentKb, sparqlEngineData));
-  document.getElementById("cardsContainer").appendChild(fragment);
 }
 
 /**
@@ -169,7 +146,7 @@ async function getOutputFiles(url) {
     const fileList = Array.from(htmlDoc.querySelectorAll("a")).map((link) => link.textContent.trim());
     for (const file of fileList) {
       const parts = file.split(".");
-      if (parts.length === 5 && parts[2] === "queries") {
+      if (parts.length === 4 && parts[2] === "results") {
         const kb = parts[0];
         if (!kbs.includes(kb)) kbs.push(kb);
         const engine = parts[1];
@@ -274,10 +251,6 @@ async function showPageFromUrl() {
       break;
 
     case "compareExecTrees":
-      // Add runtime_info to PerformanceDataPerKb so that trees can be displayed
-      for (const engine of sparqlEngines) {
-        await addRuntimeToPerformanceDataPerKb(kb, engine);
-      }
       showModal(compareExecTreesModal, {
         "data-kb": kb,
         "data-s1": urlParams.get("s1")?.toLowerCase(),
@@ -323,11 +296,17 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const fragment = document.createDocumentFragment();
 
-    const fileUrls = getFileUrls(fileList);
+    for (let kb of kbs) {
+      performanceDataPerKb[kb.toLowerCase()] = {};
+    }
 
     // For all the tsv files in the output folder, create bootstrap card and display on main page
-    fetchAndProcessFiles(fileUrls).then(async (results) => {
-      processAndDisplayResults(results, fileUrls, fragment, cardTemplate);
+    fetchAndProcessFiles(fileList).then(async (results) => {
+      processResults(results, fileList, fragment, cardTemplate);
+      for (const kb of Object.keys(performanceDataPerKb)) {
+        fragment.appendChild(populateCard(cardTemplate, kb));
+      }
+      document.getElementById("cardsContainer").appendChild(fragment);
       $("#cardsContainer table").tablesorter({
         theme: "bootstrap",
         sortStable: true,

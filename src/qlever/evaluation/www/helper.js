@@ -70,16 +70,20 @@ function getFailLog(engine, kb) {
  * @returns {Promise<Object[]>} A promise that resolves to an array of objects parsed from the YAML file.
  * Will log an error if fetching or processing the YAML file fails.
  */
-async function getYamlData(yamlFileUrl) {
+async function getYamlData(yamlFileUrl, headers = {}) {
   // Fetch the YAML file and process its content
   try {
-    const response = await fetch(outputUrl + yamlFileUrl);
+    const response = await fetch(outputUrl + yamlFileUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${yamlFileUrl}`);
+    }
     const yamlContent = await response.text();
     // Split the content into rows
-    const data = jsyaml.loadAll(yamlContent);
+    const data = jsyaml.load(yamlContent);
     return data;
   } catch (error) {
     console.error("Error fetching or processing YAML file:", error);
+    return null;
   }
 }
 
@@ -148,6 +152,36 @@ function getTsvData(tsvContent) {
   } catch (error) {
     console.error("Error processing TSV file:", error);
   }
+}
+
+function addQueryStatistics(queryData) {
+  let runtimeArray = [];
+  let totalTime = 0;
+  let queriesUnder1s = 0;
+  let queriesOver5s = 0;
+  let failedQueries = 0;
+  for (const query of queryData.queries) {
+    let runtime = parseFloat(query.runtime_info.client_time);
+    runtimeArray.push(runtime);
+    totalTime += runtime;
+    if (query.headers.length === 0 && typeof(query.results) == "string") {
+      failedQueries++
+    }
+    else {
+      if (runtime < 1) {
+        queriesUnder1s++;
+      }
+      if (runtime > 5) {
+        queriesOver5s++;
+      }
+    }
+  }
+  queryData.avgTime = totalTime / queryData.queries.length;
+  queryData.medianTime = median(runtimeArray);
+  queryData.under1s = (queriesUnder1s / queryData.queries.length) * 100;
+  queryData.over5s = (queriesOver5s / queryData.queries.length) * 100;
+  queryData.failed = (failedQueries / queryData.queries.length) * 100;
+  queryData.between1to5s = 100 - queryData.under1s - queryData.over5s - queryData.failed;
 }
 
 /**

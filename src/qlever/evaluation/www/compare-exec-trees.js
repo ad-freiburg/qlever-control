@@ -168,11 +168,11 @@ function showCompareExecTrees(purpose, select1, select2, kb, queryIndex, idOfTre
     }
   }
   document.querySelector("#runtimeQuery").textContent =
-    "Query: " + performanceDataPerKb[kb][qlevers[0].toLowerCase()][queryIndex]["Query ID"];
+    "Query: " + performanceDataPerKb[kb][qlevers[0].toLowerCase()]["queries"][queryIndex]["query"];
   document.querySelector("#runtimeQuery").title =
-    performanceDataPerKb[kb][qlevers[0].toLowerCase()][queryIndex]["Query"];
+    performanceDataPerKb[kb][qlevers[0].toLowerCase()]["queries"][queryIndex]["sparql"];
   qlevers.forEach((engine, index) => {
-    let runtime = performanceDataPerKb[kb][engine.toLowerCase()][queryIndex]["Runtime"].query_execution_tree;
+    let runtime = performanceDataPerKb[kb][engine.toLowerCase()]["queries"][queryIndex].runtime_info.query_execution_tree;
     let treeid = "#tree" + (index + 1).toString();
     if (purpose === "modalShow" || idOfTreeToZoom === treeid) {
       document.querySelector(treeid).replaceChildren();
@@ -390,7 +390,7 @@ function generateExecutionTree(queryRow, purpose, treeid, currentFontSize) {
       .textContent.substring("SPARQL Engine - ".length)
       .toLowerCase();
     const queryIndex = document.querySelector("#queryList").querySelector(".table-active").rowIndex - 1;
-    let runtime = performanceDataPerKb[kb][engine][queryIndex]["Runtime"].query_execution_tree;
+    let runtime = performanceDataPerKb[kb][engine]["queries"][queryIndex].runtime_info.query_execution_tree;
     document.querySelector(treeid).replaceChildren();
     let tree = createExecTree(runtime, treeid);
     drawExecTree(tree, treeid, purpose, currentFontSize);
@@ -399,7 +399,7 @@ function generateExecutionTree(queryRow, purpose, treeid, currentFontSize) {
   if (!queryRow.runtime_info || !Object.hasOwn(queryRow.runtime_info, "query_execution_tree")) {
     document.getElementById("tab3Content").replaceChildren();
     document.getElementById("result-tree").replaceChildren();
-    if (queryRow.result) {
+    if (queryRow.results) {
       document
         .querySelector("#tab3Content")
         .replaceChildren(document.createTextNode("Execution tree not available for this engine!"));

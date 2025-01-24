@@ -180,10 +180,8 @@ async function openQueryDetailsModal(kb, engine, selectedQuery, tabToOpen) {
   tab1Content.querySelector(".card-title").innerHTML = "Knowledge Graph - " + kb;
 
   const tabBody = modalNode.querySelector("#queryList");
-  const queryLog = getQueryLog(engine, kb);
-  const queryResult = await getYamlData(queryLog);
+  const queryResult = performanceDataPerKb[kb][engine]["queries"];
 
-  if (!queryResult) queryResult = [];
   if (
     queryResult &&
     queryResult[0].runtime_info.hasOwnProperty("query_execution_tree") &&
@@ -232,21 +230,17 @@ async function openQueryDetailsModal(kb, engine, selectedQuery, tabToOpen) {
  */
 function createQueryTable(queryResult, kb, engine, tabBody) {
   queryResult.forEach((query, i) => {
-    performanceDataPerKb[kb][engine][i]["Query"] = query.sparql;
-    performanceDataPerKb[kb][engine][i]["Runtime"] = query.runtime_info;
     const tabRow = document.createElement("tr");
     tabRow.style.cursor = "pointer";
     tabRow.addEventListener("click", handleTabRowClick.bind(null, query));
     let runtime;
     if (query.runtime_info && Object.hasOwn(query.runtime_info, "client_time")) {
       runtime = formatNumber(query.runtime_info.client_time);
-    } else if (Number.isFinite(query.runtime_info)) {
-      runtime = formatNumber(query.runtime_info);
     } else {
       runtime = "N/A";
     }
 
-    resultClass = query.result === null || !Array.isArray(query.result) ? "bg-danger bg-opacity-25" : "";
+    resultClass = query.headers.length === 0 || !Array.isArray(query.results) ? "bg-danger bg-opacity-25" : "";
     tabRow.innerHTML = `
             <td title="${query.sparql}">${query.query}</td>
             <td class="text-end ${resultClass}">${runtime}</td>
@@ -294,7 +288,7 @@ function populateTabsFromSelectedRow(queryRow) {
   document.querySelector("#showMore").classList.replace("d-flex", "d-none");
   const showMoreCloneButton = document.querySelector("#showMoreButton").cloneNode(true);
   document.querySelector("#showMore").replaceChild(showMoreCloneButton, document.querySelector("#showMoreButton"));
-  generateHTMLTable(queryRow.result);
+  generateHTMLTable(queryRow.results);
   generateExecutionTree(queryRow);
 }
 

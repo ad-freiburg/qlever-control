@@ -28,7 +28,7 @@ SETTINGS_JSON     = { "prefixes-external": [ "\"LINESTRING(", "\"MULTIPOLYGON(",
 
 # Server settings
 [server]
-HOSTNAME                    = localhost
+HOST_NAME                   = localhost
 PORT                        = 7025
 ACCESS_TOKEN                = ${data:NAME}_%RANDOM%
 MEMORY_FOR_QUERIES          = 20G

@@ -167,12 +167,12 @@ function showCompareExecTrees(purpose, select1, select2, kb, queryIndex, idOfTre
       document.querySelector(divIds[i]).innerHTML = qlevers[i];
     }
   }
-  document.querySelector("#runtimeQuery").textContent =
-    "Query: " + performanceDataPerKb[kb][qlevers[0].toLowerCase()]["queries"][queryIndex]["query"];
-  document.querySelector("#runtimeQuery").title =
-    performanceDataPerKb[kb][qlevers[0].toLowerCase()]["queries"][queryIndex]["sparql"];
+  const queries = performanceDataPerKb[kb][qlevers[0].toLowerCase()]["queries"];
+  document.querySelector("#runtimeQuery").textContent = "Query: " + queries[queryIndex]["query"];
+  document.querySelector("#runtimeQuery").title = queries[queryIndex]["sparql"].replace(/"/g, '\\"');
   qlevers.forEach((engine, index) => {
-    let runtime = performanceDataPerKb[kb][engine.toLowerCase()]["queries"][queryIndex].runtime_info.query_execution_tree;
+    let runtime =
+      performanceDataPerKb[kb][engine.toLowerCase()]["queries"][queryIndex].runtime_info.query_execution_tree;
     let treeid = "#tree" + (index + 1).toString();
     if (purpose === "modalShow" || idOfTreeToZoom === treeid) {
       document.querySelector(treeid).replaceChildren();

@@ -99,8 +99,8 @@ function updateUrlAndState(kb, engine, selectedQuery, tab) {
   url.searchParams.set("kb", kb);
   url.searchParams.set("engine", engine);
   const state = { page: "queriesDetails", kb: kb, engine: engine };
-  selectedQuery !== null && (state.q = selectedQuery) && url.searchParams.set("q", selectedQuery);
-  tab !== null && (state.t = tab) && url.searchParams.set("t", tab);
+  selectedQuery !== null && (state.q = selectedQuery.toString()) && url.searchParams.set("q", selectedQuery.toString());
+  tab !== null && (state.t = tab.toString()) && url.searchParams.set("t", tab.toString());
   // If this page is directly opened from url, replace the null state in history stack
   if (window.history.state === null) {
     window.history.replaceState(state, "", url);
@@ -204,7 +204,7 @@ async function openQueryDetailsModal(kb, engine, selectedQuery, tabToOpen) {
   }
   document.getElementById("result-tree").replaceChildren();
 
-  createQueryTable(queryResult, kb, engine, tabBody);
+  createQueryTable(queryResult, tabBody);
   $("#runtimes-tab-pane table").tablesorter({
     theme: "bootstrap",
     sortStable: true,
@@ -234,7 +234,7 @@ async function openQueryDetailsModal(kb, engine, selectedQuery, tabToOpen) {
  * @param {string} engine - The SPARQL engine used.
  * @param {HTMLElement} tabBody - The #queryList element.
  */
-function createQueryTable(queryResult, kb, engine, tabBody) {
+function createQueryTable(queryResult, tabBody) {
   queryResult.forEach((query, i) => {
     const tabRow = document.createElement("tr");
     tabRow.style.cursor = "pointer";

@@ -5,10 +5,6 @@
  * - Selects the previously selected row again and scrolls to it when user comes back
  */
 function setListenersForEnginesComparison() {
-  document.getElementById("hideSelectedButton").addEventListener("click", hideSelectedButtonClicked);
-  document.getElementById("resetButton").addEventListener("click", resetButtonClicked);
-  document.getElementById("comparisonModal").addEventListener("hide.bs.modal", comparisonModalHidden);
-
   // Event to display compareExecTree modal with Exec tree comparison for selected engines
   document.querySelector("#compareExecTrees").addEventListener("click", (event) => {
     event.preventDefault();
@@ -39,16 +35,9 @@ function setListenersForEnginesComparison() {
         }
       }
 
-      // Open the previously opened modal without any processing overhead if kb is the same
-      if (document.querySelector("#comparisonKb").innerHTML === kb) {
-        return;
-      }
-      // Else clear the table with queries and engines runtimes before the modal is shown
-      else {
-        const tableContainer = document.getElementById("table-container");
-        tableContainer.replaceChildren();
-        document.querySelector("#comparisonKb").innerHTML = "";
-      }
+      const tableContainer = document.getElementById("table-container");
+      tableContainer.replaceChildren();
+      document.querySelector("#comparisonKb").innerHTML = "";
     }
   });
 
@@ -115,6 +104,17 @@ function compareExecutionTreesClicked() {
     alert("Please select a query from the table!");
     return;
   }
+  const kb = document.querySelector("#comparisonModal").getAttribute("data-kb");
+  const select1 = document.querySelector("#select1").value;
+  const select2 = document.querySelector("#select2").value;
+  const queryIndex = document.querySelector("#comparisonModal .table-active").rowIndex - 1;
+  if (
+    !performanceDataPerKb[kb][select1.toLowerCase()]["queries"][queryIndex] ||
+    !performanceDataPerKb[kb][select2.toLowerCase()]["queries"][queryIndex]
+  ) {
+    alert("Execution tree not available for this query for these engines!");
+    return;
+  }
   document.querySelector("#comparisonModal").setAttribute("compare-exec-clicked", true);
   const compareResultsmodal = bootstrap.Modal.getInstance(document.querySelector("#comparisonModal"));
   compareResultsmodal.hide();
@@ -142,11 +142,11 @@ function getEnginesToDisplay(kb) {
       let enginesToShow = [];
       for (const row of cardBody.querySelectorAll("tbody tr")) {
         if (row.children[0].firstElementChild.checked) {
-          enginesToShow.push(row.children[1].innerHTML.toLowerCase())
+          enginesToShow.push(row.children[1].innerHTML.toLowerCase());
         }
       }
       return enginesToShow;
-    } 
+    }
   }
 }
 
@@ -163,11 +163,6 @@ function openComparisonModal(kb) {
   const enginesToDisplay = getEnginesToDisplay(kb);
   console.log(enginesToDisplay);
 
-  // Open the previously opened modal without any processing overhead if kb is the same
-  if (document.querySelector("#comparisonKb").innerHTML === kb) {
-    return;
-  }
-
   showSpinner();
   document.querySelector("#comparisonKb").innerHTML = kb;
   const tableContainer = document.getElementById("table-container");
@@ -176,7 +171,7 @@ function openComparisonModal(kb) {
   let select2 = document.querySelector("#select2");
   select1.innerHTML = "";
   select2.innerHTML = "";
-  for (let engine of sparqlEngines) {
+  for (let engine of enginesToDisplay) {
     //await addRuntimeToPerformanceDataPerKb(kb, engine);
     if (performanceDataPerKb[kb].hasOwnProperty(engine) && execTreeEngines.includes(engine)) {
       select1.add(new Option(engine));
@@ -193,28 +188,14 @@ function openComparisonModal(kb) {
     select2.selectedIndex = 1;
   }
 
-  // If there is a previously saved state for the runtimes comparison table, fetch that and show it.
-  // Also re-attach the click event listener to all the rows that were lost when the table state was saved
-  if (comparisonTables.hasOwnProperty(kb) && comparisonTables[kb]) {
-    tableContainer.innerHTML = comparisonTables[kb];
-    const rows = tableContainer.querySelectorAll("tbody tr");
-    for (const row of rows) {
-      row.addEventListener("click", function () {
-        let activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
-        if (activeRow) activeRow.classList.remove("table-active");
-        row.classList.add("table-active");
-      });
-    }
-  } else {
-    // Create a DocumentFragment to build the table
-    const fragment = document.createDocumentFragment();
-    const table = createCompareResultsTable(kb, enginesToDisplay);
+  // Create a DocumentFragment to build the table
+  const fragment = document.createDocumentFragment();
+  const table = createCompareResultsTable(kb, enginesToDisplay);
 
-    fragment.appendChild(table);
+  fragment.appendChild(table);
 
-    // Append the table to the container in a single operation
-    tableContainer.appendChild(fragment);
-  }
+  // Append the table to the container in a single operation
+  tableContainer.appendChild(fragment);
 
   $("#table-container table").tablesorter({
     theme: "bootstrap",
@@ -238,16 +219,14 @@ function createCompareResultsTable(kb, enginesToDisplay) {
   // Create the table header row
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  headerRow.title =
-    "Click on a column to sort it in descending or ascending order. Sort multiple columns simultaneously by holding down the Shift key and clicking a second, third or even fourth column header!";
+  headerRow.title = `
+    Click on a column to sort it in descending or ascending order. 
+    Sort multiple columns simultaneously by holding down the Shift key 
+    and clicking a second, third or even fourth column header!
+  `;
 
-  headerRow.innerHTML = `
-      <th title="Select/Unselect all queries below">
-        <input id="selectAll" type="checkbox" class="form-check-input">
-      </th>
-    `;
   // Create dynamic headers and add them to the header row
-  headerRow.innerHTML += "<th>Query</th>";
+  headerRow.innerHTML = "<th>Query</th>";
   const engines = enginesToDisplay;
   let engineIndexForQueriesList = 0;
   for (let i = 0; i < engines.length; i++) {
@@ -265,13 +244,7 @@ function createCompareResultsTable(kb, enginesToDisplay) {
   const tbody = document.createElement("tbody");
   for (let i = 0; i < queryCount; i++) {
     const row = document.createElement("tr");
-    row.innerHTML = `
-        <td title="Select and click on Hide selected button to hide this query">
-          <input type="checkbox" class="form-check-input row-checkbox">
-        </td>
-      `;
-    row.style.cursor = "pointer";
-    const title = performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["sparql"];
+    const title = EscapeAttribute(performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["sparql"]);
     row.innerHTML += `<td title="${title}">${
       performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["query"]
     }</td>`;
@@ -286,98 +259,17 @@ function createCompareResultsTable(kb, enginesToDisplay) {
       let runtimeText = `${formatNumber(parseFloat(runtime))} s`;
       row.innerHTML += `<td  class="text-end ${resultClass}">${runtimeText}</td>`;
     }
-    row.addEventListener("click", function () {
-      let activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
-      if (activeRow) activeRow.classList.remove("table-active");
-      row.classList.add("table-active");
-    });
+    if (!document.querySelector("#compareExecDiv").classList.contains("d-none")) {
+      row.style.cursor = "pointer";
+      row.addEventListener("click", function () {
+        let activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
+        if (activeRow) activeRow.classList.remove("table-active");
+        row.classList.add("table-active");
+      });
+    }
     tbody.appendChild(row);
   }
   table.appendChild(tbody);
 
-  // Add event listeners for header and row checkboxes
-
-  // If the header is checked, all the rows must be checked and vice-versa
-  thead.addEventListener("change", function (event) {
-    const headerCheckbox = event.target;
-    const rowCheckboxes = tbody.querySelectorAll(".row-checkbox");
-    rowCheckboxes.forEach((checkbox) => {
-      checkbox.checked = headerCheckbox.checked;
-    });
-  });
-
-  // Update the checker status of header based on if all rows are selected or not
-  tbody.addEventListener("change", function () {
-    const headerCheckbox = thead.querySelector("#selectAll");
-    const rowCheckboxes = tbody.querySelectorAll(".row-checkbox");
-    const allChecked = Array.from(rowCheckboxes).every((checkbox) => checkbox.checked);
-    const noneChecked = Array.from(rowCheckboxes).every((checkbox) => !checkbox.checked);
-    headerCheckbox.checked = allChecked;
-    headerCheckbox.indeterminate = !allChecked && !noneChecked;
-  });
-
   return table;
-}
-
-/**
- * Hide rows in the table where checkboxes are selected.
- * Ensures the "select all" header checkbox is not checked and prevents hiding all rows.
- * Alerts the user if an attempt is made to hide all rows of the table.
- */
-function hideSelectedButtonClicked() {
-  const table = document.querySelector("#table-container table");
-  const checkboxes = table.querySelectorAll("tbody .row-checkbox:checked"); // Selected checkboxes
-  const headerCheckbox = table.querySelector("#selectAll"); // Header selectAll checkbox
-
-  if (headerCheckbox.checked) {
-    alert("Cannot hide all the rows of the table!");
-    return;
-  }
-
-  // Hide rows with checked checkboxes
-  checkboxes.forEach((checkbox) => {
-    const row = checkbox.closest("tr");
-    row.style.display = "none"; // Hide the row
-    row.classList.remove("table-active");
-  });
-
-  headerCheckbox.checked = false;
-  headerCheckbox.indeterminate = false;
-}
-
-/**
- * Reset the table to its default state.
- * Makes all rows visible, unchecks all checkboxes, and ensures the "select all" header checkbox is cleared.
- */
-function resetButtonClicked() {
-  const table = document.querySelector("#table-container table");
-  const allRows = table.querySelectorAll("tbody tr");
-  const allCheckboxes = table.querySelectorAll('input[type="checkbox"]');
-
-  // Reset all rows to be visible
-  allRows.forEach((row) => {
-    row.style.display = ""; // Make the row visible
-  });
-
-  // Uncheck all checkboxes
-  allCheckboxes.forEach((checkbox) => {
-    checkbox.checked = false;
-  });
-
-  // Reset the header checkbox
-  const headerCheckbox = table.querySelector("#selectAll");
-  if (headerCheckbox) {
-    headerCheckbox.checked = false;
-    headerCheckbox.indeterminate = false;
-  }
-}
-
-/**
- * Cache the HTML of the comparison table when the comparison modal is hidden.
- * Saves the table's current state in the `comparisonTables` object using the knowledge base (`kb`) as a key.
- */
-function comparisonModalHidden() {
-  const table = document.querySelector("#table-container table");
-  const kb = document.querySelector("#comparisonKb").innerHTML;
-  comparisonTables[kb] = table.outerHTML;
 }

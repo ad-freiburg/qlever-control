@@ -610,6 +610,8 @@ class ExampleQueriesCommand(QleverCommand):
                         except Exception as e:
                             error_msg = get_json_error_msg(e)
 
+            error_msg_for_yaml = {}
+
             # Print description, time, result in tabular form.
             if len(description) > width_query_description:
                 description = (
@@ -627,6 +629,8 @@ class ExampleQueriesCommand(QleverCommand):
                 query_times.append(time_seconds)
                 result_sizes.append(result_size)
             else:
+                for key in error_msg.keys():
+                    error_msg_for_yaml[key] = error_msg[key]
                 num_failed += 1
                 if (
                     args.width_error_message > 0
@@ -669,7 +673,9 @@ class ExampleQueriesCommand(QleverCommand):
                     else result_length
                 )
                 results_for_yaml = (
-                    error_msg if error_msg is not None else result_file
+                    error_msg_for_yaml
+                    if error_msg is not None
+                    else result_file
                 )
                 yaml_record = self.get_record_for_yaml(
                     query=description,

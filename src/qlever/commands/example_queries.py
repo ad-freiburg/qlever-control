@@ -9,6 +9,7 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from rdflib import Graph
 from ruamel.yaml import YAML
 from ruamel.yaml.scalarstring import LiteralScalarString
 from termcolor import colored
@@ -192,8 +193,7 @@ class ExampleQueriesCommand(QleverCommand):
             return query_pretty_printed.rstrip()
         except Exception:
             log.error(
-                "Failed to pretty-print query, "
-                "returning original query: {e}"
+                "Failed to pretty-print query, returning original query: {e}"
             )
             return query.rstrip()
 
@@ -207,7 +207,7 @@ class ExampleQueriesCommand(QleverCommand):
             return "UNKNOWN"
 
     @staticmethod
-    def parse_queries_file(queries_file: str) -> dict:
+    def parse_queries_file(queries_file: str) -> dict[str, list[str, str]]:
         """
         Parse a YAML file and validate its structure.
         """
@@ -226,9 +226,11 @@ class ExampleQueriesCommand(QleverCommand):
         # Validate the structure
         if not isinstance(data, dict) or "queries" not in data:
             log.error(error_msg)
+            return {}
 
         if not isinstance(data["queries"], list):
             log.error(error_msg)
+            return {}
 
         for item in data["queries"]:
             if (
@@ -237,6 +239,7 @@ class ExampleQueriesCommand(QleverCommand):
                 or "sparql" not in item
             ):
                 log.error(error_msg)
+                return {}
 
         return data
 
@@ -251,7 +254,9 @@ class ExampleQueriesCommand(QleverCommand):
         # yaml file case -> convert to tsv (description \t query)
         if queries_file is not None:
             queries_data = self.parse_queries_file(queries_file)
-            queries = queries_data["queries"]
+            queries = queries_data.get("queries")
+            if queries is None:
+                return []
             example_query_lines = [
                 f"{query['query']}\t{query['sparql']}" for query in queries
             ]
@@ -279,12 +284,21 @@ class ExampleQueriesCommand(QleverCommand):
             log.error("Cannot have both --remove-offset-and-limit and --limit")
             return False
 
+        if args.generate_output_file:
+            if args.output_basename is None or args.backend_name is None:
+                log.error(
+                    "Both --output-basename and --backend-name parameters"
+                    " must be passed when --generate-output-file is passed"
+                )
+                return False
+            args.accept = "AUTO"
+
         # If `args.accept` is `application/sparql-results+json` or
         # `application/qlever-results+json` or `AUTO`, we need `jq`.
-        if (
-            args.accept == "application/sparql-results+json"
-            or args.accept == "application/qlever-results+json"
-            or args.accept == "AUTO"
+        if args.accept in (
+            "application/sparql-results+json",
+            "application/qlever-results+json",
+            "AUTO",
         ):
             try:
                 subprocess.run(
@@ -312,6 +326,8 @@ class ExampleQueriesCommand(QleverCommand):
             not args.sparql_endpoint
             or args.sparql_endpoint.startswith("https://qlever")
         )
+        if args.generate_output_file:
+            is_qlever = is_qlever or "qlever" in args.backend_name.lower()
         if args.clear_cache == "yes" and not is_qlever:
             log.warning("Clearing the cache only works for QLever")
             args.clear_cache = "no"
@@ -346,6 +362,7 @@ class ExampleQueriesCommand(QleverCommand):
         if args.show:
             return True
 
+        # Get the example queries either from queries_file or get_queries_cmd
         example_query_lines = (
             self.get_example_queries(get_queries_cmd=get_queries_cmd)
             if args.queries_file is None
@@ -455,10 +472,22 @@ class ExampleQueriesCommand(QleverCommand):
             # queries and `application/sparql-results+json` for all others.
             accept_header = args.accept
             if accept_header == "AUTO":
-                if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
+                if query_type == "DESCRIBE":
                     accept_header = "text/turtle"
+                elif query_type == "CONSTRUCT":
+                    accept_header = (
+                        "application/qlever-results+json"
+                        if is_qlever and args.generate_output_file
+                        else "text/turtle"
+                    )
                 else:
                     accept_header = "application/sparql-results+json"
+                    if args.generate_output_file:
+                        accept_header = (
+                            "application/qlever-results+json"
+                            if is_qlever
+                            else "text/tab-separated-values"
+                        )
 
             # Launch query.
             try:
@@ -470,8 +499,7 @@ class ExampleQueriesCommand(QleverCommand):
                 )
                 log.debug(curl_cmd)
                 result_file = (
-                    f"qlever.example_queries.result."
-                    f"{abs(hash(curl_cmd))}.tmp"
+                    f"qlever.example_queries.result.{abs(hash(curl_cmd))}.tmp"
                 )
                 start_time = time.time()
                 http_code = run_curl_command(
@@ -529,7 +557,7 @@ class ExampleQueriesCommand(QleverCommand):
                         result_size = run_command(
                             f"sed 1d {result_file}", return_output=True
                         )
-                    elif args.accept == "application/qlever-results+json":
+                    elif accept_header == "application/qlever-results+json":
                         try:
                             # sed cmd to get the number between 2nd and 3rd double_quotes
                             result_size = run_command(
@@ -643,11 +671,13 @@ class ExampleQueriesCommand(QleverCommand):
                 )
                 yaml_record = self.get_record_for_yaml(
                     query=description,
-                    sparql=self.get_pretty_printed_query(query, True),
+                    sparql=self.pretty_printed_query(
+                        query, args.show_prefixes
+                    ),
                     client_time=time_seconds,
                     result=results_for_yaml,
                     result_size=result_length,
-                    is_qlever=is_qlever,
+                    accept_header=accept_header,
                 )
                 yaml_records["queries"].append(yaml_record)
 
@@ -723,7 +753,7 @@ class ExampleQueriesCommand(QleverCommand):
         client_time: float,
         result: str | dict[str, str],
         result_size: int | None,
-        is_qlever: bool,
+        accept_header: str,
     ) -> dict[str, Any]:
         """
         Construct a dictionary with query information for yaml file
@@ -743,9 +773,9 @@ class ExampleQueriesCommand(QleverCommand):
                 else result_size
             )
             headers, results = self.get_query_results(
-                result, result_size, is_qlever
+                result, result_size, accept_header
             )
-            if is_qlever:
+            if accept_header == "application/qlever-results+json":
                 runtime_info_cmd = (
                     f"jq 'if .runtimeInformation then"
                     f" .runtimeInformation else"
@@ -762,23 +792,33 @@ class ExampleQueriesCommand(QleverCommand):
         return record
 
     def get_query_results(
-        self, result_file: str, result_size: int, is_qlever: bool
+        self, result_file: str, result_size: int, accept_header: str
     ) -> tuple[list[str], list[list[str]]]:
         """
         Return headers and results as a tuple
         """
-        if not is_qlever:
+        if accept_header == "text/tab-separated-values":
             get_result_cmd = f"sed -n '1,{result_size + 1}p' {result_file}"
             results_str = run_command(get_result_cmd, return_output=True)
             results = results_str.splitlines()
             headers = [header for header in results[0].split("\t")]
             results = [result.split("\t") for result in results[1:]]
             return headers, results
-        else:
+        elif accept_header == "application/qlever-results+json":
             get_result_cmd = f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' {result_file}"
             results_str = run_command(get_result_cmd, return_output=True)
             results_json = json.loads(results_str)
             return results_json["headers"], results_json["results"]
+        else:  # text/turtle
+            graph = Graph()
+            graph.parse(result_file, format="turtle")
+            headers = ["?subject", "?predicate", "?object"]
+            results = []
+            for i, (s, p, o) in enumerate(graph):
+                if i >= result_size:
+                    break
+                results.append([str(s), str(p), str(o)])
+            return headers, results
 
     @staticmethod
     def write_query_data_to_yaml(

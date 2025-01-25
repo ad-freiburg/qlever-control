@@ -490,18 +490,18 @@ class ExampleQueriesCommand(QleverCommand):
                         )
 
             # Launch query.
+            curl_cmd = (
+                f"curl -s {sparql_endpoint}"
+                f' -w "HTTP code: %{{http_code}}\\n"'
+                f' -H "Accept: {accept_header}"'
+                f" --data-urlencode query={shlex.quote(query)}"
+            )
+            log.debug(curl_cmd)
+            result_file = (
+                f"qlever.example_queries.result.{abs(hash(curl_cmd))}.tmp"
+            )
+            start_time = time.time()
             try:
-                curl_cmd = (
-                    f"curl -s {sparql_endpoint}"
-                    f' -w "HTTP code: %{{http_code}}\\n"'
-                    f' -H "Accept: {accept_header}"'
-                    f" --data-urlencode query={shlex.quote(query)}"
-                )
-                log.debug(curl_cmd)
-                result_file = (
-                    f"qlever.example_queries.result.{abs(hash(curl_cmd))}.tmp"
-                )
-                start_time = time.time()
                 http_code = run_curl_command(
                     sparql_endpoint,
                     headers={"Accept": accept_header},
@@ -512,6 +512,7 @@ class ExampleQueriesCommand(QleverCommand):
                     time_seconds = time.time() - start_time
                     error_msg = None
                 else:
+                    time_seconds = time.time() - start_time
                     error_msg = {
                         "short": f"HTTP code: {http_code}",
                         "long": re.sub(
@@ -519,6 +520,7 @@ class ExampleQueriesCommand(QleverCommand):
                         ),
                     }
             except Exception as e:
+                time_seconds = time.time() - start_time
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
                 error_msg = {
@@ -767,6 +769,7 @@ class ExampleQueriesCommand(QleverCommand):
             results = f"{result['short']}: {result['long']}"
             headers = []
         else:
+            record["result_size"] = result_size
             result_size = (
                 MAX_RESULT_SIZE
                 if result_size > MAX_RESULT_SIZE

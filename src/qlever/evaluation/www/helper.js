@@ -4,7 +4,6 @@ var execTreeEngines = [];
 var kbs = [];
 var outputUrl = window.location.pathname.replace("www", "output");
 var performanceDataPerKb = {};
-var comparisonTables = {};
 
 var high_query_time_ms = 200;
 var very_high_query_time_ms = 1000;
@@ -30,39 +29,6 @@ function format(number) {
 }
 
 /**
- * Generates the file URL for the query log yaml based on the given SPARQL engine and knowledge base.
- *
- * @param {string} engine - The SPARQL engine (e.g., 'qlever').
- * @param {string} kb - The knowledge base (e.g., 'sp2b').
- * @returns {string} The file URL for the query log.
- */
-function getQueryLog(engine, kb) {
-  return `${kb}.${engine}.queries.executed.yml`;
-}
-
-/**
- * Generates the file URL for the eval log tsv based on the given SPARQL engine and knowledge base.
- *
- * @param {string} engine - The SPARQL engine (e.g., 'qlever').
- * @param {string} kb - The knowledge base (e.g., 'sp2b').
- * @returns {string} The file URL for the eval log.
- */
-function getEvalLog(engine, kb) {
-  return `${kb}.${engine}.queries.results.tsv`;
-}
-
-/**
- * Generates the file URL for the fail log txt based on the given SPARQL engine and knowledge base.
- *
- * @param {string} engine - The SPARQL engine (e.g., 'qlever').
- * @param {string} kb - The knowledge base (e.g., 'sp2b').
- * @returns {string} The file URL for the failure log.
- */
-function getFailLog(engine, kb) {
-  return `${kb}.${engine}.queries.fail.txt`;
-}
-
-/**
  * Fetches and processes a YAML file from a specified URL.
  *
  * @async
@@ -84,73 +50,6 @@ async function getYamlData(yamlFileUrl, headers = {}) {
   } catch (error) {
     console.error("Error fetching or processing YAML file:", error);
     return null;
-  }
-}
-
-/**
- * Processes the content of a TSV file and calculates various statistics.
- *
- * @param {string} tsvContent - The content of the TSV file as a string.
- * @returns {Object} An object containing parsed data, statistical metrics, and query performance analysis.
- * Will log an error if processing the TSV content fails.
- */
-function getTsvData(tsvContent) {
-  // Fetch the TSV file and process its content
-  try {
-    // Split the content into rows
-    const rows = tsvContent.replace(/\r/g, "").trim().split("\n");
-
-    // Parse the header row
-    const headers = rows[0].split("\t");
-
-    // Initialize an array to hold data objects
-    const data = [];
-    const result = {};
-
-    let queryTimeArray = [];
-    let totalTime = 0;
-    let queries_under_1s = 0;
-    let queries_over_5s = 0;
-    let failed_queries = 0;
-    // Iterate through the remaining rows
-    for (let i = 1; i < rows.length; i++) {
-      const values = rows[i].split("\t");
-      const entry = {};
-
-      // Create an object with headers as keys and values as values
-      for (let j = 0; j < headers.length; j++) {
-        entry[headers[j]] = values[j];
-      }
-      let query_time = parseFloat(values[2]);
-      queryTimeArray.push(query_time);
-      totalTime += query_time;
-      if (values[3] == "True") {
-        failed_queries++;
-      } else {
-        if (query_time < 1000) {
-          queries_under_1s++;
-        }
-        if (query_time > 5000) {
-          queries_over_5s++;
-        }
-      }
-
-      data.push(entry);
-    }
-
-    result.data = data; // The array of parsed data objects.
-    result.avgTime = totalTime / (rows.length - 1) / 1000; // The average query time in seconds.
-    result.medianTime = median(queryTimeArray) / 1000; //The median query time in seconds.
-    // Percentage of queries executed under 1 second.
-    result.under_1s = (queries_under_1s / (rows.length - 1)) * 100;
-    // Percentage of queries executed over 5 seconds.
-    result.over_5s = (queries_over_5s / (rows.length - 1)) * 100;
-    result.failed = (failed_queries / (rows.length - 1)) * 100; // Percentage of failed queries.
-    // Percentage of queries executed between 1 and 5 seconds.
-    result.between_1_to_5s = 100 - result.under_1s - result.over_5s - result.failed;
-    return result;
-  } catch (error) {
-    console.error("Error processing TSV file:", error);
   }
 }
 
@@ -203,6 +102,22 @@ function getTxtData(txtContent) {
   } catch (error) {
     console.error("Error processing TXT file:", error);
   }
+}
+
+/**
+ * Escape text for an attribute
+ * Source: https://stackoverflow.com/a/77873486
+ * @param {string} text
+ * @returns {string}
+ */
+function EscapeAttribute(text) {
+  return text.replace(/[&<>"']/g, match => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }[match]));
 }
 
 /**

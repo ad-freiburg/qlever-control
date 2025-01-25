@@ -248,7 +248,7 @@ function createQueryTable(queryResult, kb, engine, tabBody) {
 
     resultClass = query.headers.length === 0 || !Array.isArray(query.results) ? "bg-danger bg-opacity-25" : "";
     tabRow.innerHTML = `
-            <td title="${query.sparql}">${query.query}</td>
+            <td title="${EscapeAttribute(query.sparql)}">${query.query}</td>
             <td class="text-end ${resultClass}">${runtime}</td>
         `;
     tabBody.appendChild(tabRow);

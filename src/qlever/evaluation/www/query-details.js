@@ -294,7 +294,7 @@ function populateTabsFromSelectedRow(queryRow) {
   document.querySelector("#showMore").classList.replace("d-flex", "d-none");
   const showMoreCloneButton = document.querySelector("#showMoreButton").cloneNode(true);
   document.querySelector("#showMore").replaceChild(showMoreCloneButton, document.querySelector("#showMoreButton"));
-  generateHTMLTable(queryRow.results);
+  generateHTMLTable(queryRow);
   generateExecutionTree(queryRow);
 }
 
@@ -321,9 +321,19 @@ function showTab(tabIndex) {
  *
  * @param {string[][]} results - A 2D array representing the query results.
  */
-function generateQueryResultsTable(results) {
+function generateQueryResultsTable(results, headers) {
   const table = document.getElementById("resultsTable");
   const tableFragment = document.createDocumentFragment();
+
+  if (headers) {
+    const headerRow = document.createElement("tr");
+    for (const header of headers) {
+      const headerCell = document.createElement("th");
+      headerCell.textContent = header;
+      headerRow.appendChild(headerCell);
+    }
+    tableFragment.appendChild(headerRow);
+  }
 
   const index = results.length > 1000 ? 1000 : results.length;
   // Create table rows
@@ -383,7 +393,9 @@ function displayMoreResults(results) {
  *
  * @param {string[][] | Object} tableData - A 2D array of query results or an error message object.
  */
-function generateHTMLTable(tableData) {
+function generateHTMLTable(queryRow) {
+  const tableData = queryRow.results;
+  const headers = queryRow.headers;
   document.getElementById("resultsTable").replaceChildren();
   if (!tableData) {
     document
@@ -392,12 +404,17 @@ function generateHTMLTable(tableData) {
     return;
   }
   if (!Array.isArray(tableData)) {
-    document.getElementById("tab4Content").replaceChildren(document.createTextNode(tableData.msg));
+    document.getElementById("tab4Content").replaceChildren(document.createTextNode(tableData));
     return;
   }
   document.getElementById("tab4Content").replaceChildren();
   document.getElementById("resultsTable").replaceChildren();
-  generateQueryResultsTable(tableData);
+  const h5Text = document.createElement("h5");
+  h5Text.textContent = `${
+    queryRow.result_size
+  } results found for this query in ${queryRow.runtime_info.client_time.toPrecision(2)}s`;
+  document.getElementById("tab4Content").replaceChildren(h5Text);
+  generateQueryResultsTable(tableData, headers);
   if (1000 < tableData.length) {
     document.querySelector("#showMore").classList.replace("d-none", "d-flex");
     let remainingResults = tableData.slice(1000);

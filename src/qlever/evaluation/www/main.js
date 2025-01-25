@@ -111,6 +111,12 @@ function processResults(results, fileList) {
     if (results[i].status == "fulfilled" && results[i].value.status == "fulfilled") {
       const queryData = results[i].value.value;
       addQueryStatistics(queryData);
+      for (const query of queryData.queries) {
+        if (query.headers.length !== 0 && query.runtime_info.hasOwnProperty("query_execution_tree")) {
+          execTreeEngines.push(engine);
+          break;
+        }
+      }
       performanceDataPerKb[kb][engine] = queryData;
     }
   }

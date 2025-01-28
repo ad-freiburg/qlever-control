@@ -30,8 +30,11 @@ def get_total_file_size(patterns: list[str]) -> int:
 
 
 def run_command(
-    cmd: str, return_output: bool = False, show_output: bool = False
-) -> Optional[str]:
+    cmd: str,
+    return_output: bool = False,
+    show_output: bool = False,
+    as_pipe: bool = False,
+) -> Optional[str | subprocess.Popen]:
     """
     Run the given command and throw an exception if the exit code is non-zero.
     If `return_output` is `True`, return what the command wrote to `stdout`.
@@ -41,6 +44,7 @@ def run_command(
 
     TODO: Find the executable for `bash` in `__init__.py`.
     """
+
     subprocess_args = {
         "executable": shutil.which("bash"),
         "shell": True,
@@ -48,17 +52,21 @@ def run_command(
         "stdout": None if show_output else subprocess.PIPE,
         "stderr": subprocess.PIPE,
     }
+
+    # With `Popen`, the command runs in the current shell and a process object
+    # is returned (which can be used, e.g., to kill the process).
+    if as_pipe:
+        if return_output:
+            raise Exception("Cannot return output if `as_pipe` is `True`")
+        return subprocess.Popen(f"set -o pipefail; {cmd}", **subprocess_args)
+
+    # With `run`, the command runs in a subshell and the output is captured.
     result = subprocess.run(f"set -o pipefail; {cmd}", **subprocess_args)
+
     # If the exit code is non-zero, throw an exception. If something was
     # written to `stderr`, use that as the exception message. Otherwise, use a
     # generic message (which is also what `subprocess.run` does with
     # `check=True`).
-    # log.debug(f"Command `{cmd}` returned the following result")
-    # log.debug("")
-    # log.debug(f"exit code: {result.returncode}")
-    # log.debug(f"stdout: {result.stdout}")
-    # log.debug(f"stderr: {result.stderr}")
-    # log.debug("")
     if result.returncode != 0:
         if len(result.stderr) > 0:
             raise Exception(result.stderr.replace("\n", " ").strip())

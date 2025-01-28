@@ -207,7 +207,8 @@ class StartCommand(QleverCommand):
         start_cmd = construct_command(args)
 
         # Run the command in a container (if so desired). Otherwise run with
-        # `nohup` so that it keeps running after the shell is closed.
+        # `nohup` so that it keeps running after the shell is closed. With
+        # `--run-in-foreground`, run the server in the foreground.
         if args.system in Containerize.supported_systems():
             start_cmd = wrap_command_in_container(args, start_cmd)
         elif args.run_in_foreground:
@@ -264,7 +265,12 @@ class StartCommand(QleverCommand):
 
         # Execute the command line.
         try:
-            run_command(start_cmd)
+            process = run_command(
+                start_cmd,
+                return_output=False,
+                show_output=False,
+                as_pipe=args.run_in_foreground,
+            )
         except Exception as e:
             log.error(f"Starting the QLever server failed ({e})")
             return False
@@ -272,10 +278,16 @@ class StartCommand(QleverCommand):
         # Tail the server log until the server is ready (note that the `exec`
         # is important to make sure that the tail process is killed and not
         # just the bash process).
-        log.info(
-            f"Follow {args.name}.server-log.txt until the server is ready"
-            f" (Ctrl-C stops following the log, but not the server)"
-        )
+        if args.run_in_foreground:
+            log.info(
+                f"Follow {args.name}.server-log.txt as long as the server is"
+                f" running (Ctrl-C stops the server)"
+            )
+        else:
+            log.info(
+                f"Follow {args.name}.server-log.txt until the server is ready"
+                f" (Ctrl-C stops following the log, but NOT the server)"
+            )
         log.info("")
         tail_cmd = f"exec tail -f {args.name}.server-log.txt"
         tail_proc = subprocess.Popen(tail_cmd, shell=True)
@@ -298,7 +310,8 @@ class StartCommand(QleverCommand):
                 return False
 
         # Kill the tail process. NOTE: `tail_proc.kill()` does not work.
-        tail_proc.terminate()
+        if not args.run_in_foreground:
+            tail_proc.terminate()
 
         # Execute the warmup command.
         if args.warmup_cmd and not args.no_warmup:
@@ -308,8 +321,18 @@ class StartCommand(QleverCommand):
                 return False
 
         # Show cache stats.
-        log.info("")
-        args.detailed = False
-        args.server_url = None
-        CacheStatsCommand().execute(args)
+        if not args.run_in_foreground:
+            log.info("")
+            args.detailed = False
+            args.server_url = None
+            CacheStatsCommand().execute(args)
+
+        # With `--run-in-foreground`, wait until the server is stopped.
+        if args.run_in_foreground:
+            try:
+                process.wait()
+            except KeyboardInterrupt:
+                process.terminate()
+            tail_proc.terminate()
+
         return True

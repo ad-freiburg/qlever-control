@@ -82,7 +82,7 @@ def test_construct_command_without_if():
 
 # Tests `wrap_command_in_container`.
 @patch("qlever.commands.start.Containerize.run_in_container")
-def test_wrap_command_in_container(mock_containerize):
+def test_wrap_command_in_container(mock_run_in_container):
     # Setup args
     args = MagicMock()
     args.name = "TestName"
@@ -92,7 +92,7 @@ def test_wrap_command_in_container(mock_containerize):
     args.image = None
 
     # Mock wrap_command_in_container
-    mock_containerize.return_value = "Test_Container_Command"
+    mock_run_in_container.return_value = "Test_Container_Command"
 
     # start_cmd before construct_command(args)
     start_cmd = "Test_start_cmd"
@@ -100,7 +100,7 @@ def test_wrap_command_in_container(mock_containerize):
     result = qlever.commands.start.wrap_command_in_container(args, start_cmd)
 
     # check wrap_command_in_container was called once with correct parameters
-    mock_containerize.assert_called_once_with(
+    mock_run_in_container.assert_called_once_with(
         start_cmd,
         args.system,
         "run -d --restart=unless-stopped",
@@ -414,7 +414,8 @@ class TestStartCommand(unittest.TestCase):
 
         # Assertions
         # Ensure the server status was checked
-        mock_is_qlever_server_alive.assert_called_once_with(args.port)
+        endpoint_url = f"http://localhost:{args.port}"
+        mock_is_qlever_server_alive.assert_called_once_with(endpoint_url)
         # Check that `run_command` was called only for the `--help` check,
         # but not the actual start command
         mock_run_command.assert_called_once_with(

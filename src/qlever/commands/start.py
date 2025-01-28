@@ -227,9 +227,9 @@ class StartCommand(QleverCommand):
                 return False
 
         # Check if a QLever server is already running on this port.
-        port = args.port
-        if is_qlever_server_alive(port):
-            log.error(f"QLever server already running on port {port}")
+        endpoint_url = f"http://localhost:{args.port}"
+        if is_qlever_server_alive(endpoint_url):
+            log.error(f"QLever server already running on {endpoint_url}")
             log.info("")
             log.info(
                 "To kill the existing server, use `qlever stop` "
@@ -238,7 +238,7 @@ class StartCommand(QleverCommand):
             )
 
             # Show output of status command.
-            args.cmdline_regex = f"^ServerMain.* -p *{port}"
+            args.cmdline_regex = f"^ServerMain.* -p *{args.port}"
             log.info("")
             StatusCommand().execute(args)
             return False
@@ -279,17 +279,21 @@ class StartCommand(QleverCommand):
         log.info("")
         tail_cmd = f"exec tail -f {args.name}.server-log.txt"
         tail_proc = subprocess.Popen(tail_cmd, shell=True)
-        while not is_qlever_server_alive(port):
+        while not is_qlever_server_alive(endpoint_url):
             time.sleep(1)
 
         # Set the description for the index and text.
         access_arg = f'--data-urlencode "access-token={args.access_token}"'
         if args.description:
-            ret = set_index_description(access_arg, port, args.description)
+            ret = set_index_description(
+                access_arg, args.port, args.description
+            )
             if not ret:
                 return False
         if args.text_description:
-            ret = set_text_description(access_arg, port, args.text_description)
+            ret = set_text_description(
+                access_arg, args.port, args.text_description
+            )
             if not ret:
                 return False
 

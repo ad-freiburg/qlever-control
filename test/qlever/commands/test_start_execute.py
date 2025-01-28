@@ -81,8 +81,8 @@ def test_construct_command_without_if():
 
 
 # Tests `wrap_command_in_container`.
-@patch("qlever.commands.start.Containerize.run_in_container")
-def test_wrap_command_in_container(mock_run_in_container):
+@patch("qlever.commands.start.Containerize.containerize_command")
+def test_wrap_command_in_container(mock_containerize_command):
     # Setup args
     args = MagicMock()
     args.name = "TestName"
@@ -92,7 +92,7 @@ def test_wrap_command_in_container(mock_run_in_container):
     args.image = None
 
     # Mock wrap_command_in_container
-    mock_run_in_container.return_value = "Test_Container_Command"
+    mock_containerize_command.return_value = "Test_Container_Command"
 
     # start_cmd before construct_command(args)
     start_cmd = "Test_start_cmd"
@@ -100,7 +100,7 @@ def test_wrap_command_in_container(mock_run_in_container):
     result = qlever.commands.start.wrap_command_in_container(args, start_cmd)
 
     # check wrap_command_in_container was called once with correct parameters
-    mock_run_in_container.assert_called_once_with(
+    mock_containerize_command.assert_called_once_with(
         start_cmd,
         args.system,
         "run -d --restart=unless-stopped",
@@ -321,6 +321,7 @@ class TestStartCommand(unittest.TestCase):
         args.system = "native"
         args.show = False
         args.no_warmup = True
+        args.run_in_foreground = False
         args.timeout = True
         args.access_token = True
         args.only_pso_and_pos_permutations = True

@@ -85,6 +85,7 @@ class StopCommand(QleverCommand):
         # Check if there is a process running on the server port using psutil.
         # NOTE: On MacOS, some of the proc's returned by psutil.process_iter()
         # no longer exist when we try to access them, so we just skip them.
+        stop_process_results = []
         for proc in psutil.process_iter():
             try:
                 pinfo = proc.as_dict(
@@ -98,7 +99,9 @@ class StopCommand(QleverCommand):
                 log.info(f"Found process {pinfo['pid']} from user "
                          f"{pinfo['username']} with command line: {cmdline}")
                 log.info("")
-                return stop_process(proc, pinfo)
+                stop_process_results.append(stop_process(proc, pinfo))
+        if len(stop_process_results) > 0:
+            return all(stop_process_results)
 
         # If no matching process found, show a message and the output of the
         # status command.

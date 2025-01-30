@@ -27,7 +27,13 @@ class UiCommand(QleverCommand):
         return {
             "data": ["name"],
             "server": ["host_name", "port"],
-            "ui": ["ui_port", "ui_config", "ui_system", "ui_image", "ui_container"],
+            "ui": [
+                "ui_port",
+                "ui_config",
+                "ui_system",
+                "ui_image",
+                "ui_container",
+            ],
         }
 
     def additional_arguments(self, subparser) -> None:
@@ -35,7 +41,9 @@ class UiCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # If QLEVER_OVERRIDE_DISABLE_UI is set, this command is disabled.
-        qlever_is_running_in_container = environ.get("QLEVER_IS_RUNNING_IN_CONTAINER")
+        qlever_is_running_in_container = environ.get(
+            "QLEVER_IS_RUNNING_IN_CONTAINER"
+        )
         if qlever_is_running_in_container:
             log.error(
                 "The environment variable `QLEVER_OVERRIDE_DISABLE_UI` is set, "
@@ -67,7 +75,9 @@ class UiCommand(QleverCommand):
             f'{args.ui_config} {server_url}"'
         )
         self.show(
-            "\n".join(["Stop running containers", pull_cmd, run_cmd, exec_cmd]),
+            "\n".join(
+                ["Stop running containers", pull_cmd, run_cmd, exec_cmd]
+            ),
             only_show=args.show,
         )
         if qlever_is_running_in_container:
@@ -77,7 +87,9 @@ class UiCommand(QleverCommand):
 
         # Stop running containers.
         for container_system in Containerize.supported_systems():
-            Containerize.stop_and_remove_container(container_system, args.ui_container)
+            Containerize.stop_and_remove_container(
+                container_system, args.ui_container
+            )
 
         # Check if the UI port is already being used.
         if is_port_used(args.ui_port):

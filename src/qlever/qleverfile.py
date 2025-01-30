@@ -327,8 +327,8 @@ class Qleverfile:
         """
 
         # Read the Qleverfile.
-        defaults = {"random": "83724324hztz", "version": "01.01.01"}
-        config = ConfigParser(interpolation=ExtendedInterpolation(), defaults=defaults)
+        config = ConfigParser(interpolation=ExtendedInterpolation(),
+                              defaults=None)
         try:
             config.read(qleverfile_path)
         except Exception as e:

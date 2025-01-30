@@ -267,8 +267,6 @@ class StartCommand(QleverCommand):
         try:
             process = run_command(
                 start_cmd,
-                return_output=False,
-                show_output=False,
                 as_pipe=args.run_in_foreground,
             )
         except Exception as e:

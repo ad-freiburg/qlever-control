@@ -374,7 +374,14 @@ class TestStartCommand(unittest.TestCase):
         # Assert that run_command was called exactly twice with the
         # correct arguments in order
         mock_run_command.assert_has_calls(
-            [call(run_call_1), call(run_call_2)], any_order=False
+            [
+                call(run_call_1),
+                call(
+                    run_call_2,
+                    as_pipe=False,
+                ),
+            ],
+            any_order=False,
         )
         # Ensure execution was successful
         self.assertTrue(result)
@@ -586,6 +593,7 @@ class TestStartCommand(unittest.TestCase):
         args.description = "TestDescription"
         args.text_description = "TestTextDescription"
         args.access_token = "TestToken"
+        args.run_in_foreground = False
 
         # Mock server is not alive initially, then alive after starting
         mock_is_qlever_server_alive.side_effect = [False, True]
@@ -638,7 +646,7 @@ class TestStartCommand(unittest.TestCase):
         mock_run_command.assert_has_calls(
             [
                 call(run_call_1),
-                call(run_call_2),
+                call(run_call_2, as_pipe=False),
                 call(run_call_3),
                 call(run_call_4),
             ],

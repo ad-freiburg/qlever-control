@@ -76,7 +76,9 @@ class Qleverfile:
             "all the files of the dataset",
         )
         index_args["cat_input_files"] = arg(
-            "--cat-input-files", type=str, help="The command that produces the input"
+            "--cat-input-files",
+            type=str,
+            help="The command that produces the input",
         )
         index_args["multi_input_json"] = arg(
             "--multi-input-json",
@@ -140,7 +142,8 @@ class Qleverfile:
                 "from_text_records_and_literals",
             ],
             default="none",
-            help="Whether to also build an index for text search" "and for which texts",
+            help="Whether to also build an index for text search"
+            "and for which texts",
         )
         index_args["text_words_file"] = arg(
             "--text-words-file",
@@ -168,10 +171,13 @@ class Qleverfile:
             "--host-name",
             type=str,
             default="localhost",
-            help="The name of the host on which the server listens for " "requests",
+            help="The name of the host on which the server listens for "
+            "requests",
         )
         server_args["port"] = arg(
-            "--port", type=int, help="The port on which the server listens for requests"
+            "--port",
+            type=int,
+            help="The port on which the server listens for requests",
         )
         server_args["access_token"] = arg(
             "--access-token",
@@ -328,7 +334,9 @@ class Qleverfile:
 
         # Read the Qleverfile.
         defaults = {"random": "83724324hztz", "version": "01.01.01"}
-        config = ConfigParser(interpolation=ExtendedInterpolation(), defaults=defaults)
+        config = ConfigParser(
+            interpolation=ExtendedInterpolation(), defaults=defaults
+        )
         try:
             config.read(qleverfile_path)
         except Exception as e:

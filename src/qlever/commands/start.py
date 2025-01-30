@@ -267,7 +267,7 @@ class StartCommand(QleverCommand):
         try:
             process = run_command(
                 start_cmd,
-                as_pipe=args.run_in_foreground,
+                use_popen=args.run_in_foreground,
             )
         except Exception as e:
             log.error(f"Starting the QLever server failed ({e})")

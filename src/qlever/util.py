@@ -33,7 +33,7 @@ def run_command(
     cmd: str,
     return_output: bool = False,
     show_output: bool = False,
-    as_pipe: bool = False,
+    use_popen: bool = False,
 ) -> Optional[str | subprocess.Popen]:
     """
     Run the given command and throw an exception if the exit code is non-zero.
@@ -55,9 +55,9 @@ def run_command(
 
     # With `Popen`, the command runs in the current shell and a process object
     # is returned (which can be used, e.g., to kill the process).
-    if as_pipe:
+    if use_popen:
         if return_output:
-            raise Exception("Cannot return output if `as_pipe` is `True`")
+            raise Exception("Cannot return output if `use_popen` is `True`")
         return subprocess.Popen(f"set -o pipefail; {cmd}", **subprocess_args)
 
     # With `run`, the command runs in a subshell and the output is captured.

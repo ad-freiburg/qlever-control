@@ -378,7 +378,7 @@ class TestStartCommand(unittest.TestCase):
                 call(run_call_1),
                 call(
                     run_call_2,
-                    as_pipe=False,
+                    use_popen=False,
                 ),
             ],
             any_order=False,
@@ -646,7 +646,7 @@ class TestStartCommand(unittest.TestCase):
         mock_run_command.assert_has_calls(
             [
                 call(run_call_1),
-                call(run_call_2, as_pipe=False),
+                call(run_call_2, use_popen=False),
                 call(run_call_3),
                 call(run_call_4),
             ],

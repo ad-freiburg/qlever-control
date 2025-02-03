@@ -336,17 +336,10 @@ class Qleverfile:
         return all_args
 
     @staticmethod
-    def read(qleverfile_path):
+    def read_qleverfile(qleverfile_path):
         """
-        Read the given Qleverfile (the function assumes that it exists) and
-        return a `ConfigParser` object with all the options and their values.
-
-        NOTE: The keys have the same hierarchical structure as the keys in
-        `all_arguments()`. The Qleverfile may contain options that are not
-        defined in `all_arguments()`. They can be used as temporary variables
-        to define other options, but cannot be accessed by the commands later.
+        Read the Qleverfile using ConfigParser and return cleaned config
         """
-
         # Read the Qleverfile.
         defaults = {"random": "83724324hztz", "version": "01.01.01"}
         config = ConfigParser(
@@ -382,6 +375,22 @@ class Qleverfile:
                         log.info(e.output if hasattr(e, "output") else e)
                         exit(1)
                     config[section][option] = value
+
+        return config
+
+    @staticmethod
+    def read(qleverfile_path):
+        """
+        Read the given Qleverfile (the function assumes that it exists) and
+        return a `ConfigParser` object with all the options and their values.
+
+        NOTE: The keys have the same hierarchical structure as the keys in
+        `all_arguments()`. The Qleverfile may contain options that are not
+        defined in `all_arguments()`. They can be used as temporary variables
+        to define other options, but cannot be accessed by the commands later.
+        """
+
+        config = Qleverfile.read_qleverfile(qleverfile_path)
 
         # Make sure that all the sections are there.
         for section in ["data", "index", "server", "runtime", "ui"]:

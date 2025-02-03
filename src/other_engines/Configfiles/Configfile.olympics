@@ -1,0 +1,16 @@
+# Configfile for Olympics, use with https://github.com/ad-freiburg/qlever-control
+
+[data]
+NAME              = olympics
+BASE_URL          = https://github.com/wallscope/olympics-rdf
+GET_DATA_CMD      = curl -sLo olympics.zip -C - ${BASE_URL}/raw/master/data/olympics-nt-nodup.zip && unzip -q -o olympics.zip && rm olympics.zip
+DESCRIPTION       = 120 Years of Olympics, data from ${BASE_URL}
+
+[index]
+INPUT_FILES     = olympics.nt
+
+[server]
+PORT               = 7887
+
+[runtime]
+SYSTEM = docker

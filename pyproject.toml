@@ -28,10 +28,11 @@ Github = "https://github.com/ad-freiburg/qlever"
 [project.scripts]
 "qlever" = "qlever.qlever_main:main"
 "qlever-old" = "qlever.qlever_old:main"
+"qoxigraph" = "other_engines.main:main"
 
 [tool.setuptools]
 license-files = ["LICENSE"]
-package-data = { "qlever" = ["Qleverfiles/*"] }
+package-data = { "qlever" = ["Qleverfiles/*"], "qoxigraph" = ["Configfiles/*"] }
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

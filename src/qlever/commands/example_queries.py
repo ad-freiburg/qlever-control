@@ -17,14 +17,15 @@ from qlever.util import run_command, run_curl_command
 
 class ExampleQueriesCommand(QleverCommand):
     """
-    Class for executing the `warmup` command.
+    Class for running a given sequence of example queries and showing
+    their processing times and result sizes.
     """
 
     def __init__(self):
         pass
 
     def description(self) -> str:
-        return "Show how much of the cache is currently being used"
+        return "Run the given queries and show their processing times and result sizes"
 
     def should_have_qleverfile(self) -> bool:
         return False

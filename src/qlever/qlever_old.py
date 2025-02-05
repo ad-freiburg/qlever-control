@@ -523,7 +523,7 @@ class Actions:
             self.config["index"]["file_names"].split()
         )
         if total_file_size > 10:
-            cmdline = f"ulimit -Sn 1048576; {cmdline}"
+            cmdline = f"ulimit -Sn 524288 && {cmdline}"
 
         # If we are using Docker, run the command in a Docker container.
         # Here is how the shell script does it:

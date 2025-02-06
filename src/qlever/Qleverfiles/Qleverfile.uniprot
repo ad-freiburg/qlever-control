@@ -4,7 +4,7 @@
 # qlever index     # takes ~ 40 hours and ~ 60 GB RAM (on an AMD Ryzen 9 9950X)
 # qlever start     # starts the server (takes a few seconds)
 #
-# Install packages: sudo apt install -y libxml2-utils parallel xz-utils wget
+# Install packages: sudo apt install -y libxml2-utils raptor2-utils parallel xz-utils wget
 # Install manually: Apache Jena binaries (https://dlcdn.apache.org/jena/binaries)
 #
 # Set DATE to the date of the latest release. Build on SSD (requires ~ 7 TB

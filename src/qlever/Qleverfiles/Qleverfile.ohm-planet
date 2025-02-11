@@ -17,9 +17,11 @@ VERSION        = $$(date -r ${NAME}.pbf +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION    = OHM Planet, data from ${GET_DATA_URL} version ${VERSION} (with GeoSPARQL predicates ogc:sfContains and ogc:sfIntersects)
 
 [index]
-INPUT_FILES      = ${data:NAME}.ttl.bz2
-CAT_INPUT_FILES  = bzcat -f ${INPUT_FILES}
-SETTINGS_JSON    = { "prefixes-external": [""], "ascii-prefixes-only": false, "parallel-parsing": true, "num-triples-per-batch": 5000000 }
+INPUT_FILES        = ${data:NAME}.ttl.bz2
+CAT_INPUT_FILES    = lbzcat -n 2 ${INPUT_FILES}
+PARALLEL_PARSING   = true
+PARSER_BUFFER_SIZE = 100M
+SETTINGS_JSON      = { "num-triples-per-batch": 5000000 }
 
 [server]
 PORT                        = 7037

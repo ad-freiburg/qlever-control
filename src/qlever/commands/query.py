@@ -15,7 +15,21 @@ class QueryCommand(QleverCommand):
     """
 
     def __init__(self):
-        pass
+        self.predefined_queries = {
+            "all-predicates": (
+                "SELECT (?p AS ?predicate) (COUNT(?p) AS ?count) "
+                "WHERE { ?s ?p ?o } "
+                "GROUP BY ?p ORDER BY DESC(?count)"
+            ),
+            "all-graphs": (
+                "SELECT ?g (COUNT(?g) AS ?count) "
+                "WHERE { GRAPH ?g { ?s ?p ?o } } "
+                "GROUP BY ?g ORDER BY DESC(?count)"
+            ),
+            "ten-random-triples": (
+                "SELECT * WHERE { ?s ?p ?o } ORDER BY RAND() LIMIT 10"
+            ),
+        }
 
     def description(self) -> str:
         return "Send a query to a SPARQL endpoint"
@@ -33,6 +47,12 @@ class QueryCommand(QleverCommand):
             nargs="?",
             default="SELECT * WHERE { ?s ?p ?o } LIMIT 10",
             help="SPARQL query to send",
+        )
+        subparser.add_argument(
+            "--predefined-query",
+            type=str,
+            choices=self.predefined_queries.keys(),
+            help="Use a predefined query",
         )
         subparser.add_argument(
             "--pin-to-cache",
@@ -64,6 +84,10 @@ class QueryCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
+        # Use a predefined query if requested.
+        if args.predefined_query:
+            args.query = self.predefined_queries[args.predefined_query]
+
         # When pinning to the cache, set `send=0` and request media type
         # `application/qlever-results+json` so that we get the result size.
         # Also, we need to provide the access token.
@@ -83,7 +107,9 @@ class QueryCommand(QleverCommand):
 
         # Show what the command will do.
         sparql_endpoint = (
-            args.sparql_endpoint if args.sparql_endpoint else f"localhost:{args.port}"
+            args.sparql_endpoint
+            if args.sparql_endpoint
+            else f"localhost:{args.port}"
         )
         curl_cmd = (
             f"curl -s {sparql_endpoint}"
@@ -102,7 +128,10 @@ class QueryCommand(QleverCommand):
             time_msecs = round(1000 * (time.time() - start_time))
             if not args.no_time and args.log_level != "NO_LOG":
                 log.info("")
-                log.info(f"Query processing time (end-to-end):" f" {time_msecs:,d} ms")
+                log.info(
+                    f"Query processing time (end-to-end):"
+                    f" {time_msecs:,d} ms"
+                )
         except Exception as e:
             if args.log_level == "DEBUG":
                 traceback.print_exc()

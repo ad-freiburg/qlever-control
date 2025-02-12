@@ -4,21 +4,21 @@
 # qlever index     # ~1 hour, ~10 GB RAM, ~60 GB index size on disk
 # qlever start     # a few seconds, adjust MEMORY_FOR_QUERIES as needed
 #
-# Measured on an AMD Ryzen 9 5900X with 128 GB RAM, and NVMe SSD (04.01.2025)
+# Measured on an AMD Ryzen 9 5900X with 128 GB RAM and 1 x 4 TB NVMe (04.01.2025)
 
 [data]
 NAME           = ohm-planet
 GET_DATA_URL   = https://planet.openhistoricalmap.org/planet
 CHECK_BINARIES = osm2rdf -h > /dev/null || (echo "osm2rdf not found, make sure that it's installed and in your PATH" && exit 1)
 GET_DATA_CMD_1 = unbuffer wget -O ${NAME}.pbf $$(curl -s ${GET_DATA_URL}/state.txt) 2>&1 | tee ${NAME}.download-log.txt
-GET_DATA_CMD_2 = osm2rdf ${NAME}.pbf -o ${NAME}.ttl --source-dataset OHM --cache . --add-way-node-order --no-untagged-nodes-geometric-relations 2>&1 | tee ${NAME}.osm2rdf-log.txt
+GET_DATA_CMD_2 = osm2rdf ${NAME}.pbf -o ${NAME}.ttl --source-dataset OHM --output-compression gz --store-locations=disk-dense --cache . --num-threads 12 --add-way-node-order --no-untagged-nodes-geometric-relations 2>&1 | tee ${NAME}.osm2rdf-log.txt
 GET_DATA_CMD   = ${CHECK_BINARIES} && ${GET_DATA_CMD_1} && echo && ${GET_DATA_CMD_2}
 VERSION        = $$(date -r ${NAME}.pbf +%d.%m.%Y || echo "NO_DATE")
 DESCRIPTION    = OHM Planet, data from ${GET_DATA_URL} version ${VERSION} (with GeoSPARQL predicates ogc:sfContains and ogc:sfIntersects)
 
 [index]
-INPUT_FILES        = ${data:NAME}.ttl.bz2
-MULTI_INPUT_JSON   = { "cmd": "lbzcat -n 4 ${INPUT_FILES}", "parallel": "true" }
+INPUT_FILES        = ${data:NAME}.ttl.gz
+MULTI_INPUT_JSON   = { "cmd": "zcat ${INPUT_FILES}", "parallel": "true" }
 STXXL_MEMORY       = 5G
 PARSER_BUFFER_SIZE = 20M
 SETTINGS_JSON      = { "num-triples-per-batch": 5000000 }

@@ -167,6 +167,22 @@ class SparqlEngine(ABC):
                 '(omit the "--show" to execute it)'
             )
 
+    @staticmethod
+    def show_container_logs(log_cmd: str, active_ps: str) -> None:
+        """
+        Execute a container logs command and show the output for a given
+        active process active_ps
+        """
+        log.info(
+            f"Showing logs for {active_ps} command. Press Ctrl-C to stop "
+            f"following (will not stop the {active_ps} process)"
+        )
+
+        try:
+            run_command(log_cmd, show_output=True)
+        except Exception as e:
+            log.error(f"Cannot display container logs - {e}")
+
     def setup_config_command(self, args) -> bool:
         """
         Get a pre-configured Configfile for the given engine and config_name
@@ -235,10 +251,12 @@ class SparqlEngine(ABC):
         server_container = args.server_container
 
         log_cmd = f"{system} logs "
+
         if not args.from_beginning:
             log_cmd += f"-n {args.tail_num_lines} "
         if not args.no_follow:
             log_cmd += "-f "
+
         if Containerize().is_running(system, index_container):
             log_cmd += index_container
             active_ps = "index"
@@ -262,19 +280,7 @@ class SparqlEngine(ABC):
         if args.show:
             return True
 
-        log.info(
-            f"Showing logs for {active_ps} command. Press Ctrl-C to stop "
-            f"following (will not stop the {active_ps} process)"
-        )
-
-        # run_command(log_cmd, show_output=True)
-        subprocess.run(
-            log_cmd,
-            shell=True,
-            check=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-        )
+        self.show_container_logs(log_cmd, active_ps)
         return True
 
     @abstractmethod

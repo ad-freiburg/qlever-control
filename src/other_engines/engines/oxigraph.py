@@ -27,7 +27,7 @@ class Oxigraph(SparqlEngine):
                 "index": [
                     "input_files",
                 ],
-                "runtime": ["system", "image", "index_container"],
+                "runtime": ["system", "image", "index_container", "index_cmd"],
             }
         if command == "start":
             return {
@@ -41,23 +41,8 @@ class Oxigraph(SparqlEngine):
                     "image",
                     "server_container",
                     "index_container",
+                    "start_cmd",
                 ],
-            }
-        if command == "log":
-            return {
-                "data": ["name"],
-                "runtime": [
-                    "system",
-                    "image",
-                    "server_container",
-                    "index_container",
-                ],
-            }
-        if command == "stop":
-            return {
-                "data": ["name"],
-                "server": ["port"],
-                "runtime": ["server_container"],
             }
         raise ValueError(
             f"Couldn't fetch relevant Configfile arguments for {command}. "
@@ -69,13 +54,15 @@ class Oxigraph(SparqlEngine):
         system = args.system
         input_files = args.input_files
         index_container = args.index_container
+        run_subcommand = "run --rm"
+        if not args.run_in_foreground:
+            run_subcommand += " -d"
         index_cmd = f"load --location /index --file /index/{input_files}"
-        # index_cmd += f" > {dataset}.index-log.txt 2>&1"
         index_cmd = Containerize().containerize_command(
             cmd=index_cmd,
             container_system=system,
-            run_subcommand="run -d --rm",
-            image_name=self.image,
+            run_subcommand=run_subcommand,
+            image_name=args.image,
             container_name=index_container,
             volumes=[("$(pwd)", "/index")],
             use_bash=False,
@@ -108,11 +95,10 @@ class Oxigraph(SparqlEngine):
 
         # Run the index command.
         try:
-            log.info(
-                "Run `qoxigraph log` to see the progress of index command "
-                "after this command terminates"
-            )
             run_command(index_cmd, show_output=True)
+            if not args.run_in_foreground:
+                log_cmd = f"{system} logs -f {index_container}"
+                self.show_container_logs(log_cmd, "index")
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False
@@ -121,8 +107,8 @@ class Oxigraph(SparqlEngine):
 
     def start_command(self, args) -> bool:
         """
-        Start the server for Oxigraph (requires that you have built an index with
-        `qoxigraph index` before)
+        Start the server for Oxigraph (requires that you have built an index
+        with `qoxigraph index` before) (Runs in a container and in background)
         """
         system = args.system
         dataset = args.name
@@ -157,12 +143,15 @@ class Oxigraph(SparqlEngine):
             return False
 
         port = int(args.port)
+        run_subcommand = "run --restart=unless-stopped"
+        if not args.run_in_foreground:
+            run_subcommand += " -d"
         start_cmd = "serve-read-only --location /index --bind=0.0.0.0:7878"
         start_cmd = Containerize().containerize_command(
             cmd=start_cmd,
             container_system=system,
-            run_subcommand="run -d --restart=unless-stopped",
-            image_name=self.image,
+            run_subcommand=run_subcommand,
+            image_name=args.image,
             container_name=server_container,
             volumes=[("$(pwd)", "/index")],
             ports=[(port, 7878)],
@@ -178,15 +167,14 @@ class Oxigraph(SparqlEngine):
         try:
             run_command(start_cmd, show_output=True)
             log.info(
-                "Follow the server log by running `qoxigraph log` until "
-                "the server is ready. (Ctrl-C stops following the log, "
-                "but not the server)"
-            )
-            log.info(
                 f"Oxigraph server webapp for {dataset} will be available at "
-                f"http://localhost:{port} and the sparql endpoint for "
-                f"queries is http://localhost:{port}/query"
+                f"http://{args.host_name}:{port} and the sparql endpoint for "
+                f"queries is http://{args.host_name}:{port}/query"
             )
+            log.info("")
+            if not args.run_in_foreground:
+                log_cmd = f"{system} logs -f {server_container}"
+                self.show_container_logs(log_cmd, "server")
         except Exception as e:
             log.error(f"Starting the Oxigraph server failed: {e}")
             return False

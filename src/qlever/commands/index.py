@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import glob
 import json
-import shlex
 import re
+import shlex
 
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import get_existing_index_files, get_total_file_size, run_command
+from qlever.util import (
+    get_existing_index_files,
+    get_total_file_size,
+    run_command,
+)
 
 
 class IndexCommand(QleverCommand):
@@ -36,9 +40,11 @@ class IndexCommand(QleverCommand):
                 "settings_json",
                 "index_binary",
                 "only_pso_and_pos_permutations",
+                "ulimit",
                 "use_patterns",
                 "text_index",
                 "stxxl_memory",
+                "parser_buffer_size",
             ],
             "runtime": ["system", "image", "index_container"],
         }
@@ -48,7 +54,7 @@ class IndexCommand(QleverCommand):
             "--overwrite-existing",
             action="store_true",
             default=False,
-            help="Overwrite an existing index, think twice before using.",
+            help="Overwrite an existing index, think twice before using this",
         )
 
     # Exception for invalid JSON.
@@ -76,7 +82,8 @@ class IndexCommand(QleverCommand):
         # Check that it is an array of length at least one.
         if not isinstance(input_specs, list):
             raise self.InvalidInputJson(
-                "`MULTI_INPUT_JSON` must be a JSON array", args.multi_input_json
+                "`MULTI_INPUT_JSON` must be a JSON array",
+                args.multi_input_json,
             )
         if len(input_specs) == 0:
             raise self.InvalidInputJson(
@@ -90,13 +97,15 @@ class IndexCommand(QleverCommand):
             # Check that `input_spec` is a dictionary.
             if not isinstance(input_spec, dict):
                 raise self.InvalidInputJson(
-                    f"Element {i} in `MULTI_INPUT_JSON` must be a JSON " "object",
+                    f"Element {i} in `MULTI_INPUT_JSON` must be a JSON "
+                    "object",
                     input_spec,
                 )
             # For each `input_spec`, we must have a command.
             if "cmd" not in input_spec:
                 raise self.InvalidInputJson(
-                    f"Element {i} in `MULTI_INPUT_JSON` must contain a " "key `cmd`",
+                    f"Element {i} in `MULTI_INPUT_JSON` must contain a "
+                    "key `cmd`",
                     input_spec,
                 )
             # If the command contains a `{}` placeholder, we need a `for-each`
@@ -204,20 +213,31 @@ class IndexCommand(QleverCommand):
             index_cmd += " --only-pso-and-pos-permutations --no-patterns"
         if not args.use_patterns:
             index_cmd += " --no-patterns"
-        if args.text_index in ["from_text_records", "from_text_records_and_literals"]:
+        if args.text_index in [
+            "from_text_records",
+            "from_text_records_and_literals",
+        ]:
             index_cmd += (
-                f" -w {args.name}.wordsfile.tsv" f" -d {args.name}.docsfile.tsv"
+                f" -w {args.name}.wordsfile.tsv"
+                f" -d {args.name}.docsfile.tsv"
             )
-        if args.text_index in ["from_literals", "from_text_records_and_literals"]:
+        if args.text_index in [
+            "from_literals",
+            "from_text_records_and_literals",
+        ]:
             index_cmd += " --text-words-from-literals"
         if args.stxxl_memory:
             index_cmd += f" --stxxl-memory {args.stxxl_memory}"
+        if args.parser_buffer_size:
+            index_cmd += f" --parser-buffer-size {args.parser_buffer_size}"
         index_cmd += f" | tee {args.name}.index-log.txt"
 
         # If the total file size is larger than 10 GB, set ulimit (such that a
         # large number of open files is allowed).
         total_file_size = get_total_file_size(shlex.split(args.input_files))
-        if total_file_size > 1e10:
+        if args.ulimit is not None:
+            index_cmd = f"ulimit -Sn {args.ulimit}; {index_cmd}"
+        elif total_file_size > 1e10:
             index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
 
         # Run the command in a container (if so desired).
@@ -234,7 +254,8 @@ class IndexCommand(QleverCommand):
 
         # Command for writing the settings JSON to a file.
         settings_json_cmd = (
-            f"echo {shlex.quote(args.settings_json)} " f"> {args.name}.settings.json"
+            f"echo {shlex.quote(args.settings_json)} "
+            f"> {args.name}.settings.json"
         )
 
         # Show the command line.
@@ -279,9 +300,15 @@ class IndexCommand(QleverCommand):
             return False
 
         # Remove already existing container.
-        if args.system in Containerize.supported_systems() and args.overwrite_existing:
+        if (
+            args.system in Containerize.supported_systems()
+            and args.overwrite_existing
+        ):
             if Containerize.is_running(args.system, args.index_container):
-                log.info("Another index process is running, trying to stop " "it ...")
+                log.info(
+                    "Another index process is running, trying to stop "
+                    "it ..."
+                )
                 log.info("")
                 try:
                     run_command(f"{args.system} rm -f {args.index_container}")

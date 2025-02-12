@@ -20,7 +20,7 @@ DESCRIPTION    = OHM Planet, data from ${GET_DATA_URL} version ${VERSION} (with 
 INPUT_FILES        = ${data:NAME}.ttl.gz
 MULTI_INPUT_JSON   = { "cmd": "zcat ${INPUT_FILES}", "parallel": "true" }
 STXXL_MEMORY       = 5G
-PARSER_BUFFER_SIZE = 20M
+PARSER_BUFFER_SIZE = 50M
 SETTINGS_JSON      = { "num-triples-per-batch": 5000000 }
 
 [server]

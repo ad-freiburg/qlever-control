@@ -40,6 +40,7 @@ class IndexCommand(QleverCommand):
                 "settings_json",
                 "index_binary",
                 "only_pso_and_pos_permutations",
+                "ulimit",
                 "use_patterns",
                 "text_index",
                 "stxxl_memory",
@@ -53,7 +54,7 @@ class IndexCommand(QleverCommand):
             "--overwrite-existing",
             action="store_true",
             default=False,
-            help="Overwrite an existing index, think twice before using.",
+            help="Overwrite an existing index, think twice before using this",
         )
 
     # Exception for invalid JSON.
@@ -234,7 +235,9 @@ class IndexCommand(QleverCommand):
         # If the total file size is larger than 10 GB, set ulimit (such that a
         # large number of open files is allowed).
         total_file_size = get_total_file_size(shlex.split(args.input_files))
-        if total_file_size > 1e10:
+        if args.ulimit is not None:
+            index_cmd = f"ulimit -Sn {args.ulimit}; {index_cmd}"
+        elif total_file_size > 1e10:
             index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
 
         # Run the command in a container (if so desired).

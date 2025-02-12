@@ -105,6 +105,14 @@ class Qleverfile:
             default="{}",
             help="The `.settings.json` file for the index",
         )
+        index_args["ulimit"] = arg(
+            "--ulimit",
+            type=int,
+            default=None,
+            help="Explicitly set the limit for the maximal number of open "
+            "files (default: 1048576 when the total size of the input files "
+            "is larger than 10 GB)",
+        )
         index_args["index_binary"] = arg(
             "--index-binary",
             type=str,
@@ -121,9 +129,10 @@ class Qleverfile:
         index_args["parser_buffer_size"] = arg(
             "--parser-buffer-size",
             type=str,
-            help="Each parser thread reads the input in batches of this size"
-            "; in parallel parsing, each batch that is not the last must be "
-            "larger enough to contain then end of at least one statement",
+            help="Each parser thread reads the input in batches of this size, "
+            "and in parallel parsing, each batch that is not the last must be "
+            "large enough to contain the end of at least one statement "
+            "(default: 10M)",
         )
         index_args["only_pso_and_pos_permutations"] = arg(
             "--only-pso-and-pos-permutations",

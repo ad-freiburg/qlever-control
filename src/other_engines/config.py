@@ -23,6 +23,24 @@ def all_arguments():
         return (args, kwargs)
 
     all_args = Qleverfile.all_arguments()
+    all_args["runtime"]["index_cmd"] = arg(
+        "--run-in-foreground",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the index command in the foreground "
+            "(default: run in the background with `docker run -d`)"
+        ),
+    )
+    all_args["runtime"]["start_cmd"] = arg(
+        "--run-in-foreground",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the server in the foreground "
+            "(default: run in the background with `docker run -d`)"
+        ),
+    )
     all_args["runtime"]["system"] = arg(
         "--system",
         type=str,

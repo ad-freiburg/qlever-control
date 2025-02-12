@@ -1,0 +1,29 @@
+# Default Configfile, use with https://github.com/ad-freiburg/qlever-control
+#
+# If you have never seen a Configfile before, we recommend that you first look
+# at the example Configfiles on http://qlever.cs.uni-freiburg.de/qlever-control/
+# src/other_engines/Configfiles . Or execute `q{engine_name} setup-config <dataset>` on the
+# command line to obtain the example Configfiles for <dataset>.
+
+# As a minimum, each dataset needs a name. If you want `q{engine_name} get-data` to do
+# something meaningful, you need to define GET_DATA_CMD. Otherwise, you need to 
+# generate (or download or copy from somewhere) the input files yourself. Each
+# dataset should have a short DESCRIPTION, ideally with a date.
+[data]
+NAME         =
+GET_DATA_CMD =
+DESCRIPTION  = 
+
+# The format for INPUT_FILES should be such that `ls ${INPUT_FILES}` lists all
+# input files. 
+[index]
+INPUT_FILES     = *.ttl
+
+# The server listens on PORT. 
+[server]
+PORT         = 8888
+
+# Use SYSTEM = docker to run inside a docker container
+[runtime]
+SYSTEM = docker
+

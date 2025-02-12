@@ -14,7 +14,7 @@ from qlever.commands.query import QueryCommand
 from qlever.commands.stop import stop_container
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import get_random_string
+from qlever.util import get_random_string, run_command
 
 
 class SparqlEngine(ABC):
@@ -44,7 +44,7 @@ class SparqlEngine(ABC):
         Command description is taken from the command function docstring.
         """
         command_dict = {}
-        for name, method in inspect.getmembers(
+        for name, _ in inspect.getmembers(
             self.__class__, predicate=inspect.isfunction
         ):
             if name.endswith("_command"):
@@ -80,8 +80,33 @@ class SparqlEngine(ABC):
         subset of the names of `all_arguments` defined in configfile.py.
         Only these arguments can then be used in the respective command method.
         """
+        if command == "setup-config":
+            return {}
+
+        if command == "get-data":
+            return {"data": ["name", "get_data_cmd"], "index": ["input_files"]}
+
+        if command == "log":
+            return {
+                "data": ["name"],
+                "runtime": [
+                    "system",
+                    "image",
+                    "server_container",
+                    "index_container",
+                ],
+            }
+
+        if command == "stop":
+            return {
+                "data": ["name"],
+                "server": ["port"],
+                "runtime": ["server_container"],
+            }
+
         if command in ("example-queries", "query"):
             return {"server": ["port"]}
+
         return None
 
     def additional_arguments(self, command: str, subparser) -> None:
@@ -284,18 +309,18 @@ class SparqlEngine(ABC):
         return True
 
     @abstractmethod
-    def index_command(self) -> bool:
+    def index_command(self, args) -> bool:
         """
         Build the index for a given RDF dataset
+        (Runs in a container and in background)
         """
-        pass
 
     @abstractmethod
-    def start_command(self) -> bool:
+    def start_command(self, args) -> bool:
         """
         Start the server for given Engine
+        (Runs in a container and in background)
         """
-        pass
 
     def stop_command(self, args) -> bool:
         """
@@ -309,8 +334,7 @@ class SparqlEngine(ABC):
             return True
 
         # First check if container is running and if yes, stop and remove it
-        if stop_container(server_container):
-            return True
+        return stop_container(server_container)
 
     def example_queries_command(self, args) -> bool:
         """

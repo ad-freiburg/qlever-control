@@ -29,7 +29,7 @@ def main():
         raise Exception(
             f"Could not import module {module_path} "
             f"for engine {selected_engine}: {e}"
-        )
+        ) from e
 
     engine_class = getattr(module, engine_class_name)()
 
@@ -50,9 +50,9 @@ def main():
         log.info("")
         log.info(colored(f"Command: {command}", attrs=["bold"]))
         log.info("")
-        commandWasSuccesful = getattr(engine_class, command)(args)
+        command_successful = getattr(engine_class, command)(args)
         log.info("")
-        if not commandWasSuccesful:
+        if not command_successful:
             exit(1)
     except KeyboardInterrupt:
         log.info("")

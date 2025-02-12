@@ -17,10 +17,6 @@ class Oxigraph(SparqlEngine):
         config_args = super().get_config_arguments(command)
         if config_args is not None:
             return config_args
-        if command == "setup-config":
-            return {}
-        if command == "get-data":
-            return {"data": ["name", "get_data_cmd"], "index": ["input_files"]}
         if command == "index":
             return {
                 "data": ["name", "format"],

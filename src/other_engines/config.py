@@ -83,6 +83,7 @@ class ArgumentsManager:
             return f"{self.engine_name.lower()}.index.{name}"
         if arg_name == "server_container":
             return f"{self.engine_name.lower()}.server.{name}"
+        return None
 
     def add_subparser_for_command(
         self,
@@ -182,7 +183,7 @@ class ArgumentsManager:
         )
         if not argcomplete_enabled and not argcomplete_check_off:
             log.info("")
-            log.warn(
+            log.warning(
                 f"To enable autocompletion, run the following command, "
                 f"and consider adding it to your `.bashrc` or `.zshrc`:"
                 f"\n\n"

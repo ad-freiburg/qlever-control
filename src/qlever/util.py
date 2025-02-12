@@ -50,7 +50,7 @@ def run_command(
         "shell": True,
         "text": True,
         "stdout": None if show_output else subprocess.PIPE,
-        "stderr": subprocess.PIPE,
+        "stderr": None if show_output else subprocess.PIPE,
     }
 
     # With `Popen`, the command runs in the current shell and a process object

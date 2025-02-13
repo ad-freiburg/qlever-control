@@ -1,7 +1,7 @@
 # Qleverfile for OSM Planet, use with the QLever CLI (`pip install qlever`)
 #
 # qlever get-data  # downloads ~400 GB (ttl.bz2), ~100 B triples
-# qlever index     # ~20 hours, ~60 GB RAM, ~2 TB index size on disk
+# qlever index     # ~20 hours, ~60 GB RAM, ~1.5 TB index size on disk
 # qlever start     # a few seconds, adjust MEMORY_FOR_QUERIES as needed
 #
 # Measured on an AMD Ryzen 9 7950X with 128 GB RAM and 2 x 8 TB NVMe (04.01.2025)

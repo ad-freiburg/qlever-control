@@ -256,7 +256,7 @@ class TestIndexCommand(unittest.TestCase):
 
         # Assertions
         expected_index_cmd = (
-            f"ulimit -Sn 524288 && {args.cat_input_files} | {args.index_binary}"
+            f"ulimit -Sn 1048576; {args.cat_input_files} | {args.index_binary}"
             f" -i {args.name} -s {args.name}.settings.json"
             f" -F {args.format} -f -"
             f" | tee {args.name}.index-log.txt"

@@ -235,10 +235,8 @@ class IndexCommand(QleverCommand):
         # If the total file size is larger than 10 GB, set ulimit (such that a
         # large number of open files is allowed).
         total_file_size = get_total_file_size(shlex.split(args.input_files))
-        if args.ulimit is not None:
-            index_cmd = f"ulimit -Sn {args.ulimit}; {index_cmd}"
-        elif total_file_size > 1e10:
-            index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
+        ulimit = args.ulimit if args.ulimit is not None else 1048576
+        index_cmd = f"ulimit -Sn {ulimit} && {index_cmd}"
 
         # Run the command in a container (if so desired).
         if args.system in Containerize.supported_systems():

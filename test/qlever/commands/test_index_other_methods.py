@@ -38,9 +38,11 @@ class TestIndexCommand(unittest.TestCase):
                     "settings_json",
                     "index_binary",
                     "only_pso_and_pos_permutations",
+                    "ulimit",
                     "use_patterns",
                     "text_index",
                     "stxxl_memory",
+                    "parser_buffer_size",
                 ],
                 "runtime": ["system", "image", "index_container"],
             },
@@ -63,7 +65,7 @@ class TestIndexCommand(unittest.TestCase):
         argument_help = subparser._group_actions[-1].help
         self.assertEqual(
             argument_help,
-            "Overwrite an existing index, " "think twice before using.",
+            "Overwrite an existing index, " "think twice before using this",
         )
 
     def test_get_input_options_for_json_valid_input(self):

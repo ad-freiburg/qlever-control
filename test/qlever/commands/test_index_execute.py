@@ -41,6 +41,8 @@ class TestIndexCommand(unittest.TestCase):
         args.index_container = "test_container"
         args.image = "test_image"
         args.multi_input_json = False
+        args.ulimit = None
+        args.parser_buffer_size = None
 
         # Mock glob, get_total_file_size, get_existing_index_files,
         # run_command and containerize
@@ -238,6 +240,8 @@ class TestIndexCommand(unittest.TestCase):
         args.index_container = "test_container"
         args.image = "test_image"
         args.multi_input_json = False
+        args.ulimit = None
+        args.parser_buffer_size = None
 
         # Mock glob, get_total_file_size, get_existing_index_files,
         # run_command and containerize
@@ -336,6 +340,8 @@ class TestIndexCommand(unittest.TestCase):
         args.system = "native"
         args.settings_json = '{"example": "settings"}'
         args.show = True
+        args.ulimit = None
+        args.parser_buffer_size = None
 
         # Mock get_input_options_for_json
         mock_input_json.return_value = "test_input_stream"

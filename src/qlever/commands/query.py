@@ -77,6 +77,12 @@ class QueryCommand(QleverCommand):
             help="Accept header for the SPARQL query",
         )
         subparser.add_argument(
+            "--get",
+            action="store_true",
+            default=False,
+            help="Use GET request instead of POST",
+        )
+        subparser.add_argument(
             "--no-time",
             action="store_true",
             default=False,
@@ -111,8 +117,9 @@ class QueryCommand(QleverCommand):
             if args.sparql_endpoint
             else f"localhost:{args.port}"
         )
+        curl_args = "-Gs" if args.get else "-s"
         curl_cmd = (
-            f"curl -s {sparql_endpoint}"
+            f"curl {curl_args} {sparql_endpoint}"
             f' -H "Accept: {args.accept}"'
             f" --data-urlencode query={shlex.quote(args.query)}"
             f"{curl_cmd_additions}"

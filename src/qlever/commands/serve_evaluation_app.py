@@ -38,6 +38,15 @@ class ServeEvaluationAppCommand(QleverCommand):
             ),
         )
         subparser.add_argument(
+            "--host",
+            type=str,
+            default="localhost",
+            help=(
+                "Host where the Performance comparison webapp will be "
+                "served (Default = localhost)"
+            ),
+        )
+        subparser.add_argument(
             "--show-files-only",
             action="store_true",
             default=False,
@@ -56,7 +65,7 @@ class ServeEvaluationAppCommand(QleverCommand):
         httpd = HTTPServer(("", args.port), handler)
         log.info(
             f"Performance Comparison Web App is available at "
-            f"http://localhost:{args.port}/www"
+            f"http://{args.host}:{args.port}/www"
         )
         httpd.serve_forever()
         return True

@@ -14,7 +14,7 @@ from qlever.commands.query import QueryCommand
 from qlever.commands.stop import stop_container
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import get_random_string, run_command
+from qlever.util import run_command
 
 
 class SparqlEngine(ABC):
@@ -31,10 +31,12 @@ class SparqlEngine(ABC):
     """
 
     def __init__(self, engine_name: str) -> None:
+        self.script_name = f"q{engine_name.lower()}"
+        self.configfile_name = f"{engine_name}file"
         self.engine_name = engine_name
         self.commands = self.get_command_dict()
         self.configfiles_path = Path(__file__).parent / "Configfiles"
-        self.configfile_path = Path(f"{self.engine_name}file")
+        self.configfile_path = Path(self.configfile_name)
 
     def get_command_dict(self) -> dict[str, str]:
         """
@@ -51,7 +53,7 @@ class SparqlEngine(ABC):
                 docstring = inspect.getdoc(getattr(self.__class__, name)) or ""
                 clean_docstring = re.sub(r"\s+", " ", docstring.strip())
                 clean_docstring = clean_docstring.replace(
-                    "Configfile", f"{self.engine_name}file"
+                    "Configfile", self.configfile_name
                 )
                 command_name = name[: -len("_command")].replace("_", "-")
                 command_dict[command_name] = clean_docstring
@@ -79,6 +81,9 @@ class SparqlEngine(ABC):
         Return the arguments relevant for the passed command. This must be a
         subset of the names of `all_arguments` defined in configfile.py.
         Only these arguments can then be used in the respective command method.
+        In the respective engine implementation classes, command-specific
+        config arguments can be overriden by simply calling this super function
+        and modifying or redefining the arguments as necessary.
         """
         if command == "setup-config":
             return {}
@@ -114,6 +119,9 @@ class SparqlEngine(ABC):
         Add additional command-specific arguments (which are not in
         `configfile.all_arguments` and cannot be specified in the Configfile)
         to the given `subparser`.
+        In the respective engine implementation classes, command-specific
+        additional arguments can be extended by simply calling this super
+        function and adding arguments for more commands.
         """
         configfile_names = [
             p.name.split(".")[1]
@@ -127,8 +135,8 @@ class SparqlEngine(ABC):
                 nargs="?",
                 default="default",
                 help=(
-                    f"The name of the pre-configured {self.engine_name}"
-                    "file to create [default = default]"
+                    f"The name of the pre-configured {self.configfile_name} "
+                    "to create [default = default]"
                 ),
             )
         if command == "log":
@@ -187,7 +195,7 @@ class SparqlEngine(ABC):
         log.info("")
         if only_show:
             log.info(
-                f'You called "q{self.engine_name.lower()} ... --show", '
+                f'You called "{self.script_name} ... --show", '
                 "therefore the command is only shown, but not executed "
                 '(omit the "--show" to execute it)'
             )
@@ -216,11 +224,7 @@ class SparqlEngine(ABC):
         configfile_path = (
             self.configfiles_path / f"Configfile.{args.config_name}"
         )
-        setup_config_cmd = (
-            f"cat {configfile_path}"
-            f" | sed -E 's/(^ACCESS_TOKEN.*)/\\1_{get_random_string(12)}/'"
-        )
-        setup_config_cmd += f"> {self.engine_name}file"
+        setup_config_cmd = f"cat {configfile_path} > {self.configfile_name}"
         self.show(setup_config_cmd, only_show=args.show)
         if args.show:
             return True
@@ -228,13 +232,13 @@ class SparqlEngine(ABC):
         # If there is already a Configfile in the current directory, exit.
         if self.configfile_path.is_file():
             log.error(
-                f"`{self.engine_name}file` already exists in current directory"
+                f"`{self.configfile_name}` already exists in current directory"
             )
             log.info("")
             log.info(
-                f"If you want to create a new {self.engine_name}file using "
-                f"`q{self.engine_name.lower()} setup-config`, "
-                f"delete the existing {self.engine_name}file first"
+                f"If you want to create a new {self.configfile_name} using "
+                f"`{self.script_name} setup-config`, "
+                f"delete the existing {self.configfile_name} first"
             )
             return False
 
@@ -255,7 +259,7 @@ class SparqlEngine(ABC):
 
         # If we get here, everything went well.
         log.info(
-            f'Created {self.engine_name}file for config "{args.config_name}"'
+            f'Created {self.configfile_name} for config "{args.config_name}"'
             f" in current directory"
         )
         return True
@@ -294,8 +298,8 @@ class SparqlEngine(ABC):
         if log_cmd is None:
             log.info(
                 f"No running index or start {system} container found!"
-                f"Are you sure you called `q{self.engine_name.lower()} index` "
-                f"or `q{self.engine_name.lower()} start` "
+                f"Are you sure you called `{self.script_name} index` "
+                f"or `{self.script_name} start` "
                 "and have a process running?"
             )
             return False

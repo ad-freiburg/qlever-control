@@ -75,8 +75,8 @@ class Oxigraph(SparqlEngine):
                 log.error(f'No file matching "{pattern}" found')
                 log.info("")
                 log.info(
-                    "Did you call `qoxigraph get-data`? If you did, check "
-                    "GET_DATA_CMD and INPUT_FILES in the Oxigraphfile"
+                    f"Did you call `{self.script_name} get-data`? If you did, "
+                    "check GET_DATA_CMD and INPUT_FILES in the Oxigraphfile"
                 )
                 return False
 
@@ -104,7 +104,7 @@ class Oxigraph(SparqlEngine):
     def start_command(self, args) -> bool:
         """
         Start the server for Oxigraph (requires that you have built an index
-        with `qoxigraph index` before) (Runs in a container and in background)
+        before) (Runs in a container and in background)
         """
         system = args.system
         dataset = args.name
@@ -116,7 +116,7 @@ class Oxigraph(SparqlEngine):
             log.info(
                 f"{system} container {index_container} is still up, "
                 "which means that data loading is in progress. Please wait...\n"
-                f"Check status of {index_container} with `qoxigraph log`"
+                f"Check status of {index_container} with `{self.script_name} log`"
             )
             return False
 
@@ -124,7 +124,7 @@ class Oxigraph(SparqlEngine):
             log.info(
                 f"{system} container {server_container} exists, "
                 f"which means that server for {dataset} is already running. \n"
-                f"Stop the container {server_container} with `qoxigraph stop` "
+                f"Stop the container {server_container} with `{self.script_name} stop` "
                 "first before starting a new one."
             )
             return False
@@ -133,8 +133,8 @@ class Oxigraph(SparqlEngine):
         if len([p.name for p in Path.cwd().glob("*.sst")]) == 0:
             log.info(
                 f"No Oxigraph index files for {dataset} found! "
-                "Did you call `qoxigraph index`? If you did, check if .sst "
-                "index files are present in current working directory."
+                f"Did you call `{self.script_name} index`? If you did, check "
+                "if .sst index files are present in current working directory."
             )
             return False
 

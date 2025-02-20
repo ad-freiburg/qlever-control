@@ -148,7 +148,7 @@ class ArgumentsManager:
                         kwargs_copy["default"] = config_value
                         kwargs_copy["required"] = False
                         kwargs_copy["help"] += (
-                            f" [default, from {self.engine_name}file: "
+                            f" [default, from {self.engine.configfile_name}: "
                             f"{config_value}]"
                         )
                     else:
@@ -187,12 +187,12 @@ class ArgumentsManager:
                 f"To enable autocompletion, run the following command, "
                 f"and consider adding it to your `.bashrc` or `.zshrc`:"
                 f"\n\n"
-                f'eval "$(register-python-argcomplete q{self.engine_name.lower()})"'
+                f'eval "$(register-python-argcomplete {self.engine.script_name})"'
                 f" && export {self.engine_name.upper()}_ARGCOMPLETE_ENABLED=1"
             )
             log.info("")
 
-        configfile_path = Path(f"{self.engine_name}file")
+        configfile_path = self.engine.configfile_path
         configfile_exists = configfile_path.is_file()
 
         if configfile_exists and not autocomplete_mode:
@@ -201,7 +201,7 @@ class ArgumentsManager:
             except Exception as e:
                 log.info("")
                 log.error(
-                    f"Error parsing {self.engine_name}file `{configfile_path}`"
+                    f"Error parsing {self.engine.configfile_name} `{configfile_path}`"
                     f": {e}"
                 )
                 log.info("")
@@ -211,7 +211,7 @@ class ArgumentsManager:
 
         parser = argparse.ArgumentParser(
             description=colored(
-                f"This is the q{self.engine_name.lower()} command line tool, "
+                f"This is the {self.engine.script_name} command line tool, "
                 f"it's all you need to work with {self.engine_name} in a "
                 f"{' or '.join(Containerize.supported_systems())} "
                 "container environment",
@@ -243,7 +243,7 @@ class ArgumentsManager:
             if not configfile_exists:
                 log.warning(
                     f"Invoking command `{args.command}` without a "
-                    f"{self.engine_name}file. You have to specify all "
+                    f"{self.engine.configfile_name}. You have to specify all "
                     "required arguments on the command line. "
                     "This is possible, but not recommended."
                 )

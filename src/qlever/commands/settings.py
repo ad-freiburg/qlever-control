@@ -40,6 +40,7 @@ class SettingsCommand(QleverCommand):
             "lazy-index-scan-queue-size",
             "lazy-result-max-cache-size",
             "query-planning-budget",
+            "request-body-limit",
             "service-max-value-rows",
             "sort-estimate-cancellation-factor",
             "throw-on-unbound-variables",

@@ -19,7 +19,7 @@ class Qleverfile:
     """
 
     @staticmethod
-    def all_arguments():
+    def all_arguments(script_name: str):
         """
         Define all possible parameters. A value of `None` means that there is
         no default value.
@@ -58,7 +58,7 @@ class Qleverfile:
             "--text-description",
             type=str,
             default=None,
-            help="A concise description of the additional text data" " if any",
+            help="A concise description of the additional text data if any",
         )
         data_args["format"] = arg(
             "--format",
@@ -278,16 +278,23 @@ class Qleverfile:
             " `--no-warmup` is specified, or with `qlever warmup`)",
         )
 
+        system_choices = Containerize().supported_systems()
+        system_help = (
+            "Run commands like `index` or `start` in a container, "
+            "and which system to use"
+        )
+        if script_name == "qlever":
+            system_choices.append("native")
+            system_help = (
+                "Whether to run commands like `index` or `start` natively "
+                "or in a container, and if in a container, which system to use"
+            )
         runtime_args["system"] = arg(
             "--system",
             type=str,
-            choices=Containerize.supported_systems() + ["native"],
+            choices=system_choices,
             default="docker",
-            help=(
-                "Whether to run commands like `index` or `start` "
-                "natively or in a container, and if in a container, "
-                "which system to use"
-            ),
+            help=system_help,
         )
         runtime_args["image"] = arg(
             "--image",
@@ -298,12 +305,12 @@ class Qleverfile:
         runtime_args["index_container"] = arg(
             "--index-container",
             type=str,
-            help="The name of the container used by `qlever index`",
+            help=f"The name of the container used by `{script_name} index`",
         )
         runtime_args["server_container"] = arg(
             "--server-container",
             type=str,
-            help="The name of the container used by `qlever start`",
+            help=f"The name of the container used by `{script_name} start`",
         )
 
         ui_args["ui_port"] = arg(
@@ -343,7 +350,7 @@ class Qleverfile:
         return all_args
 
     @staticmethod
-    def read(qleverfile_path):
+    def read(qleverfile_path: Path, script_name: str):
         """
         Read the given Qleverfile (the function assumes that it exists) and
         return a `ConfigParser` object with all the options and their values.
@@ -400,11 +407,11 @@ class Qleverfile:
             name = config["data"]["name"]
             runtime = config["runtime"]
             if "server_container" not in runtime:
-                runtime["server_container"] = f"qlever.server.{name}"
+                runtime["server_container"] = f"{script_name}.server.{name}"
             if "index_container" not in runtime:
-                runtime["index_container"] = f"qlever.index.{name}"
+                runtime["index_container"] = f"{script_name}.index.{name}"
             if "ui_container" not in config["ui"]:
-                config["ui"]["ui_container"] = f"qlever.ui.{name}"
+                config["ui"]["ui_container"] = f"{script_name}.ui.{name}"
             index = config["index"]
             if "text_words_file" not in index:
                 index["text_words_file"] = f"{name}.wordsfile.tsv"

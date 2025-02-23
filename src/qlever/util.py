@@ -15,6 +15,12 @@ from typing import Optional
 from qlever.log import log
 
 
+# Helper function to turn "snake_case" into "CamelCase".
+def snake_to_camel(str):
+    # Split by _ and - and capitalize each word.
+    return "".join([w.capitalize() for w in str.replace("-", "_").split("_")])
+
+
 def get_total_file_size(patterns: list[str]) -> int:
     """
     Helper function that gets the total size of all files mathing the given
@@ -50,7 +56,7 @@ def run_command(
         "shell": True,
         "text": True,
         "stdout": None if show_output else subprocess.PIPE,
-        "stderr": subprocess.PIPE,
+        "stderr": None if show_output else subprocess.PIPE,
     }
 
     # With `Popen`, the command runs in the current shell and a process object

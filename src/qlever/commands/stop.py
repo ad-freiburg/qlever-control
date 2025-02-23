@@ -45,7 +45,7 @@ class StopCommand(QleverCommand):
         pass
 
     def description(self) -> str:
-        return "Stop QLever server for a given datasedataset or port"
+        return "Stop QLever server for a given dataset or port"
 
     def should_have_qleverfile(self) -> bool:
         return True

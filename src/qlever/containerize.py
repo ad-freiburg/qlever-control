@@ -9,7 +9,7 @@ import subprocess
 from typing import Optional
 
 from qlever.log import log
-from qlever.util import run_command, get_random_string
+from qlever.util import get_random_string, run_command
 
 
 class ContainerizeException(Exception):
@@ -40,6 +40,7 @@ class Containerize:
         volumes: list[tuple[str, str]] = [],
         ports: list[tuple[int, int]] = [],
         working_directory: Optional[str] = None,
+        use_bash: bool = True,
     ) -> str:
         """
         Get the command to run `cmd` with the given `container_system` and the
@@ -80,11 +81,15 @@ class Containerize:
             f"{volume_options}"
             f"{port_options}"
             f"{working_directory_option}"
+            f" --name {container_name}"
             f" --init"
-            f" --entrypoint bash"
-            f" --name {container_name} {image_name}"
-            f" -c {shlex.quote(cmd)}"
         )
+        if use_bash:
+            containerized_cmd += (
+                f" --entrypoint bash {image_name} -c {shlex.quote(cmd)}"
+            )
+        else:
+            containerized_cmd += f" {image_name} {cmd}"
         return containerized_cmd
 
     @staticmethod
@@ -92,7 +97,8 @@ class Containerize:
         # Note: the `{{{{` and `}}}}` result in `{{` and `}}`, respectively.
         containers = (
             run_command(
-                f'{container_system} ps --format="{{{{.Names}}}}"', return_output=True
+                f'{container_system} ps --format="{{{{.Names}}}}"',
+                return_output=True,
             )
             .strip()
             .splitlines()
@@ -100,7 +106,9 @@ class Containerize:
         return container_name in containers
 
     @staticmethod
-    def stop_and_remove_container(container_system: str, container_name: str) -> bool:
+    def stop_and_remove_container(
+        container_system: str, container_name: str
+    ) -> bool:
         """
         Stop the container with the given name using the given system. Return
         `True` if a container with that name was found and stopped, `False`

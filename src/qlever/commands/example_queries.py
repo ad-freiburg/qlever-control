@@ -101,6 +101,12 @@ class ExampleQueriesCommand(QleverCommand):
             "`application/sparql-results+json` for all others",
         )
         subparser.add_argument(
+            "--get",
+            action="store_true",
+            default=False,
+            help="Use GET request instead of POST",
+        )
+        subparser.add_argument(
             "--clear-cache",
             choices=["yes", "no"],
             default="no",
@@ -372,8 +378,9 @@ class ExampleQueriesCommand(QleverCommand):
 
             # Launch query.
             try:
+                curl_args = "-Gs" if args.get else "-s"
                 curl_cmd = (
-                    f"curl -s {sparql_endpoint}"
+                    f"curl {curl_args} {sparql_endpoint}"
                     f' -w "HTTP code: %{{http_code}}\\n"'
                     f' -H "Accept: {accept_header}"'
                     f" --data-urlencode query={shlex.quote(query)}"

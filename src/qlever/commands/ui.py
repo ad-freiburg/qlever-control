@@ -18,7 +18,7 @@ def dict_to_yaml(dictionary):
     # Custom representer for yaml, which uses the "|" style only for
     # multiline strings.
     #
-    # NOTE: We eeplace all `\r\n` with `\n` because otherwise the `|` style
+    # NOTE: We replace all `\r\n` with `\n` because otherwise the `|` style
     # does not work as expected.
     class MultiLineDumper(yaml.Dumper):
         def represent_scalar(self, tag, value, style=None):

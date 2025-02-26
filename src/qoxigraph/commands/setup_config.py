@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from configparser import RawConfigParser
 from pathlib import Path
 
 from qlever.commands import setup_config
@@ -27,11 +28,10 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
             for p in self.qleverfiles_path.glob("Qleverfile.*")
         ]
 
-    def execute(self, args) -> bool:
+    def validate_qleverfile_setup(
+        self, args, qleverfile_path: Path
+    ) -> bool | None:
         # Construct the command line and show it.
-        qleverfile_config_path = (
-            self.qleverfiles_path / f"Qleverfile.{args.config_name}"
-        )
         setup_config_show = (
             f"Creating Qleverfile for {args.config_name} using "
             f"Qleverfile.{args.config_name} file in {self.qleverfiles_path}"
@@ -41,7 +41,6 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
             return True
 
         # If there is already a Qleverfile in the current directory, exit.
-        qleverfile_path = Path("Qleverfile")
         if qleverfile_path.exists():
             log.error("`Qleverfile` already exists in current directory")
             log.info("")
@@ -51,17 +50,34 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
                 "first"
             )
             return False
+        return None
 
-        qleverfile_config = Qleverfile.filter(
+    def get_filtered_qleverfile_parser(
+        self, config_name: str
+    ) -> RawConfigParser:
+        qleverfile_config_path = (
+            self.qleverfiles_path / f"Qleverfile.{config_name}"
+        )
+        qleverfile_parser = Qleverfile.filter(
             qleverfile_config_path, self.FILTER_CRITERIA
         )
-        if qleverfile_config.has_section("runtime"):
-            qleverfile_config.set("runtime", "IMAGE", self.IMAGE)
+        if qleverfile_parser.has_section("runtime"):
+            qleverfile_parser.set("runtime", "IMAGE", self.IMAGE)
+        return qleverfile_parser
 
+    def execute(self, args) -> bool:
+        qleverfile_path = Path("Qleverfile")
+        exit_status = self.validate_qleverfile_setup(args, qleverfile_path)
+        if exit_status is not None:
+            return exit_status
+
+        qleverfile_parser = self.get_filtered_qleverfile_parser(
+            args.config_name
+        )
         # Copy the Qleverfile to the current directory.
         try:
             with qleverfile_path.open("w") as f:
-                qleverfile_config.write(f)
+                qleverfile_parser.write(f)
         except Exception as e:
             log.error(
                 f'Could not copy "{qleverfile_path}" to current directory: {e}'

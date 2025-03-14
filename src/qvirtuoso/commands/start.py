@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import glob
-import shlex
-
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import run_command
@@ -19,18 +16,11 @@ class StartCommand(start.StartCommand):
             "index for Virtuoso) (Runs in a container)"
         )
 
-    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {
-            "data": ["name", "format"],
-            "index": ["input_files",],
-            "server": ["host_name", "port"],
-            "runtime": ["system", "image", "server_container"],
-        }
-
     def execute(self, args) -> bool:
         system = args.system
         dataset = args.name
 
+        index_container = args.index_container
         server_container = args.server_container
 
         port = int(args.port)
@@ -53,17 +43,14 @@ class StartCommand(start.StartCommand):
         if args.show:
             return True
 
-        # Check if all of the input files exist.
-        for pattern in shlex.split(args.input_files):
-            if len(glob.glob(pattern)) == 0:
-                log.error(f'No file matching "{pattern}" found')
-                log.info("")
-                log.info(
-                    f"Did you call `{self.script_name} get-data`? If you did, "
-                    "check GET_DATA_CMD and INPUT_FILES in the Qleverfile"
-                )
-                return False
-        
+        if Containerize().is_running(system, index_container):
+            log.info(
+                f"{system} container {index_container} is still up, "
+                "which means that data loading is in progress. Please wait...\n"
+                f"Check status of {index_container} with `{self.script_name} log`"
+            )
+            return False
+
         if Containerize().is_running(system, server_container):
             log.info(
                 f"{system} container {server_container} exists, "
@@ -77,13 +64,9 @@ class StartCommand(start.StartCommand):
         try:
             run_command(start_cmd, show_output=True)
             log.info(
-                f"Virtuoso server webapp for {dataset} will be available at "
-                f"http://{args.host_name}:{port}"
-            )
-            log.info("")
-            log.info(
-                f"Call `{self.script_name} index` after this to build the "
-                f"index for {args.name}"
+                f"Virtuoso server webapp for {dataset} will be available "
+                f"at http://{args.host_name}:{args.port} and the sparql "
+                f"endpoint for queries is http://{args.host_name}:{args.port}/sparql"
             )
             log.info("")
             if args.run_in_foreground:

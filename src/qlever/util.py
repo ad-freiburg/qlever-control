@@ -39,6 +39,7 @@ def run_command(
     cmd: str,
     return_output: bool = False,
     show_output: bool = False,
+    show_stderr: bool = False,
     use_popen: bool = False,
 ) -> Optional[str | subprocess.Popen]:
     """
@@ -56,7 +57,7 @@ def run_command(
         "shell": True,
         "text": True,
         "stdout": None if show_output else subprocess.PIPE,
-        "stderr": None if show_output else subprocess.PIPE,
+        "stderr": None if show_stderr else subprocess.PIPE,
     }
 
     # With `Popen`, the command runs in the current shell and a process object

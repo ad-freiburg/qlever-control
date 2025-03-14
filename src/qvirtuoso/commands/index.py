@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import glob
 import shlex
+import time
+from pathlib import Path
 
+from qlever.commands.stop import stop_container
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import run_command
@@ -13,26 +16,21 @@ class IndexCommand(index.IndexCommand):
     def __init__(self):
         self.script_name = "qvirtuoso"
 
-    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {
-            "data": ["name", "format"],
-            "index": ["input_files"],
-            "server": ["host_name", "port"],
-            "runtime": ["system", "image", "server_container"],
-        }
+    def additional_arguments(self, subparser) -> None:
+        return None
 
     def execute(self, args) -> bool:
         system = args.system
         input_files = args.input_files
-        server_container = args.server_container
+        index_container = args.index_container
 
-        exec_cmd = f"{system} exec {server_container} "
-        isql_cmd = "isql 1111 "
+        run_subcommand = "run -d -e DBA_PASSWORD=dba"
+
+        exec_cmd = f"{system} exec {index_container} "
+        isql_cmd = "isql 1111 dba dba "
         ld_dir_cmd = (
             exec_cmd + isql_cmd + f"exec=\"ld_dir('.', '{input_files}', '');\""
         )
-        if not args.run_in_foreground:
-            exec_cmd = f"{system} exec -d {server_container} "
         run_cmd = (
             exec_cmd
             + 'bash -c "'
@@ -42,10 +40,20 @@ class IndexCommand(index.IndexCommand):
             + "exec='checkpoint;'\""
         )
 
-        index_cmd = f"{ld_dir_cmd}\n{run_cmd}"
+        start_cmd = Containerize().containerize_command(
+            cmd="",
+            container_system=system,
+            run_subcommand=run_subcommand,
+            image_name=args.image,
+            container_name=index_container,
+            volumes=[("$(pwd)", "/database")],
+            use_bash=False,
+        )
+
+        cmd_to_show = f"{start_cmd}\n\n{ld_dir_cmd}\n{run_cmd}"
 
         # Show the command line.
-        self.show(index_cmd, only_show=args.show)
+        self.show(cmd_to_show, only_show=args.show)
         if args.show:
             return True
 
@@ -60,45 +68,36 @@ class IndexCommand(index.IndexCommand):
                 )
                 return False
 
-        if not Containerize().is_running(system, server_container):
-            log.info(
-                f"{system} container {server_container} not found! "
-                f"Did you call `{self.script_name} start`? Virtuoso server "
-                "must be started before building an index for the dataset!"
-            )
-            return False
-
-        last_log_line_cmd = "tail -n 1 virtuoso.log"
-        if len(glob.glob("virtuoso.log")) != 0:
-            last_log_line = run_command(last_log_line_cmd, return_output=True)
-            if "Server online at 1111" not in last_log_line:
-                log.info(
-                    "Server is not yet online! Please wait... "
-                    f"Monitor server status by calling `{self.script_name} log`"
-                )
-                return False
-
         # Run the index command.
         try:
+            # Run the index container in detached mode
+            run_command(start_cmd)
+            log.info("Waiting for Virtuoso server to be online...")
+            time.sleep(5)
+            last_log_line_cmd = "tail -n 1 virtuoso.log"
+            if Path("virtuoso.log").exists():
+                start_time = time.time()
+                timeout = 60
+                last_log_line = ""
+                # Wait until the Virtuoso server is online at 1111
+                while "Server online at 1111" not in last_log_line:
+                    if time.time() - start_time > timeout:
+                        log.error(
+                            "Timed out waiting for Virtuoso to be online."
+                        )
+                        return False
+                    last_log_line = run_command(
+                        last_log_line_cmd, return_output=True
+                    )
+                    time.sleep(1)
+            # Execute the ld_dir and rdf_loader_run commands
+            log.info("Virtuoso server online! Loading data into Virtuoso...\n")
             run_command(ld_dir_cmd, show_output=True)
-            run_command(run_cmd)
-            log.info(
-                f"Virtuoso server webapp for {input_files} will be available "
-                f"at http://{args.host_name}:{args.port} and the sparql "
-                f"endpoint for queries is http://{args.host_name}:{args.port}/sparql"
-            )
+            run_command(run_cmd, show_output=True)
+            # Stop the index container as we have the indexed files in cwd
             log.info("")
-            if args.run_in_foreground:
-                log.info(
-                    "Follow the log as long as the server is"
-                    " running (Ctrl-C stops the server)"
-                )
-            else:
-                log.info(
-                    f"Run `{self.script_name} log` to see the status until the "
-                    "server is ready (Ctrl-C stops following the log, "
-                    "but NOT the server)"
-                )
+            log.info("Data loading has finished!")
+            return stop_container(index_container)
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False

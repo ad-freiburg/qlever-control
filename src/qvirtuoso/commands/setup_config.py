@@ -51,7 +51,7 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
             log.info("")
             log.info(
                 "Make sure to edit the virtuoso.ini before calling "
-                f"`{self.script_name} start`"
+                f"`{self.script_name} index`"
             )
             log.info("")
             log.info(

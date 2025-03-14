@@ -79,7 +79,7 @@ class IndexCommand(index.IndexCommand):
 
         # Run the index command.
         try:
-            run_command(index_cmd, show_output=True)
+            run_command(index_cmd, show_output=True, show_stderr=True)
             if not args.run_in_foreground:
                 log_cmd = f"{system} logs -f {index_container}"
                 log.info(

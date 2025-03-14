@@ -101,7 +101,7 @@ class StartCommand(start.StartCommand):
 
         # Run the start command.
         try:
-            run_command(start_cmd, show_output=True)
+            run_command(start_cmd, show_output=True, show_stderr=True)
             log.info(
                 f"Oxigraph server webapp for {dataset} will be available at "
                 f"http://{args.host_name}:{port} and the sparql endpoint for "

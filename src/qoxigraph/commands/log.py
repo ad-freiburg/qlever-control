@@ -68,7 +68,7 @@ class LogCommand(log_cmd.LogCommand):
         )
 
         try:
-            run_command(log_cmd, show_output=True)
+            run_command(log_cmd, show_output=True, show_stderr=True)
         except Exception as e:
             log.error(f"Cannot display container logs - {e}")
         return True

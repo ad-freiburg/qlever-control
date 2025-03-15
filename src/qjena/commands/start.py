@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command
+from qlever.util import binary_exists, is_server_alive, run_command
 
 
 class StartCommand(QleverCommand):
@@ -36,102 +38,81 @@ class StartCommand(QleverCommand):
                 "(default: run in the background)"
             ),
         )
+        subparser.add_argument(
+            "--server-binary",
+            type=str,
+            default="fuseki-server",
+            help=(
+                "The binary for starting the server (default: fuseki-server) "
+                "(this requires that you have apache-jena-fuseki installed "
+                "on your machine)"
+            ),
+        )
 
     @staticmethod
-    def is_data_loading(system: str, container: str) -> bool:
-        """
-        Check if `index` command is still running and data loading
-        is in progress
-        """
-        check_index_running_cmd = (
-            f"{system} exec {container} bash -c "
-            "\"test -f /opt/loading.flag && echo 'running' || "
-            "echo 'finished'\""
+    def wrap_cmd_in_container(args, cmd: str) -> str:
+        run_subcommand = "run --restart=unless-stopped"
+        if not args.run_in_foreground:
+            run_subcommand += " -d"
+        if not args.run_in_foreground:
+            cmd = f"{cmd} > {args.name}.server-log.txt 2>&1"
+        return Containerize().containerize_command(
+            cmd=cmd,
+            container_system=args.system,
+            run_subcommand=run_subcommand,
+            image_name=args.image,
+            container_name=args.server_container,
+            volumes=[("$(pwd)", "/opt/data")],
+            working_directory="/opt/data",
+            ports=[(args.port, args.port)],
         )
-        index_ps_running = run_command(
-            check_index_running_cmd, return_output=True
-        )
-        return index_ps_running.strip() == "running"
-
-    @staticmethod
-    def index_exists(system: str, container: str) -> bool:
-        """
-        Check if the index was built correctly and the index folder Data-0001
-        exists in /opt/index directory in the container
-        """
-        check_index_cmd = (
-            f"{system} exec {container} bash -c "
-            "\"test -d /opt/index && test -d /opt/index/Data-0001 "
-            "&& echo 'exists' || echo 'missing'\""
-        )
-        index_exists = run_command(check_index_cmd, return_output=True)
-        return index_exists.strip() == "exists"
-
-    @staticmethod
-    def is_server_alive(url: str) -> bool:
-        """
-        Check if the Jena server is already alive at the given endpoint url
-        """
-        check_server_cmd = (
-            f"curl -s {url} && echo 'alive' || echo 'not'"
-        )
-        is_server_alive = run_command(check_server_cmd, return_output=True)
-        return "alive" in is_server_alive.strip()
 
     def execute(self, args) -> bool:
-        system = args.system
-        dataset = args.name
-
-        server_container = args.server_container
-
-        port = int(args.port)
-        exec_cmd = (
-            f"{system} exec {'-d ' if not args.run_in_foreground else ''}"
-            f"{server_container} bash -c "
+        start_cmd = (
+            f"{args.server_binary} --port {args.port} --loc index /{args.name}"
         )
-        serve_cmd = (
-            '"java -jar /opt/apache-jena-fuseki/fuseki-server.jar --port 3030 '
-            f'--loc /opt/index /{args.name} > /opt/data/server.log 2>&1 &"'
-        )
-        start_cmd = exec_cmd + serve_cmd
+
+        if args.system == "native":
+            if not args.run_in_foreground:
+                start_cmd = (
+                    f"nohup {start_cmd} > {args.name}.server-log.txt 2>&1 &"
+                )
+        else:
+            start_cmd = self.wrap_cmd_in_container(args, start_cmd)
 
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
             return True
 
-        # Warn if server container not running (i.e. index not built)
-        if not Containerize().is_running(system, server_container):
-            log.error(
-                f"{system} container {server_container} does not exist! "
-                f"Did you call `{self.script_name} index`?"
-            )
-            return False
-        # Check if index process ongoing
-        if self.is_data_loading(system, server_container):
-            log.error(
-                "Data loading is in progress. Please wait...\n"
-                f"Check status of {server_container} with "
-                f"`{self.script_name} log`"
-            )
-            return False
+        # When running natively, check if the binary exists and works.
+        if args.system == "native":
+            if not binary_exists(args.server_binary, "server-binary"):
+                return False
+        else:
+            if Containerize().is_running(args.system, args.server_container):
+                log.error(
+                    f"Server container {args.server_container} already exists!\n"
+                )
+                log.info(
+                    f"To kill the existing server, use `{self.script_name} stop`"
+                )
+                return False
 
-        # Check if index folder Data-0001 missing
-        if not self.index_exists(system, server_container):
-            log.error(
-                f"Index folder Data-0001 missing in {system} container "
-                f"{server_container}! Did you call "
-                f"`{self.script_name} index`?"
-            )
-            return False
-
-        # Check and warn if server already running
-        endpoint_url = f"http://{args.host_name}:{port}"
-        server_url = f"{endpoint_url}/{args.name}/query"
-        if self.is_server_alive(server_url):
-            log.error(f"Jena server already running on {server_url}")
+        index_dir = Path("index/Data-0001")
+        if not index_dir.exists() or not any(index_dir.iterdir()):
+            log.info(f"No Jena index files for {args.name} found! ")
             log.info(
-                f"To kill the existing server, use `{self.script_name} stop` "
+                f"Did you call `{self.script_name} index`? If you did, check "
+                "if index files are present in index/Data-0001 directory"
+            )
+            return False
+
+        endpoint_url = f"http://{args.host_name}:{args.port}/{args.name}/query"
+        if is_server_alive(url=endpoint_url):
+            log.error(f"Jena server already running on {endpoint_url}\n")
+            log.info(
+                f"To kill the existing server, use `{self.script_name} stop`"
             )
             return False
 
@@ -139,9 +120,9 @@ class StartCommand(QleverCommand):
         try:
             run_command(start_cmd, show_output=True)
             log.info(
-                f"Jena server webapp for {dataset} will be available at "
-                f"{endpoint_url} and the sparql endpoint for "
-                f"queries is {server_url}"
+                f"Jena server webapp for {args.name} will be available at "
+                f"http://{args.host_name}:{args.port} and the sparql endpoint for "
+                f"queries is {endpoint_url}"
             )
             if args.run_in_foreground:
                 log.info(

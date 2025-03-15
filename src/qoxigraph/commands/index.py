@@ -7,7 +7,7 @@ from pathlib import Path
 from qlever.commands import index
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command
+from qlever.util import binary_exists, run_command
 
 
 class IndexCommand(index.IndexCommand):
@@ -17,39 +17,42 @@ class IndexCommand(index.IndexCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": [
-                "input_files",
-            ],
+            "index": ["input_files"],
             "runtime": ["system", "image", "index_container"],
         }
 
     def additional_arguments(self, subparser):
         subparser.add_argument(
-            "--run-in-foreground",
-            action="store_true",
-            default=False,
+            "--index-binary",
+            type=str,
+            default="oxigraph",
             help=(
-                "Run the index command in the foreground "
-                "(default: run in the background)"
+                "The binary for building the index (default: oxigraph) "
+                "(this requires that you have oxigraph-cli installed "
+                "on your machine)"
             ),
         )
 
-    def execute(self, args) -> bool:
-        system = args.system
-        input_files = args.input_files
-        index_container = args.index_container
-        run_subcommand = "run --rm"
-        if not args.run_in_foreground:
-            run_subcommand += " -d"
-        index_cmd = f"load --location /index --file /index/{input_files}"
-        index_cmd = Containerize().containerize_command(
-            cmd=index_cmd,
-            container_system=system,
-            run_subcommand=run_subcommand,
+    @staticmethod
+    def wrap_cmd_in_container(args, cmd: str) -> str:
+        return Containerize().containerize_command(
+            cmd=cmd,
+            container_system=args.system,
+            run_subcommand="run --rm",
             image_name=args.image,
-            container_name=index_container,
+            container_name=args.index_container,
             volumes=[("$(pwd)", "/index")],
+            working_directory="/index",
             use_bash=False,
+        )
+
+    def execute(self, args) -> bool:
+        index_cmd = f"load --location . --file {args.input_files}"
+
+        index_cmd = (
+            f"{args.index_binary} {index_cmd}"
+            if args.system == "native"
+            else self.wrap_cmd_in_container(args, index_cmd)
         )
 
         # Show the command line.
@@ -58,13 +61,25 @@ class IndexCommand(index.IndexCommand):
             return True
 
         # Check if all of the input files exist.
-        for pattern in shlex.split(input_files):
+        for pattern in shlex.split(args.input_files):
             if len(glob.glob(pattern)) == 0:
                 log.error(f'No file matching "{pattern}" found')
                 log.info("")
                 log.info(
                     f"Did you call `{self.script_name} get-data`? If you did, "
                     "check GET_DATA_CMD and INPUT_FILES in the Qleverfile"
+                )
+                return False
+
+        # When running natively, check if the binary exists and works.
+        if args.system == "native":
+            if not binary_exists(args.index_binary, "index-binary"):
+                return False
+        else:
+            if Containerize().is_running(args.system, args.index_container):
+                log.info(
+                    f"{args.system} container {args.index_container} is still up, "
+                    "which means that data loading is in progress. Please wait..."
                 )
                 return False
 
@@ -80,16 +95,6 @@ class IndexCommand(index.IndexCommand):
         # Run the index command.
         try:
             run_command(index_cmd, show_output=True, show_stderr=True)
-            if not args.run_in_foreground:
-                log_cmd = f"{system} logs -f {index_container}"
-                log.info(
-                    "Showing logs for index command. Press Ctrl-C to stop "
-                    "following (will not stop the index process)"
-                )
-                try:
-                    run_command(log_cmd, show_output=True)
-                except Exception as e:
-                    log.error(f"Cannot display container logs - {e}")
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False

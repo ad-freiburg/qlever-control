@@ -27,7 +27,9 @@ RUN if [ "${UID:-}" != "" ] && [ "${GID:-}" != "" ]; then \
     fi
 
 # Ensure the bin and fuseki folders are in PATH
-ENV PATH="/opt/apache-jena/bin:${PATH}"
+ENV JENA_HOME="/opt/apache-jena"
+ENV FUSEKI_HOME="/opt/apache-jena-fuseki"
+ENV PATH="${JENA_HOME}/bin:${FUSEKI_HOME}:${PATH}"
 
 # Make sure scripts are executable
 RUN chmod +x /opt/apache-jena/bin/*

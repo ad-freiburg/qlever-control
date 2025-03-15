@@ -5,7 +5,7 @@ from pathlib import Path
 from qlever.commands import start
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command
+from qlever.util import binary_exists, is_server_alive, run_command
 
 
 class StartCommand(start.StartCommand):
@@ -21,16 +21,8 @@ class StartCommand(start.StartCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": [
-                "host_name",
-                "port",
-            ],
-            "runtime": [
-                "system",
-                "image",
-                "server_container",
-                "index_container",
-            ],
+            "server": ["host_name", "port"],
+            "runtime": ["system", "image", "server_container"],
         }
 
     def additional_arguments(self, subparser):
@@ -43,59 +35,85 @@ class StartCommand(start.StartCommand):
                 "(default: run in the background)"
             ),
         )
+        subparser.add_argument(
+            "--server-binary",
+            type=str,
+            default="oxigraph",
+            help=(
+                "The binary for starting the server (default: oxigraph) "
+                "(this requires that you have oxigraph-cli installed "
+                "on your machine)"
+            ),
+        )
 
-    def execute(self, args) -> bool:
-        system = args.system
-        dataset = args.name
-
-        # Check if index and server container still running
-        index_container = args.index_container
-        server_container = args.server_container
-
-        port = int(args.port)
+    @staticmethod
+    def wrap_cmd_in_container(args, cmd: str) -> str:
         run_subcommand = "run --restart=unless-stopped"
         if not args.run_in_foreground:
             run_subcommand += " -d"
-        start_cmd = "serve-read-only --location /index --bind=0.0.0.0:7878"
-        start_cmd = Containerize().containerize_command(
-            cmd=start_cmd,
-            container_system=system,
+        return Containerize().containerize_command(
+            cmd=cmd,
+            container_system=args.system,
             run_subcommand=run_subcommand,
             image_name=args.image,
-            container_name=server_container,
+            container_name=args.server_container,
             volumes=[("$(pwd)", "/index")],
-            ports=[(port, 7878)],
+            ports=[(args.port, 7878)],
+            working_directory="/index",
             use_bash=False,
         )
+
+    def execute(self, args) -> bool:
+        bind = (
+            f"{args.host_name}:{args.port}"
+            if args.system == "native"
+            else "0.0.0.0:7878"
+        )
+        start_cmd = f"serve-read-only --location . --bind={bind}"
+
+        if args.system == "native":
+            start_cmd = f"{args.server_binary} {start_cmd}"
+            if not args.run_in_foreground:
+                start_cmd = (
+                    f"nohup {start_cmd} > {args.name}.server-log.txt 2>&1 &"
+                )
+        else:
+            start_cmd = self.wrap_cmd_in_container(args, start_cmd)
 
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
             return True
 
-        if Containerize().is_running(system, index_container):
-            log.info(
-                f"{system} container {index_container} is still up, "
-                "which means that data loading is in progress. Please wait...\n"
-                f"Check status of {index_container} with `{self.script_name} log`"
-            )
-            return False
+        endpoint_url = f"http://{args.host_name}:{args.port}/query"
 
-        if Containerize().is_running(system, server_container):
-            log.info(
-                f"{system} container {server_container} exists, "
-                f"which means that server for {dataset} is already running. \n"
-                f"Stop the container {server_container} with `{self.script_name} stop` "
-                "first before starting a new one."
-            )
-            return False
+        # When running natively, check if the binary exists and works.
+        if args.system == "native":
+            if not binary_exists(args.server_binary, "server-binary"):
+                return False
+        else:
+            if Containerize().is_running(args.system, args.server_container):
+                log.error(
+                    f"Server container {args.server_container} already exists!\n"
+                )
+                log.info(
+                    f"To kill the existing server, use `{self.script_name} stop`"
+                )
+                return False
 
         # Check if index files (*.sst) present in cwd
         if len([p.name for p in Path.cwd().glob("*.sst")]) == 0:
+            log.error(f"No Oxigraph index files for {args.name} found!\n")
             log.info(
-                f"No Oxigraph index files for {dataset} found! "
                 f"Did you call `{self.script_name} index`? If you did, check "
                 "if .sst index files are present in current working directory."
+            )
+            return False
+
+        if is_server_alive(url=endpoint_url):
+            log.error(f"Oxigraph server already running on {endpoint_url}\n")
+            log.info(
+                f"To kill the existing server, use `{self.script_name} stop`"
             )
             return False
 
@@ -103,9 +121,9 @@ class StartCommand(start.StartCommand):
         try:
             run_command(start_cmd, show_output=True, show_stderr=True)
             log.info(
-                f"Oxigraph server webapp for {dataset} will be available at "
-                f"http://{args.host_name}:{port} and the sparql endpoint for "
-                f"queries is http://{args.host_name}:{port}/query"
+                f"Oxigraph server webapp for {args.name} will be available at "
+                f"http://{args.host_name}:{args.port} and the sparql endpoint for "
+                f"queries is {endpoint_url}"
             )
             if args.run_in_foreground:
                 log.info(

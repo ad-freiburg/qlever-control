@@ -279,23 +279,16 @@ class Qleverfile:
             " `--no-warmup` is specified, or with `qlever warmup`)",
         )
 
-        system_choices = Containerize().supported_systems()
-        system_help = (
-            "Run commands like `index` or `start` in a container, "
-            "and which system to use"
-        )
-        if script_name == "qlever":
-            system_choices.append("native")
-            system_help = (
-                "Whether to run commands like `index` or `start` natively "
-                "or in a container, and if in a container, which system to use"
-            )
         runtime_args["system"] = arg(
             "--system",
             type=str,
-            choices=system_choices,
+            choices=Containerize.supported_systems() + ["native"],
             default="docker",
-            help=system_help,
+            help=(
+                "Whether to run commands like `index` or `start` "
+                "natively or in a container, and if in a container, "
+                "which system to use"
+            ),
         )
         runtime_args["image"] = arg(
             "--image",

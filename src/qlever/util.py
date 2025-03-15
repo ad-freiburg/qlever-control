@@ -249,3 +249,32 @@ def format_size(bytes, suffix="B"):
         if bytes < factor:
             return f"{bytes:.2f} {unit}{suffix}"
         bytes /= factor
+
+
+def binary_exists(binary: str, cmd_arg: str) -> bool:
+    """
+    When a command is run natively, check if the binary exists on the system
+    """
+    try:
+        run_command(f"{binary} --help")
+        return True
+    except Exception as e:
+        log.error(
+            f'Running "{binary}" failed, '
+            f"set `--{cmd_arg}` to a different binary or "
+            f"set `--system to a container system`"
+        )
+        log.info("")
+        log.info(f"The error message was: {e}")
+        return False
+
+
+def is_server_alive(url: str) -> bool:
+        """
+        Check if the server is already alive at the given endpoint url
+        """
+        check_server_cmd = (
+            f"curl -s {url} && echo 'alive' || echo 'not'"
+        )
+        is_server_alive = run_command(check_server_cmd, return_output=True)
+        return "alive" in is_server_alive.strip()

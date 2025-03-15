@@ -13,7 +13,7 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
 
     FILTER_CRITERIA = {
         "data": [],
-        "index": ["INPUT_FILES", "CAT_INPUT_FILES"],
+        "index": ["INPUT_FILES"],
         "server": ["PORT"],
         "runtime": ["SYSTEM", "IMAGE"],
         "ui": ["UI_CONFIG"],

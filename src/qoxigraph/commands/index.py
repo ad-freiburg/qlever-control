@@ -4,15 +4,21 @@ import glob
 import shlex
 from pathlib import Path
 
-from qlever.commands import index
+from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import binary_exists, run_command
 
 
-class IndexCommand(index.IndexCommand):
+class IndexCommand(QleverCommand):
     def __init__(self):
         self.script_name = "qoxigraph"
+
+    def description(self) -> str:
+        return "Build the index for a given RDF dataset"
+
+    def should_have_qleverfile(self) -> bool:
+        return True
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
@@ -48,6 +54,7 @@ class IndexCommand(index.IndexCommand):
 
     def execute(self, args) -> bool:
         index_cmd = f"load --location . --file {args.input_files}"
+        index_cmd += f" |& tee {args.name}.index-log.txt"
 
         index_cmd = (
             f"{args.index_binary} {index_cmd}"

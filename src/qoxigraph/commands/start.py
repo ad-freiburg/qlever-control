@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from qlever.commands import start
+from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import binary_exists, is_server_alive, run_command
 
 
-class StartCommand(start.StartCommand):
+class StartCommand(QleverCommand):
     def __init__(self):
         self.script_name = "qoxigraph"
 
@@ -17,6 +17,9 @@ class StartCommand(start.StartCommand):
             "Start the server for Oxigraph (requires that you have built an "
             "index before) (Runs in a container)"
         )
+
+    def should_have_qleverfile(self) -> bool:
+        return True
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {

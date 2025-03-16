@@ -7,6 +7,11 @@ from qoxigraph.commands.status import StatusCommand
 
 
 class StopCommand(QleverCommand):
+    # Override this with StatusCommand from child class for execute
+    # method to work as intended
+    STATUS_COMMAND = StatusCommand()
+    DEFAULT_REGEX = "oxigraph\\s+serve-read-only.*:%%PORT%%"
+
     def __init__(self):
         pass
 
@@ -26,7 +31,7 @@ class StopCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
             "--cmdline-regex",
-            default="oxigraph\\s+serve-read-only.*:%%PORT%%",
+            default=self.DEFAULT_REGEX,
             help="Show only processes where the command "
             "line matches this regex",
         )
@@ -55,7 +60,7 @@ class StopCommand(QleverCommand):
             # If no matching process found, show a message and the output of the
             # status command.
             log.error("No matching process found")
-            args.cmdline_regex = "oxigraph\\s+serve-read-only"
+            args.cmdline_regex = self.STATUS_COMMAND.DEFAULT_REGEX
             log.info("")
             StatusCommand().execute(args)
             return True

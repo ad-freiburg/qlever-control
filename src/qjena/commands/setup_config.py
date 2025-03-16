@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from qoxigraph.commands import setup_config
+from qoxigraph.commands.setup_config import (
+    SetupConfigCommand as QoxigraphSetupConfigCommand,
+)
 
 
-class SetupConfigCommand(setup_config.SetupConfigCommand):
+class SetupConfigCommand(QoxigraphSetupConfigCommand):
     """
     Should behave exactly the same as setup-config command in qoxigraph,
     just with a different Docker image name
     """
+
     IMAGE = "adfreiburg/qjena"

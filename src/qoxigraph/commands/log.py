@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from qlever.commands import log as log_cmd
+from qlever.commands.log import LogCommand as QleverLogCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import run_command
 
 
-class LogCommand(log_cmd.LogCommand):
+class LogCommand(QleverLogCommand):
     def __init__(self):
         self.script_name = "qoxigraph"
 

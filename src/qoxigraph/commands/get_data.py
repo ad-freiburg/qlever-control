@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from qlever.commands import get_data
+from qlever.commands.get_data import GetDataCommand as QleverGetDataCommand
 
 
-class GetDataCommand(get_data.GetDataCommand):
+class GetDataCommand(QleverGetDataCommand):
     """
     Should behave exactly the same as get-data command in qlever
     """

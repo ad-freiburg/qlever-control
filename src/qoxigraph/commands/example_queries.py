@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from qlever.commands import example_queries
+from qlever.commands.example_queries import (
+    ExampleQueriesCommand as QleverExampleQueriesCommand,
+)
 
 
-class ExampleQueriesCommand(example_queries.ExampleQueriesCommand):
+class ExampleQueriesCommand(QleverExampleQueriesCommand):
     """
     Should behave exactly the same as example-queries command in qlever
     """

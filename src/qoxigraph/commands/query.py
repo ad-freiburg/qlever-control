@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from qlever.commands import query
+from qlever.commands.query import QueryCommand as QleverQueryCommand
 
 
-class QueryCommand(query.QueryCommand):
+class QueryCommand(QleverQueryCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
             "query",

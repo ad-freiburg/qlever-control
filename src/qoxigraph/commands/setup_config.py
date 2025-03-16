@@ -3,12 +3,12 @@ from __future__ import annotations
 from configparser import RawConfigParser
 from pathlib import Path
 
-from qlever.commands import setup_config
+from qlever.command import QleverCommand
 from qlever.log import log
 from qlever.qleverfile import Qleverfile
 
 
-class SetupConfigCommand(setup_config.SetupConfigCommand):
+class SetupConfigCommand(QleverCommand):
     IMAGE = "ghcr.io/oxigraph/oxigraph"
 
     FILTER_CRITERIA = {
@@ -27,6 +27,23 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
             p.name.split(".")[1]
             for p in self.qleverfiles_path.glob("Qleverfile.*")
         ]
+
+    def description(self) -> str:
+        return "Get a pre-configured Qleverfile"
+
+    def should_have_qleverfile(self) -> bool:
+        return False
+
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
+        return {}
+
+    def additional_arguments(self, subparser) -> None:
+        subparser.add_argument(
+            "config_name",
+            type=str,
+            choices=self.qleverfile_names,
+            help="The name of the pre-configured Qleverfile to create",
+        )
 
     def validate_qleverfile_setup(
         self, args, qleverfile_path: Path

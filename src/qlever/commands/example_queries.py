@@ -411,6 +411,7 @@ class ExampleQueriesCommand(QleverCommand):
                     and not query_type == "DESCRIBE"
                 ):
                     result_size = 0
+                    count_if_present = None
                     error_msg = {
                         "short": "Empty result",
                         "long": "curl returned with code 200, "
@@ -471,6 +472,14 @@ class ExampleQueriesCommand(QleverCommand):
                                 "short": "Malformed JSON",
                                 "long": re.sub(r"\s+", " ", str(e)),
                             }
+                        try:
+                            count_if_present = run_command(
+                                f'jq -r ".results.bindings[0].count.value"'
+                                f" {result_file}",
+                                return_output=True,
+                            ).rstrip()
+                        except Exception:
+                            count_if_present = None
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -485,10 +494,16 @@ class ExampleQueriesCommand(QleverCommand):
                 )
             if error_msg is None:
                 result_size = int(result_size)
+                count_if_present = (
+                    f"   [count: {count_if_present}]"
+                    if count_if_present
+                    else ""
+                )
                 log.info(
                     f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
+                    f"{count_if_present}"
                 )
                 query_times.append(time_seconds)
                 result_sizes.append(result_size)

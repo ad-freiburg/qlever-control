@@ -169,6 +169,8 @@ class IndexCommand(QleverCommand):
                 input_option += f" -F {input_format}"
                 if input_parallel == "true":
                     input_option += " -p true"
+                else:
+                    input_option += " -p false"
                 input_options.append(input_option)
         # Return the concatenated command-line options.
         return " ".join(input_options)

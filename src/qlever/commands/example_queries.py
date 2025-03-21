@@ -291,7 +291,7 @@ class ExampleQueriesCommand(QleverCommand):
                     " must be passed when --generate-output-file is passed"
                 )
                 return False
-            args.accept = "AUTO"
+            # args.accept = "AUTO"
 
         # If `args.accept` is `application/sparql-results+json` or
         # `application/qlever-results+json` or `AUTO`, we need `jq`.

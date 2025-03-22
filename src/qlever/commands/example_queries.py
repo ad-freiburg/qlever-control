@@ -103,8 +103,8 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--clear-cache",
             choices=["yes", "no"],
-            default="yes",
-            help="Clear the cache before each query",
+            default="no",
+            help="Clear the cache before each query (only works for QLever)",
         )
         subparser.add_argument(
             "--width-query-description",
@@ -213,9 +213,18 @@ class ExampleQueriesCommand(QleverCommand):
             not args.sparql_endpoint
             or args.sparql_endpoint.startswith("https://qlever")
         )
-        if args.clear_cache == "yes" and not is_qlever:
-            log.warning("Clearing the cache only works for QLever")
-            args.clear_cache = "no"
+        if args.clear_cache == "yes":
+            if is_qlever:
+                log.warning(
+                    "Clearing the cache before each query"
+                    " (only works for QLever)"
+                )
+            else:
+                log.warning(
+                    "Clearing the cache only works for QLever"
+                    ", option `--clear-cache` is ignored"
+                )
+                args.clear_cache = "no"
 
         # Show what the command will do.
         get_queries_cmd = (
@@ -237,8 +246,6 @@ class ExampleQueriesCommand(QleverCommand):
             f"Obtain queries via: {get_queries_cmd}\n"
             f"SPARQL endpoint: {sparql_endpoint}\n"
             f"Accept header: {args.accept}\n"
-            f"Clear cache before each query:"
-            f" {args.clear_cache.upper()}\n"
             f"Download result for each query or just count:"
             f" {args.download_or_count.upper()}"
             + (f" with LIMIT {args.limit}" if args.limit else ""),

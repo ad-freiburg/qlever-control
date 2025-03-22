@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from qlever.commands import example_queries
+from qlever.commands.example_queries import (
+    ExampleQueriesCommand as QleverExampleQueriesCommand,
+)
 
 
-class ExampleQueriesCommand(example_queries.ExampleQueriesCommand):
-    """
-    Should behave exactly the same as example-queries command in qlever
-    """
+class ExampleQueriesCommand(QleverExampleQueriesCommand):
+    def execute(self, args) -> bool:
+        if not args.sparql_endpoint:
+            args.sparql_endpoint = f"localhost:{args.port}/sparql"
+        return super().execute(args)

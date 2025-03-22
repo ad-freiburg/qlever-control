@@ -4,10 +4,12 @@ from pathlib import Path
 
 from qlever.log import log
 from qlever.util import run_command
-from qoxigraph.commands import setup_config
+from qoxigraph.commands.setup_config import (
+    SetupConfigCommand as QoxigraphSetupConfigCommand,
+)
 
 
-class SetupConfigCommand(setup_config.SetupConfigCommand):
+class SetupConfigCommand(QoxigraphSetupConfigCommand):
     IMAGE = "openlink/virtuoso-opensource-7"
     VIRTUOSO_INI_URL = (
         "https://raw.githubusercontent.com/openlink/virtuoso-opensource/"
@@ -27,6 +29,9 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
         qleverfile_parser = self.get_filtered_qleverfile_parser(
             args.config_name
         )
+        # Add the ISQL_PORT key to the [runtime] section
+        qleverfile_parser.set("runtime", "ISQL_PORT", 1111)
+
         # Copy the Qleverfile to the current directory.
         try:
             with qleverfile_path.open("w") as f:
@@ -62,9 +67,10 @@ class SetupConfigCommand(setup_config.SetupConfigCommand):
                 "Add appropriate values for ResultsSetMaxRows, MaxQueryMem, "
                 "MaxQueryCostEstimationTime, MaxQueryExecutionTime."
             )
-            log.warning(
-                "Make sure to not modify the ServerPort under [Parameters] and "
-                "[HTTPServer] sections in virtuoso.ini!"
+            log.info(
+                "The ServerPort under [Parameters] and [HTTPServer] sections "
+                "in virtuoso.ini will be modified to match the ports specified "
+                "in Qleverfile!"
             )
         except Exception as e:
             url = (

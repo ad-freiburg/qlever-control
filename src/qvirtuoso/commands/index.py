@@ -2,53 +2,122 @@ from __future__ import annotations
 
 import glob
 import shlex
+import shutil
 import time
 from pathlib import Path
 
-from qlever.commands.stop import stop_container
+from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command
-from qoxigraph.commands import index
+from qlever.util import is_port_used, run_command
+from qvirtuoso.commands.stop import StopCommand
 
 
-class IndexCommand(index.IndexCommand):
+class IndexCommand(QleverCommand):
     def __init__(self):
         self.script_name = "qvirtuoso"
 
-    def additional_arguments(self, subparser) -> None:
-        return None
+    def description(self) -> str:
+        return "Build the index for a given RDF dataset"
 
-    def execute(self, args) -> bool:
-        system = args.system
-        input_files = args.input_files
-        index_container = args.index_container
+    def should_have_qleverfile(self) -> bool:
+        return True
 
-        run_subcommand = "run -d -e DBA_PASSWORD=dba"
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
+        return {
+            "data": ["name", "format"],
+            "index": ["input_files"],
+            "server": ["host_name", "port", "isql_port"],
+            "runtime": ["system", "image", "index_container"],
+        }
 
-        exec_cmd = f"{system} exec {index_container} "
-        isql_cmd = "isql 1111 dba dba "
-        ld_dir_cmd = (
-            exec_cmd + isql_cmd + f"exec=\"ld_dir('.', '{input_files}', '');\""
+    def additional_arguments(self, subparser):
+        subparser.add_argument(
+            "--index-binary",
+            type=str,
+            default="isql",
+            help=(
+                "The isql binary for building the index (default: isql) "
+                "(this requires that you have virtuoso binaries installed "
+                "on your machine)"
+            ),
         )
-        run_cmd = (
-            exec_cmd
-            + 'bash -c "'
-            + isql_cmd
-            + "exec='rdf_loader_run();' && "
-            + isql_cmd
-            + "exec='checkpoint;'\""
+        subparser.add_argument(
+            "--server-binary",
+            type=str,
+            default="virtuoso-t",
+            help=(
+                "The binary for starting the server (default: virtuoso-t) "
+                "(this requires that you have virtuoso binaries installed "
+                "on your machine)"
+            ),
         )
+
+    @staticmethod
+    def replace_ini_ports(isql_port: int, http_port: str) -> bool:
+        """
+        Replace the ServerPort in [Parameters] and [HTTPServer] sections
+        of virtuoso.ini with isql_port and http_port respectively
+        """
+        try:
+            for section, port in [
+                ("Parameters", isql_port),
+                ("HTTPServer", http_port),
+            ]:
+                sed_cmd = (
+                    rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\(ServerPort"
+                    rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.]*/\1{port}/}}'"
+                )
+                run_command(f"{sed_cmd} virtuoso.ini")
+            return True
+        except Exception as e:
+            log.error(f"Couldn't replace the ServerPort in virtuoso.ini: {e}")
+            return False
+
+    @staticmethod
+    def wrap_cmd_in_container(
+        args, cmds: tuple[str, str, str]
+    ) -> tuple[str, str, str]:
+        """
+        Given a tuple (start_cmd, ld_dir_cmd, run_cmd), wrap the 3 commands
+        in a containerized command
+        """
+        start_cmd, ld_dir_cmd, run_cmd = cmds
 
         start_cmd = Containerize().containerize_command(
             cmd="",
-            container_system=system,
-            run_subcommand=run_subcommand,
+            container_system=args.system,
+            run_subcommand="run -d -e DBA_PASSWORD=dba",
             image_name=args.image,
-            container_name=index_container,
+            container_name=args.index_container,
             volumes=[("$(pwd)", "/database")],
             use_bash=False,
         )
+        exec_cmd = f"{args.system} exec {args.index_container}"
+
+        ld_dir_cmd = f"{exec_cmd} {ld_dir_cmd}"
+        run_cmd = f'{exec_cmd} bash -c "{run_cmd}"'
+
+        return start_cmd, ld_dir_cmd, run_cmd
+
+    def execute(self, args) -> bool:
+        start_cmd = f"{args.server_binary}" if args.system == "native" else ""
+
+        isql_cmd = f"{args.index_binary} {args.isql_port} dba dba "
+        ld_dir_cmd = (
+            isql_cmd + f"exec=\"ld_dir('.', '{args.input_files}', '');\""
+        )
+        run_cmd = (
+            isql_cmd
+            + "exec='rdf_loader_run();' && "
+            + isql_cmd
+            + "exec='checkpoint;'"
+        )
+
+        if args.system != "native":
+            start_cmd, ld_dir_cmd, run_cmd = self.wrap_cmd_in_container(
+                args, (start_cmd, ld_dir_cmd, run_cmd)
+            )
 
         cmd_to_show = f"{start_cmd}\n\n{ld_dir_cmd}\n{run_cmd}"
 
@@ -58,7 +127,7 @@ class IndexCommand(index.IndexCommand):
             return True
 
         # Check if all of the input files exist.
-        for pattern in shlex.split(input_files):
+        for pattern in shlex.split(args.input_files):
             if len(glob.glob(pattern)) == 0:
                 log.error(f'No file matching "{pattern}" found')
                 log.info("")
@@ -67,6 +136,55 @@ class IndexCommand(index.IndexCommand):
                     "check GET_DATA_CMD and INPUT_FILES in the Qleverfile"
                 )
                 return False
+
+        # When running natively, check if the binary exists and works.
+        if args.system == "native":
+            for binary, ps in [
+                (args.index_binary, "index"),
+                (args.server_binary, "server"),
+            ]:
+                if not shutil.which(binary):
+                    log.error(
+                        f'Running "{binary}" failed, '
+                        f"set `--{ps}-binary` to a different binary or "
+                        "set `--system to a container system`"
+                    )
+                    return False
+        else:
+            if Containerize().is_running(args.system, args.index_container):
+                log.info(
+                    f"{args.system} container {args.index_container} is still up, "
+                    "which means that data loading is in progress. Please wait..."
+                )
+                return False
+
+        if Path("virtuoso.db").exists():
+            log.error(
+                "virtuoso.db found in current directory "
+                "which shows presence of a previous index"
+            )
+            log.info("")
+            log.info("Aborting the index operation...")
+            return False
+
+        if args.system == "native":
+            if is_port_used(args.isql_port):
+                log.error(
+                    f"The isql port {args.isql_port} is already used! "
+                    "Please specify a different isql_port either as --isql-port "
+                    "or in the Qleverfile"
+                )
+                return False
+
+        http_port = (
+            f"{args.host_name}:{args.port}"
+            if args.system == "native"
+            else str(args.port)
+        )
+        if not self.replace_ini_ports(
+            isql_port=args.isql_port, http_port=http_port
+        ):
+            return False
 
         # Run the index command.
         try:
@@ -80,7 +198,9 @@ class IndexCommand(index.IndexCommand):
                 timeout = 60
                 last_log_line = ""
                 # Wait until the Virtuoso server is online at 1111
-                while "Server online at 1111" not in last_log_line:
+                while (
+                    f"Server online at {args.isql_port}" not in last_log_line
+                ):
                     if time.time() - start_time > timeout:
                         log.error(
                             "Timed out waiting for Virtuoso to be online."
@@ -97,7 +217,9 @@ class IndexCommand(index.IndexCommand):
             # Stop the index container as we have the indexed files in cwd
             log.info("")
             log.info("Data loading has finished!")
-            return stop_container(index_container)
+            args.server_container = args.index_container
+            args.suppress_output = True
+            return StopCommand().execute(args)
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False

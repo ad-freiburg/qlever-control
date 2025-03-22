@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
+from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import run_command
-from qoxigraph.commands import start
+from qlever.util import is_server_alive, run_command
 
 
-class StartCommand(start.StartCommand):
+class StartCommand(QleverCommand):
     def __init__(self):
         self.script_name = "qvirtuoso"
 
@@ -16,47 +19,100 @@ class StartCommand(start.StartCommand):
             "index for Virtuoso) (Runs in a container)"
         )
 
-    def execute(self, args) -> bool:
-        system = args.system
-        dataset = args.name
+    def should_have_qleverfile(self) -> bool:
+        return True
 
-        index_container = args.index_container
-        server_container = args.server_container
+    def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
+        return {
+            "data": ["name"],
+            "server": ["host_name", "port"],
+            "runtime": ["system", "image", "server_container"],
+        }
 
-        port = int(args.port)
+    def additional_arguments(self, subparser):
+        subparser.add_argument(
+            "--run-in-foreground",
+            action="store_true",
+            default=False,
+            help=(
+                "Run the start command in the foreground "
+                "(default: run in the background)"
+            ),
+        )
+        subparser.add_argument(
+            "--server-binary",
+            type=str,
+            default="virtuoso-t",
+            help=(
+                "The binary for starting the server (default: virtuoso-t) "
+                "(this requires that you have virtuoso binaries installed "
+                "on your machine)"
+            ),
+        )
+
+    @staticmethod
+    def wrap_cmd_in_container(args) -> str:
         run_subcommand = "run --restart=unless-stopped"
         if not args.run_in_foreground:
             run_subcommand += " -d"
-        start_cmd = Containerize().containerize_command(
+        return Containerize().containerize_command(
             cmd="",
-            container_system=system,
+            container_system=args.system,
             run_subcommand=run_subcommand,
             image_name=args.image,
-            container_name=server_container,
+            container_name=args.server_container,
             volumes=[("$(pwd)", "/database")],
-            ports=[(port, 8890)],
+            ports=[(args.port, args.port)],
             use_bash=False,
         )
+
+    def execute(self, args) -> bool:
+        if args.system == "native":
+            start_cmd = args.server_binary
+            if args.run_in_foreground:
+                start_cmd += " -f"
+        else:
+            start_cmd = self.wrap_cmd_in_container(args)
 
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
             return True
 
-        if Containerize().is_running(system, index_container):
+        endpoint_url = f"http://{args.host_name}:{args.port}/sparql"
+
+        # When running natively, check if the binary exists and works.
+        if args.system == "native":
+            if not shutil.which(args.server_binary):
+                log.error(
+                    f'Running "{args.server_binary}" failed, '
+                    "set `--server-binary` to a different binary or "
+                    "set `--system to a container system`"
+                )
+                return False
+        else:
+            if Containerize().is_running(args.system, args.server_container):
+                log.error(
+                    f"Server container {args.server_container} already exists!\n"
+                )
+                log.info(
+                    f"To kill the existing server, use `{self.script_name} stop`"
+                )
+                return False
+
+        # Check if index db virtuoso.db present in cwd
+        if not Path("virtuoso.db").exists():
+            log.error(f"No Virtuoso index db for {args.name} found!\n")
             log.info(
-                f"{system} container {index_container} is still up, "
-                "which means that data loading is in progress. Please wait...\n"
-                f"Check status of {index_container} with `{self.script_name} log`"
+                f"Did you call `{self.script_name} index`? If you did, check "
+                "if virtuoso.db is present in current working directory."
             )
             return False
 
-        if Containerize().is_running(system, server_container):
+        if is_server_alive(url=endpoint_url):
+            log.error(f"Virtuoso server already running on {endpoint_url}\n")
             log.info(
-                f"{system} container {server_container} exists, "
-                f"which means that server for {dataset} is already running. \n"
-                f"Stop the container {server_container} with `{self.script_name} stop` "
-                "first before starting a new one."
+                f"To kill the existing server, use `{self.script_name} stop`"
             )
             return False
 
@@ -64,7 +120,7 @@ class StartCommand(start.StartCommand):
         try:
             run_command(start_cmd, show_output=True)
             log.info(
-                f"Virtuoso server webapp for {dataset} will be available "
+                f"Virtuoso server webapp for {args.name} will be available "
                 f"at http://{args.host_name}:{args.port} and the sparql "
                 f"endpoint for queries is http://{args.host_name}:{args.port}/sparql"
             )

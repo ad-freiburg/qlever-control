@@ -411,6 +411,7 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
+                single_int_result = None
                 # CASE 0: The result is empty despite a 200 HTTP code (not a
                 # problem for CONSTRUCT and DESCRIBE queries).
                 if Path(result_file).stat().st_size == 0 and (
@@ -418,7 +419,6 @@ class ExampleQueriesCommand(QleverCommand):
                     and not query_type == "DESCRIBE"
                 ):
                     result_size = 0
-                    count_if_present = None
                     error_msg = {
                         "short": "Empty result",
                         "long": "curl returned with code 200, "
@@ -469,24 +469,29 @@ class ExampleQueriesCommand(QleverCommand):
                         )
                     else:
                         try:
-                            result_size = run_command(
-                                f'jq -r ".results.bindings | length"'
-                                f" {result_file}",
-                                return_output=True,
+                            result_size = int(
+                                run_command(
+                                    f'jq -r ".results.bindings | length"'
+                                    f" {result_file}",
+                                    return_output=True,
+                                ).rstrip()
                             )
                         except Exception as e:
                             error_msg = {
                                 "short": "Malformed JSON",
                                 "long": re.sub(r"\s+", " ", str(e)),
                             }
-                        try:
-                            count_if_present = run_command(
-                                f'jq -r ".results.bindings[0].count.value"'
-                                f" {result_file}",
-                                return_output=True,
-                            ).rstrip()
-                        except Exception:
-                            count_if_present = None
+                        if result_size == 1:
+                            try:
+                                single_int_result = int(
+                                    run_command(
+                                        f'jq -e -r ".results.bindings[0][] | .value"'
+                                        f" {result_file}",
+                                        return_output=True,
+                                    ).rstrip()
+                                )
+                            except Exception:
+                                pass
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -501,16 +506,16 @@ class ExampleQueriesCommand(QleverCommand):
                 )
             if error_msg is None:
                 result_size = int(result_size)
-                count_if_present = (
-                    f"   [count: {count_if_present}]"
-                    if count_if_present
+                single_int_result = (
+                    f"   [single int result: {single_int_result:,}]"
+                    if single_int_result is not None
                     else ""
                 )
                 log.info(
                     f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
-                    f"{count_if_present}"
+                    f"{single_int_result}"
                 )
                 query_times.append(time_seconds)
                 result_sizes.append(result_size)

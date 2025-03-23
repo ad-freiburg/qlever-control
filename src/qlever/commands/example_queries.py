@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 import shlex
 import subprocess
 import time
 import traceback
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -291,7 +293,6 @@ class ExampleQueriesCommand(QleverCommand):
                     " must be passed when --generate-output-file is passed"
                 )
                 return False
-            args.accept = "AUTO"
 
         # If `args.accept` is `application/sparql-results+json` or
         # `application/qlever-results+json` or `AUTO`, we need `jq`.
@@ -479,22 +480,10 @@ class ExampleQueriesCommand(QleverCommand):
             # queries and `application/sparql-results+json` for all others.
             accept_header = args.accept
             if accept_header == "AUTO":
-                if query_type == "DESCRIBE":
+                if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
                     accept_header = "text/turtle"
-                elif query_type == "CONSTRUCT":
-                    accept_header = (
-                        "application/qlever-results+json"
-                        if is_qlever and args.generate_output_file
-                        else "text/turtle"
-                    )
                 else:
                     accept_header = "application/sparql-results+json"
-                    if args.generate_output_file:
-                        accept_header = (
-                            "application/qlever-results+json"
-                            if is_qlever
-                            else "text/tab-separated-values"
-                        )
 
             # Launch query.
             try:
@@ -616,10 +605,7 @@ class ExampleQueriesCommand(QleverCommand):
                                 ).rstrip()
                             )
                         except Exception as e:
-                            error_msg = {
-                                "short": "Malformed JSON",
-                                "long": re.sub(r"\s+", " ", str(e)),
-                            }
+                            error_msg = get_json_error_msg(e)
                         if result_size == 1:
                             try:
                                 single_int_result = int(
@@ -631,10 +617,6 @@ class ExampleQueriesCommand(QleverCommand):
                                 )
                             except Exception:
                                 pass
-
-            # Remove the result file (unless in debug mode).
-            if args.log_level != "DEBUG":
-                Path(result_file).unlink(missing_ok=True)
 
             # Print description, time, result in tabular form.
             if len(description) > width_query_description:
@@ -831,18 +813,45 @@ class ExampleQueriesCommand(QleverCommand):
         """
         Return headers and results as a tuple
         """
-        if accept_header == "text/tab-separated-values":
+        if accept_header in ("text/tab-separated-values", "text/csv"):
+            separator = "," if accept_header == "text/csv" else "\t"
             get_result_cmd = f"sed -n '1,{result_size + 1}p' {result_file}"
             results_str = run_command(get_result_cmd, return_output=True)
             results = results_str.splitlines()
-            headers = [header for header in results[0].split("\t")]
-            results = [result.split("\t") for result in results[1:]]
+            reader = csv.reader(StringIO(results_str), delimiter=separator)
+            headers = next(reader)
+            results = [row for row in reader]
             return headers, results
         elif accept_header == "application/qlever-results+json":
-            get_result_cmd = f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' {result_file}"
+            get_result_cmd = (
+                f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' "
+                f"{result_file}"
+            )
             results_str = run_command(get_result_cmd, return_output=True)
             results_json = json.loads(results_str)
             return results_json["headers"], results_json["results"]
+        elif accept_header == "application/sparql-results+json":
+            get_result_cmd = (
+                f"jq '{{headers: .head.vars, "
+                f"bindings: .results.bindings[0:{result_size}]}}' "
+                f"{result_file}"
+            )
+            results_str = run_command(get_result_cmd, return_output=True)
+            results_json = json.loads(results_str)
+            results = []
+            for binding in results_json["bindings"]:
+                result = []
+                for var, obj in binding.items():
+                    value = '"' + obj["value"] + '"'
+                    if obj["type"] == "uri":
+                        value = "<" + value.strip('"') + ">"
+                    elif "datatype" in obj:
+                        value += "^^<" + obj["datatype"] + ">"
+                    elif "xml:lang" in obj:
+                        value += "@" + obj["xml:lang"]
+                    result.append(value)
+                results.append(result)
+            return results_json["headers"], results
         else:  # text/turtle
             graph = Graph()
             graph.parse(result_file, format="turtle")

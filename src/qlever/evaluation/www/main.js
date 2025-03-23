@@ -22,7 +22,7 @@ function populateCard(cardTemplate, kb) {
               <input type="checkbox" class="form-check-input row-checkbox" checked>
             </td>
             <td class="text-center">${engine}</td>
-            <td class="text-end" style="padding-right:2rem">${engineData.failed}%</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.failed))}%</td>
             <td class="text-end" style="padding-right:2rem">${
               formatNumber(parseFloat(engineData.avgTime))
             }</td>

@@ -43,7 +43,11 @@ class LogCommand(QleverCommand):
             log_cmd += f" -n {args.tail_num_lines}"
         if not args.no_follow:
             log_cmd += " -f"
-        log_file = f"{args.name}.server-log.txt"
+        log_file = (
+            f"{args.name}.server-log.txt"
+            if not hasattr(args, "log_file")
+            else args.log_file
+        )
         log_cmd += f" {log_file}"
         self.show(log_cmd, only_show=args.show)
         if args.show:

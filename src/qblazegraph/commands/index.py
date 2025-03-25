@@ -23,7 +23,7 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files"],
+            "index": ["input_files", "java_heap_gb"],
             "runtime": ["system", "image", "index_container"],
         }
 
@@ -71,7 +71,7 @@ class IndexCommand(QleverCommand):
         )
 
         index_cmd = (
-            f"java -Xmx4g -XX:+UseG1GC -cp {jar_path} "
+            f"java -Xmx{args.java_heap_gb}g -XX:+UseG1GC -cp {jar_path} "
             "com.bigdata.rdf.store.DataLoader -verbose "
             f"-namespace {args.name} blazegraph.properties {input_files}"
         )

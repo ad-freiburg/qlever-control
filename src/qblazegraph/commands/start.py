@@ -24,7 +24,7 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port"],
+            "server": ["host_name", "port", "java_heap_gb"],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -74,7 +74,8 @@ class StartCommand(QleverCommand):
             else "/opt/blazegraph.jar"
         )
         start_cmd = (
-            f"java -server -Xmx4g -Djetty.port={args.port} -jar {jar_path}"
+            f"java -server -Xmx{args.java_heap_gb}g "
+            f"-Djetty.port={args.port} -jar {jar_path}"
         )
 
         if args.system == "native":

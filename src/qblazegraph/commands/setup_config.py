@@ -18,12 +18,36 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
     IMAGE = "adfreiburg/qblazegraph"
 
     def execute(self, args) -> bool:
-        if not super().execute(args):
+        qleverfile_path = Path("Qleverfile")
+        exit_status = self.validate_qleverfile_setup(args, qleverfile_path)
+        if exit_status is not None:
+            return exit_status
+
+        qleverfile_parser = self.get_filtered_qleverfile_parser(
+            args.config_name
+        )
+        # Add the java_heap_gb to index and server sections
+        qleverfile_parser.set("index", "JAVA_HEAP_GB", 6)
+        qleverfile_parser.set("server", "JAVA_HEAP_GB", 6)
+
+        # Copy the Qleverfile to the current directory.
+        try:
+            with qleverfile_path.open("w") as f:
+                qleverfile_parser.write(f)
+        except Exception as e:
+            log.error(
+                f'Could not copy "{qleverfile_path}" to current directory: {e}'
+            )
             return False
 
-        if args.show:
-            return True
+        # If we get here, everything went well.
+        log.info(
+            f'Created Qleverfile for config "{args.config_name}"'
+            f" in current directory"
+        )
+        log.info("")
 
+        log.info("Fetching blazegraph.properties file...")
         properties_file_path = (
             Path(__file__).parent.parent / "blazegraph.properties"
         )

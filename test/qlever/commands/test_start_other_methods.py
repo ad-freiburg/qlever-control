@@ -38,6 +38,7 @@ class TestStartCommand(unittest.TestCase):
                     "cache_max_num_entries",
                     "num_threads",
                     "timeout",
+                    "persist_updates",
                     "only_pso_and_pos_permutations",
                     "use_patterns",
                     "use_text_index",

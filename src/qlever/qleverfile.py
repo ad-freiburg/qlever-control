@@ -134,13 +134,6 @@ class Qleverfile:
             "large enough to contain the end of at least one statement "
             "(default: 10M)",
         )
-        index_args["persist-updates"] = arg(
-            "--persist-updates",
-            action="store_true",
-            default=False,
-            help="Persist updates to the index (write updates to disk and "
-            "read them back in when restarting the server)",
-        )
         index_args["only_pso_and_pos_permutations"] = arg(
             "--only-pso-and-pos-permutations",
             action="store_true",
@@ -248,6 +241,13 @@ class Qleverfile:
             type=int,
             default=8,
             help="The number of threads used for query processing",
+        )
+        server_args["persist_updates"] = arg(
+            "--persist-updates",
+            action="store_true",
+            default=False,
+            help="Persist updates to the index (write updates to disk and "
+            "read them back in when restarting the server)",
         )
         server_args["only_pso_and_pos_permutations"] = arg(
             "--only-pso-and-pos-permutations",

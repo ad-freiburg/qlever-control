@@ -39,6 +39,7 @@ class IndexCommand(QleverCommand):
                 "parallel_parsing",
                 "settings_json",
                 "index_binary",
+                "persist_updates",
                 "only_pso_and_pos_permutations",
                 "ulimit",
                 "use_patterns",
@@ -211,6 +212,8 @@ class IndexCommand(QleverCommand):
             return False
 
         # Add remaining options.
+        if args.persist_updates:
+            index_cmd += " --persist-updates"
         if args.only_pso_and_pos_permutations:
             index_cmd += " --only-pso-and-pos-permutations --no-patterns"
         if not args.use_patterns:

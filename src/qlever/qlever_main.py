@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import re
+import sys
 import traceback
+from pathlib import Path
 
 from termcolor import colored
 
-from qlever import command_objects
+from qlever.command import CommandObjects
 from qlever.config import ConfigException, QleverConfig
 from qlever.log import log, log_levels
 
@@ -20,8 +22,11 @@ from qlever.log import log, log_levels
 def main():
     # Parse the command line arguments and read the Qleverfile.
     try:
+        # Get the name of the script (without the path and without the extension).
+        script_name = Path(sys.argv[0]).stem
+        command_objects = CommandObjects(script_name)
         qlever_config = QleverConfig()
-        args = qlever_config.parse_args()
+        args = qlever_config.parse_args(script_name, command_objects)
     except ConfigException as e:
         log.error(e)
         log.info("")
@@ -35,9 +40,9 @@ def main():
         log.info("")
         log.info(colored(f"Command: {args.command}", attrs=["bold"]))
         log.info("")
-        commandWasSuccesful = command_object.execute(args)
+        command_successful = command_object.execute(args)
         log.info("")
-        if not commandWasSuccesful:
+        if not command_successful:
             exit(1)
     except KeyboardInterrupt:
         log.info("")
@@ -49,7 +54,7 @@ def main():
         # that case.
         match_error = re.search(r"object has no attribute '(.+)'", str(e))
         match_trace = re.search(
-            r"(qlever/commands/.+\.py)\", line (\d+)", traceback.format_exc()
+            fr"({script_name}/commands/.+\.py)\", line (\d+)", traceback.format_exc()
         )
         if isinstance(e, AttributeError) and match_error and match_trace:
             attribute = match_error.group(1)

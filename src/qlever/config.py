@@ -129,20 +129,15 @@ class QleverConfig:
         autocomplete_mode = "COMP_LINE" in os.environ
 
         # Check if the user has registered this script for argcomplete.
-        argcomplete_check_off = os.environ.get(
-            f"{script_name.upper()}_ARGCOMPLETE_CHECK_OFF"
-        )
-        argcomplete_enabled = os.environ.get(
-            f"{script_name.upper()}_ARGCOMPLETE_ENABLED"
-        )
+        argcomplete_check_off = os.environ.get("QLEVER_ARGCOMPLETE_CHECK_OFF")
+        argcomplete_enabled = os.environ.get("QLEVER_ARGCOMPLETE_ENABLED")
         if not argcomplete_enabled and not argcomplete_check_off:
             log.info("")
             log.warn(
-                f"To enable autocompletion, run the following command, "
-                f"and consider adding it to your `.bashrc` or `.zshrc`:"
-                f"\n\n"
-                f'eval "$(register-python-argcomplete {script_name})"'
-                f" && export {script_name.upper()}_ARGCOMPLETE_ENABLED=1"
+                "To enable autocompletion, run the following command, "
+                "and consider adding it to your `.bashrc` or `.zshrc`:\n\n"
+                'eval "$(register-python-argcomplete qlever)" '
+                "&& export QLEVER_ARGCOMPLETE_ENABLED=1"
             )
             log.info("")
 
@@ -186,7 +181,9 @@ class QleverConfig:
         # we then parse the Qleverfile or not.
         if qleverfile_exists and not autocomplete_mode:
             try:
-                qleverfile_config = Qleverfile.read(qleverfile_path, script_name)
+                qleverfile_config = Qleverfile.read(
+                    qleverfile_path, script_name
+                )
             except Exception as e:
                 log.info("")
                 log.error(f"Error parsing Qleverfile `{qleverfile_path}`: {e}")

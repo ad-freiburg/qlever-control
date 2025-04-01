@@ -16,7 +16,7 @@ class StartCommand(QleverCommand):
     def description(self) -> str:
         return (
             "Start the server for Virtuoso (must be done before building an "
-            "index for Virtuoso) (Runs in a container)"
+            "index for Virtuoso)"
         )
 
     def should_have_qleverfile(self) -> bool:

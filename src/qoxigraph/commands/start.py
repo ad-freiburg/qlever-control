@@ -15,7 +15,7 @@ class StartCommand(QleverCommand):
     def description(self) -> str:
         return (
             "Start the server for Oxigraph (requires that you have built an "
-            "index before) (Runs in a container)"
+            "index before)"
         )
 
     def should_have_qleverfile(self) -> bool:

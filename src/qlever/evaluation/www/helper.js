@@ -56,6 +56,7 @@ async function getYamlData(yamlFileUrl, headers = {}) {
 function addQueryStatistics(queryData) {
   let runtimeArray = [];
   let totalTime = 0;
+  let totalLogTime = 0;
   let queriesUnder1s = 0;
   let queriesOver5s = 0;
   let failedQueries = 0;
@@ -63,6 +64,7 @@ function addQueryStatistics(queryData) {
     let runtime = parseFloat(query.runtime_info.client_time);
     runtimeArray.push(runtime);
     totalTime += runtime;
+    totalLogTime += Math.max(Math.log(runtime), 0.001);
     if (query.headers.length === 0 && typeof(query.results) == "string") {
       failedQueries++
     }
@@ -75,11 +77,13 @@ function addQueryStatistics(queryData) {
       }
     }
   }
-  queryData.avgTime = totalTime / queryData.queries.length;
+  let n = queryData.queries.length;
+  queryData.ameanTime = totalTime / n;
+  queryData.gmeanTime = Math.exp(totalLogTime / n);
   queryData.medianTime = median(runtimeArray);
-  queryData.under1s = (queriesUnder1s / queryData.queries.length) * 100;
-  queryData.over5s = (queriesOver5s / queryData.queries.length) * 100;
-  queryData.failed = (failedQueries / queryData.queries.length) * 100;
+  queryData.under1s = (queriesUnder1s / n) * 100;
+  queryData.over5s = (queriesOver5s / n) * 100;
+  queryData.failed = (failedQueries / n) * 100;
   queryData.between1to5s = 100 - queryData.under1s - queryData.over5s - queryData.failed;
 }
 

@@ -23,21 +23,12 @@ function populateCard(cardTemplate, kb) {
             </td>
             <td class="text-center">${engine}</td>
             <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.failed))}%</td>
-            <td class="text-end" style="padding-right:2rem">${
-              formatNumber(parseFloat(engineData.avgTime))
-            }</td>
-            <td class="text-end" style="padding-right:2rem">${
-              formatNumber(parseFloat(engineData.medianTime))
-            }</td>
-            <td class="text-end" style="padding-right:2rem">${
-              formatNumber(parseFloat(engineData.under1s))
-            }</td>
-            <td class="text-end" style="padding-right:2rem">${
-              formatNumber(parseFloat(engineData.between1to5s)) + "%"
-            }</td>
-            <td class="text-end" style="padding-right:2rem">${
-              formatNumber(parseFloat(engineData.over5s)) + "%"
-            }</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.gmeanTime))}s</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.ameanTime))}s</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.medianTime))}s</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.under1s))}%</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.between1to5s))}%</td>
+            <td class="text-end" style="padding-right:2rem">${formatNumber(parseFloat(engineData.over5s))}%</td>
         `;
     cardBody.appendChild(row);
     addEventListenersForCard(clone.querySelector("table"));

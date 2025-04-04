@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import time
 from pathlib import Path
 
 from qlever.command import QleverCommand
@@ -61,7 +63,7 @@ class StartCommand(QleverCommand):
             image_name=args.image,
             container_name=args.server_container,
             volumes=[("$(pwd)", "/index")],
-            ports=[(args.port, 7878)],
+            ports=[(args.port, args.port)],
             working_directory="/index",
             use_bash=False,
         )
@@ -70,7 +72,7 @@ class StartCommand(QleverCommand):
         bind = (
             f"{args.host_name}:{args.port}"
             if args.system == "native"
-            else "0.0.0.0:7878"
+            else f"0.0.0.0:{args.port}"
         )
         start_cmd = f"serve-read-only --location . --bind={bind}"
 
@@ -120,26 +122,54 @@ class StartCommand(QleverCommand):
             )
             return False
 
-        # Run the start command.
         try:
-            run_command(start_cmd, show_output=True, show_stderr=True)
-            log.info(
-                f"Oxigraph server webapp for {args.name} will be available at "
-                f"http://{args.host_name}:{args.port} and the sparql endpoint for "
-                f"queries is {endpoint_url}"
+            process = run_command(
+                start_cmd,
+                use_popen=args.run_in_foreground,
             )
-            if args.run_in_foreground:
-                log.info(
-                    "Follow the log as long as the server is"
-                    " running (Ctrl-C stops the server)"
-                )
-            else:
-                log.info(
-                    f"Follow `{self.script_name} log` until the server is ready"
-                    f" (Ctrl-C stops following the log, but NOT the server)"
-                )
         except Exception as e:
-            log.error(f"Starting the Oxigraph server failed: {e}")
+            log.error(f"Starting the Oxigraph server failed ({e})")
             return False
+
+        # Tail the server log until the server is ready (note that the `exec`
+        # is important to make sure that the tail process is killed and not
+        # just the bash process).
+        if args.run_in_foreground:
+            log.info(
+                "Follow the server logs as long as the server is"
+                " running (Ctrl-C stops the server)"
+            )
+        else:
+            log.info(
+                "Follow the server logs until the server is ready"
+                " (Ctrl-C stops following the log, but NOT the server)"
+            )
+        log.info("")
+        if args.system == "native":
+            log_cmd = f"tail -f {args.name}.server-log.txt"
+        else:
+            time.sleep(2)
+            log_cmd = f"{args.system} logs -f {args.server_container}"
+        log_proc = subprocess.Popen(log_cmd, shell=True)
+        while not is_server_alive(endpoint_url):
+            time.sleep(1)
+
+        log.info(
+            f"Oxigraph server webapp for {args.name} will be available at "
+            f"http://{args.host_name}:{args.port} and the sparql endpoint for "
+            f"queries is {endpoint_url} when the server is ready"
+        )
+
+        # Kill the log process
+        if not args.run_in_foreground:
+            log_proc.terminate()
+
+        # With `--run-in-foreground`, wait until the server is stopped.
+        if args.run_in_foreground:
+            try:
+                process.wait()
+            except KeyboardInterrupt:
+                process.terminate()
+            log_proc.terminate()
 
         return True

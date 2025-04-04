@@ -146,10 +146,10 @@ class StartCommand(QleverCommand):
             )
         log.info("")
         if args.system == "native":
-            log_cmd = f"tail -f {args.name}.server-log.txt"
+            log_cmd = f"exec tail -f {args.name}.server-log.txt"
         else:
             time.sleep(2)
-            log_cmd = f"{args.system} logs -f {args.server_container}"
+            log_cmd = f"exec {args.system} logs -f {args.server_container}"
         log_proc = subprocess.Popen(log_cmd, shell=True)
         while not is_server_alive(endpoint_url):
             time.sleep(1)

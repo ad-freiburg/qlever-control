@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 import subprocess
-from configparser import ConfigParser, ExtendedInterpolation
+from configparser import ConfigParser, ExtendedInterpolation, RawConfigParser
+from pathlib import Path
 
 from qlever.containerize import Containerize
 from qlever.log import log
@@ -19,7 +20,7 @@ class Qleverfile:
     """
 
     @staticmethod
-    def all_arguments():
+    def all_arguments(script_name: str):
         """
         Define all possible parameters. A value of `None` means that there is
         no default value.
@@ -58,7 +59,7 @@ class Qleverfile:
             "--text-description",
             type=str,
             default=None,
-            help="A concise description of the additional text data" " if any",
+            help="A concise description of the additional text data if any",
         )
         data_args["format"] = arg(
             "--format",
@@ -194,6 +195,12 @@ class Qleverfile:
             type=int,
             help="The port on which the server listens for requests",
         )
+        server_args["isql_port"] = arg(
+            "--isql-port",
+            type=int,
+            default=1111,
+            help="The port used by Virtuoso's ISQL index binary",
+        )
         server_args["access_token"] = arg(
             "--access-token",
             type=str,
@@ -298,12 +305,12 @@ class Qleverfile:
         runtime_args["index_container"] = arg(
             "--index-container",
             type=str,
-            help="The name of the container used by `qlever index`",
+            help=f"The name of the container used by `{script_name} index`",
         )
         runtime_args["server_container"] = arg(
             "--server-container",
             type=str,
-            help="The name of the container used by `qlever start`",
+            help=f"The name of the container used by `{script_name} start`",
         )
 
         ui_args["ui_port"] = arg(
@@ -343,7 +350,7 @@ class Qleverfile:
         return all_args
 
     @staticmethod
-    def read(qleverfile_path):
+    def read(qleverfile_path: Path, script_name: str):
         """
         Read the given Qleverfile (the function assumes that it exists) and
         return a `ConfigParser` object with all the options and their values.
@@ -400,11 +407,11 @@ class Qleverfile:
             name = config["data"]["name"]
             runtime = config["runtime"]
             if "server_container" not in runtime:
-                runtime["server_container"] = f"qlever.server.{name}"
+                runtime["server_container"] = f"{script_name}.server.{name}"
             if "index_container" not in runtime:
-                runtime["index_container"] = f"qlever.index.{name}"
+                runtime["index_container"] = f"{script_name}.index.{name}"
             if "ui_container" not in config["ui"]:
-                config["ui"]["ui_container"] = f"qlever.ui.{name}"
+                config["ui"]["ui_container"] = f"{script_name}.ui.{name}"
             index = config["index"]
             if "text_words_file" not in index:
                 index["text_words_file"] = f"{name}.wordsfile.tsv"
@@ -416,3 +423,38 @@ class Qleverfile:
 
         # Return the parsed Qleverfile with the added inherited values.
         return config
+
+    @staticmethod
+    def filter(
+        qleverfile_path: Path, criteria: dict[str, list[str]]
+    ) -> RawConfigParser:
+        """
+        Given a filter criteria (key: section_header, value: list[options]),
+        return a RawConfigParser object to create a new filtered Qleverfile
+        with only the specified sections and options (selects all options if
+        list[options] is empty). Mainly to be used by non-qlever scripts for
+        the setup-config command
+        """
+        # Read the Qleverfile.
+        config = RawConfigParser()
+        config.optionxform = str  # Preserve case sensitivity of keys
+        config.read(qleverfile_path)
+
+        filtered_config = RawConfigParser()
+        filtered_config.optionxform = str
+
+        for section, desired_fields in criteria.items():
+            if config.has_section(section):
+                filtered_config.add_section(section)
+
+                # If the list is empty, copy all fields
+                if not desired_fields:
+                    for field, value in config.items(section):
+                        filtered_config.set(section, field, value)
+                else:
+                    for desired_field in desired_fields:
+                        if config.has_option(section, desired_field):
+                            value = config.get(section, desired_field)
+                            filtered_config.set(section, desired_field, value)
+
+        return filtered_config

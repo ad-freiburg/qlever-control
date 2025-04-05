@@ -9,6 +9,7 @@ from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import is_server_alive, run_command
+from qvirtuoso.commands.index import IndexCommand as QvirtuosoIndexCommand
 
 
 class StartCommand(QleverCommand):
@@ -53,12 +54,12 @@ class StartCommand(QleverCommand):
         )
 
     @staticmethod
-    def wrap_cmd_in_container(args) -> str:
+    def wrap_cmd_in_container(args, cmd: str) -> str:
         run_subcommand = "run --restart=unless-stopped"
         if not args.run_in_foreground:
             run_subcommand += " -d"
         return Containerize().containerize_command(
-            cmd="",
+            cmd=cmd,
             container_system=args.system,
             run_subcommand=run_subcommand,
             image_name=args.image,
@@ -69,12 +70,20 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
+        start_cmd = f"{args.server_binary} -c {args.name}.virtuoso.ini"
         if args.system == "native":
-            start_cmd = args.server_binary
             if args.run_in_foreground:
                 start_cmd += " -f"
         else:
-            start_cmd = self.wrap_cmd_in_container(args)
+            start_cmd = self.wrap_cmd_in_container(args, f"{start_cmd} -f")
+
+        ini_files = [str(ini) for ini in Path(".").glob("*.ini")]
+        if not Path(f"{args.name}.virtuoso.ini").exists():
+            self.show(
+                f"{args.name}.virtuoso.ini configfile "
+                "not found in the current directory! "
+                f"{QvirtuosoIndexCommand().virtuoso_ini_help_msg(args, ini_files)}"
+            )
 
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
@@ -118,21 +127,20 @@ class StartCommand(QleverCommand):
             )
             return False
 
-        # Run the start command.
-        try:
-            run_command(start_cmd, show_output=True)
-            log.info(
-                f"Virtuoso server webapp for {args.name} will be available "
-                f"at http://{args.host_name}:{args.port} and the sparql "
-                f"endpoint for queries is http://{args.host_name}:{args.port}/sparql"
-            )
-            log.info("")
-            if args.run_in_foreground:
+        # Rename the virtuoso.ini file to {args.name}.virtuoso.ini if needed
+        if not Path(f"{args.name}.virtuoso.ini").exists():
+            if len(ini_files) == 1:
+                Path(ini_files[0]).rename(f"{args.name}.virtuoso.ini")
                 log.info(
-                    "Follow the log as long as the server is"
-                    " running (Ctrl-C stops the server)"
+                    f"{ini_files[0]} renamed to {args.name}.virtuoso.ini!"
                 )
             else:
+                log.error(
+                    f"{args.name}.virtuoso.ini configfile "
+                    "not found in the current directory! "
+                    f"{QvirtuosoIndexCommand().virtuoso_ini_help_msg(args, ini_files)}"
+                )
+                return False
 
         try:
             process = run_command(
@@ -157,7 +165,7 @@ class StartCommand(QleverCommand):
                 " (Ctrl-C stops following the log, but NOT the server)"
             )
         log.info("")
-        log_cmd = "tail -f virtuoso.log"
+        log_cmd = "exec tail -f virtuoso.log"
         log_proc = subprocess.Popen(log_cmd, shell=True)
         while not is_server_alive(endpoint_url):
             time.sleep(1)

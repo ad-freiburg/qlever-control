@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 import shlex
 import subprocess
 import time
 import traceback
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +21,7 @@ from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
 
-MAX_RESULT_SIZE = 1000
+MAX_RESULT_SIZE = 50
 
 
 class ExampleQueriesCommand(QleverCommand):
@@ -291,7 +293,6 @@ class ExampleQueriesCommand(QleverCommand):
                     " must be passed when --generate-output-file is passed"
                 )
                 return False
-            # args.accept = "AUTO"
 
         # If `args.accept` is `application/sparql-results+json` or
         # `application/qlever-results+json` or `AUTO`, we need `jq`.
@@ -479,22 +480,10 @@ class ExampleQueriesCommand(QleverCommand):
             # queries and `application/sparql-results+json` for all others.
             accept_header = args.accept
             if accept_header == "AUTO":
-                if query_type == "DESCRIBE":
+                if query_type == "CONSTRUCT" or query_type == "DESCRIBE":
                     accept_header = "text/turtle"
-                elif query_type == "CONSTRUCT":
-                    accept_header = (
-                        "application/qlever-results+json"
-                        if is_qlever and args.generate_output_file
-                        else "text/turtle"
-                    )
                 else:
                     accept_header = "application/sparql-results+json"
-                    if args.generate_output_file:
-                        accept_header = (
-                            "application/qlever-results+json"
-                            if is_qlever
-                            else "text/tab-separated-values"
-                        )
 
             # Launch query.
             curl_cmd = (
@@ -547,7 +536,7 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                single_result = None
+                single_int_result = None
                 # CASE 0: The result is empty despite a 200 HTTP code (not a
                 # problem for CONSTRUCT and DESCRIBE queries).
                 if Path(result_file).stat().st_size == 0 and (
@@ -618,21 +607,16 @@ class ExampleQueriesCommand(QleverCommand):
                                 ).rstrip()
                             )
                         except Exception as e:
-                            error_msg = {
-                                "short": "Malformed JSON",
-                                "long": re.sub(r"\s+", " ", str(e)),
-                            }
+                            error_msg = get_json_error_msg(e)
                         if result_size == 1:
                             try:
-                                single_result = run_command(
-                                    f'jq -r ".results.bindings[0][] | .value"'
-                                    f" {result_file}",
-                                    return_output=True,
-                                ).rstrip()
-                                if single_result.isdigit():
-                                    single_result = f"{int(single_result):,}"
-                                else:
-                                    single_result = None
+                                single_int_result = int(
+                                    run_command(
+                                        f'jq -e -r ".results.bindings[0][] | .value"'
+                                        f" {result_file}",
+                                        return_output=True,
+                                    ).rstrip()
+                                )
                             except Exception:
                                 pass
 
@@ -647,16 +631,16 @@ class ExampleQueriesCommand(QleverCommand):
                 )
             if error_msg is None:
                 result_size = int(result_size)
-                single_result = (
-                    f"   [single result: {single_result}]"
-                    if single_result is not None
+                single_int_result = (
+                    f"   [single int result: {single_int_result:,}]"
+                    if single_int_result is not None
                     else ""
                 )
                 log.info(
                     f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
-                    f"{single_result}"
+                    f"{single_int_result}"
                 )
                 query_times.append(time_seconds)
                 result_sizes.append(result_size)
@@ -838,37 +822,45 @@ class ExampleQueriesCommand(QleverCommand):
         """
         Return headers and results as a tuple
         """
-        if accept_header == "text/tab-separated-values":
+        if accept_header in ("text/tab-separated-values", "text/csv"):
+            separator = "," if accept_header == "text/csv" else "\t"
             get_result_cmd = f"sed -n '1,{result_size + 1}p' {result_file}"
             results_str = run_command(get_result_cmd, return_output=True)
             results = results_str.splitlines()
-            headers = [header for header in results[0].split("\t")]
-            results = [result.split("\t") for result in results[1:]]
-            return headers, results
-        elif accept_header == "application/sparql-results+json":
-            get_headers_cmd = f"jq -r '.head.vars[]' {result_file}"
-            headers_str = run_command(get_headers_cmd, return_output=True)
-            headers = headers_str.splitlines()
-            results = []
-            # For now, only consider the first result.
-            if result_size > 0:
-                get_result_cmd = (
-                    f"jq -r '.results.bindings[0]"
-                    f" | .[].value' {result_file}"
-                )
-                try:
-                    result_str = run_command(
-                        get_result_cmd, return_output=True
-                    )
-                    results.append(result_str.split("\t"))
-                except Exception as e:
-                    log.debug(f"ERROR getting first result: {e}")
+            reader = csv.reader(StringIO(results_str), delimiter=separator)
+            headers = next(reader)
+            results = [row for row in reader]
             return headers, results
         elif accept_header == "application/qlever-results+json":
-            get_result_cmd = f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' {result_file}"
+            get_result_cmd = (
+                f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' "
+                f"{result_file}"
+            )
             results_str = run_command(get_result_cmd, return_output=True)
             results_json = json.loads(results_str)
             return results_json["headers"], results_json["results"]
+        elif accept_header == "application/sparql-results+json":
+            get_result_cmd = (
+                f"jq '{{headers: .head.vars, "
+                f"bindings: .results.bindings[0:{result_size}]}}' "
+                f"{result_file}"
+            )
+            results_str = run_command(get_result_cmd, return_output=True)
+            results_json = json.loads(results_str)
+            results = []
+            for binding in results_json["bindings"]:
+                result = []
+                for obj in binding.values():
+                    value = '"' + obj["value"] + '"'
+                    if obj["type"] == "uri":
+                        value = "<" + value.strip('"') + ">"
+                    elif "datatype" in obj:
+                        value += "^^<" + obj["datatype"] + ">"
+                    elif "xml:lang" in obj:
+                        value += "@" + obj["xml:lang"]
+                    result.append(value)
+                results.append(result)
+            return results_json["headers"], results
         else:  # text/turtle
             graph = Graph()
             graph.parse(result_file, format="turtle")
@@ -892,5 +884,8 @@ class ExampleQueriesCommand(QleverCommand):
         output_dir = Path(__file__).parent.parent / "evaluation" / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
         yaml_file_path = output_dir / out_file
-        with open(yaml_file_path, "wb") as yaml_file:
-            yaml.dump(query_data, yaml_file)
+        with open(yaml_file_path, "wb") as eval_yaml_file, open(
+            out_file, "wb"
+        ) as cwd_yaml_file:
+            yaml.dump(query_data, eval_yaml_file)
+            yaml.dump(query_data, cwd_yaml_file)

@@ -51,11 +51,13 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
 
         log.info("Fetching virtuoso.ini configuration file...")
         try:
-            curl_cmd = f"curl -O {self.VIRTUOSO_INI_URL}"
+            # Get name from QLeverfile to give custom name to virtuoso.ini
+            name = qleverfile_parser.get("data", "NAME")
+            curl_cmd = f"curl -o {name}.virtuoso.ini {self.VIRTUOSO_INI_URL}"
             run_command(cmd=curl_cmd, show_output=True)
             log.info("")
             log.info(
-                "Make sure to edit the virtuoso.ini before calling "
+                f"Make sure to edit the {name}.virtuoso.ini before calling "
                 f"`{self.script_name} index`"
             )
             log.info("")
@@ -69,8 +71,8 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
             )
             log.info(
                 "The ServerPort under [Parameters] and [HTTPServer] sections "
-                "in virtuoso.ini will be modified to match the ports specified "
-                "in Qleverfile!"
+                f"in {name}.virtuoso.ini will be modified to match the ports "
+                "specified in Qleverfile!"
             )
         except Exception as e:
             url = (

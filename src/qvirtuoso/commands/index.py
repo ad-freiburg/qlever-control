@@ -9,7 +9,7 @@ from pathlib import Path
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import is_port_used, run_command
+from qlever.util import is_port_used, is_server_alive, run_command
 from qvirtuoso.commands.stop import StopCommand
 
 
@@ -53,11 +53,29 @@ class IndexCommand(QleverCommand):
             ),
         )
 
+    def virtuoso_ini_help_msg(self, args, ini_files: list[str]) -> str:
+        ini_msg = (
+            "No .ini configfile present. Did you call "
+            f"`{self.script_name} setup-config`?"
+        )
+        if len(ini_files) == 1:
+            ini_msg = (
+                f"{str(ini_files[0])} would be renamed to "
+                f"{args.name}.virtuoso.ini and used as the configfile"
+            )
+        elif len(ini_files) > 1:
+            ini_msg = (
+                "More than 1 .ini files found in the current "
+                f"directory: {ini_files}\n"
+                f"Make sure to only have a unique {args.name}.virtuoso.ini!"
+            )
+        return ini_msg
+
     @staticmethod
-    def replace_ini_ports(isql_port: int, http_port: str) -> bool:
+    def replace_ini_ports(name: str, isql_port: int, http_port: str) -> bool:
         """
         Replace the ServerPort in [Parameters] and [HTTPServer] sections
-        of virtuoso.ini with isql_port and http_port respectively
+        of {name}.virtuoso.ini with isql_port and http_port respectively
         """
         try:
             for section, port in [
@@ -68,7 +86,7 @@ class IndexCommand(QleverCommand):
                     rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\(ServerPort"
                     rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.]*/\1{port}/}}'"
                 )
-                run_command(f"{sed_cmd} virtuoso.ini")
+                run_command(f"{sed_cmd} {name}.virtuoso.ini")
             return True
         except Exception as e:
             log.error(f"Couldn't replace the ServerPort in virtuoso.ini: {e}")
@@ -85,12 +103,13 @@ class IndexCommand(QleverCommand):
         start_cmd, ld_dir_cmd, run_cmd = cmds
 
         start_cmd = Containerize().containerize_command(
-            cmd="",
+            cmd=f"{start_cmd} -f",
             container_system=args.system,
             run_subcommand="run -d -e DBA_PASSWORD=dba",
             image_name=args.image,
             container_name=args.index_container,
             volumes=[("$(pwd)", "/database")],
+            ports=[(args.port, args.port)],
             use_bash=False,
         )
         exec_cmd = f"{args.system} exec {args.index_container}"
@@ -101,7 +120,7 @@ class IndexCommand(QleverCommand):
         return start_cmd, ld_dir_cmd, run_cmd
 
     def execute(self, args) -> bool:
-        start_cmd = f"{args.server_binary}" if args.system == "native" else ""
+        start_cmd = f"{args.server_binary} -c {args.name}.virtuoso.ini"
 
         isql_cmd = f"{args.index_binary} {args.isql_port} dba dba "
         ld_dir_cmd = (
@@ -117,6 +136,13 @@ class IndexCommand(QleverCommand):
         if args.system != "native":
             start_cmd, ld_dir_cmd, run_cmd = self.wrap_cmd_in_container(
                 args, (start_cmd, ld_dir_cmd, run_cmd)
+            )
+
+        ini_files = [str(ini) for ini in Path(".").glob("*.ini")]
+        if not Path(f"{args.name}.virtuoso.ini").exists():
+            self.show(
+                f"{args.name}.virtuoso.ini configfile not found in the current "
+                f"directory! {self.virtuoso_ini_help_msg(args, ini_files)}"
             )
 
         cmd_to_show = f"{start_cmd}\n\n{ld_dir_cmd}\n{run_cmd}"
@@ -176,13 +202,27 @@ class IndexCommand(QleverCommand):
                 )
                 return False
 
+        # Rename the virtuoso.ini file to {args.name}.virtuoso.ini if needed
+        if not Path(f"{args.name}.virtuoso.ini").exists():
+            if len(ini_files) == 1:
+                Path(ini_files[0]).rename(f"{args.name}.virtuoso.ini")
+                log.info(
+                    f"{ini_files[0]} renamed to {args.name}.virtuoso.ini!"
+                )
+            else:
+                log.error(
+                    f"{args.name}.virtuoso.ini configfile not found in the current "
+                    f"directory! {self.virtuoso_ini_help_msg(args, ini_files)}"
+                )
+                return False
+
         http_port = (
             f"{args.host_name}:{args.port}"
             if args.system == "native"
             else str(args.port)
         )
         if not self.replace_ini_ports(
-            isql_port=args.isql_port, http_port=http_port
+            name=args.name, isql_port=args.isql_port, http_port=http_port
         ):
             return False
 
@@ -191,25 +231,16 @@ class IndexCommand(QleverCommand):
             # Run the index container in detached mode
             run_command(start_cmd)
             log.info("Waiting for Virtuoso server to be online...")
-            time.sleep(5)
-            last_log_line_cmd = "tail -n 1 virtuoso.log"
-            if Path("virtuoso.log").exists():
-                start_time = time.time()
-                timeout = 60
-                last_log_line = ""
-                # Wait until the Virtuoso server is online at 1111
-                while (
-                    f"Server online at {args.isql_port}" not in last_log_line
-                ):
-                    if time.time() - start_time > timeout:
-                        log.error(
-                            "Timed out waiting for Virtuoso to be online."
-                        )
-                        return False
-                    last_log_line = run_command(
-                        last_log_line_cmd, return_output=True
-                    )
-                    time.sleep(1)
+            start_time = time.time()
+            timeout = 60
+            # Wait until the Virtuoso server is online
+            while not is_server_alive(
+                f"http://{args.host_name}:{args.port}/sparql"
+            ):
+                if time.time() - start_time > timeout:
+                    log.error("Timed out waiting for Virtuoso to be online.")
+                    return False
+                time.sleep(1)
             # Execute the ld_dir and rdf_loader_run commands
             log.info("Virtuoso server online! Loading data into Virtuoso...\n")
             run_command(ld_dir_cmd, show_output=True)
@@ -223,5 +254,3 @@ class IndexCommand(QleverCommand):
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False
-
-        return True

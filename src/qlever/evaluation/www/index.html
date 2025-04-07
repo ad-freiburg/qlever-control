@@ -45,7 +45,7 @@
                     <!-- Close button -->
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" style="overflow: auto; overflow-anchor: none; padding-bottom: 0px;">
+                <div class="modal-body p-0">
                     <!-- Tabs here -->
                     <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
                         <li class="nav-item" role="presentation">
@@ -69,7 +69,7 @@
                                 aria-controls="results-tab-pane" aria-selected="false">Query result</button>
                         </li>
                     </ul>
-                    <div class="tab-content" id="myTabContent">
+                    <div class="tab-content px-3" id="myTabContent">
                         <div class="tab-pane fade show active" id="runtimes-tab-pane" role="tabpanel"
                             aria-labelledby="runtimes-tab" tabindex="0">
                             <!-- Tab 1 content -->
@@ -150,11 +150,10 @@
                     </div>
                 </div>
                 
-                <div class="modal-body" style="max-height: 85vh; overflow-y: auto;">
+                <div class="modal-body p-0">
                     <div class="tab-content" id="comparisonTabContent">
-                        <br>
-                        <h4 id="comparisonKb" class="card-title text-center"></h4><br>
-                        <div id="compareExecDiv" class="row text-center sticky-top bg-white mx-4">
+                        <h4 id="comparisonKb" class="card-title text-center p-2 my-2"></h4>
+                        <div id="compareExecDiv" class="row text-center sticky-top bg-white mx-4 pb-2">
                             <p class="text-start">Please select a query from the table below and 
                                 the versions of Qlever and click on the button to the right
                                 for runtime execution tree comparison</p>
@@ -175,8 +174,7 @@
                                 </button>
                             </div>
                         </div>
-                        <br>
-                        <div class="d-flex justify-content-center" id="table-container"></div>
+                        <div class="d-flex justify-content-center mt-2" id="table-container"></div>
                     </div>
                 </div>
             </div>
@@ -214,7 +212,7 @@
                                     <div class="col"><button id="zoomIn1" type="button" class="btn btn-outline-primary">+</button></div>
                                 </div>
                                 <!-- <div class="d-flex justify-content-center"><h5 id="engineTree1"></h5></div> -->
-                                <div id="tree1" style="cursor: grab; height:72vh; overflow: auto;"></div>
+                                <div id="tree1" style="cursor: grab; height:80vh; overflow: auto;"></div>
                             </div>
                             <div class="col-6">
                                 <div class="row text-center">
@@ -223,7 +221,7 @@
                                     <div class="col-3"><button id="zoomIn2" type="button" class="btn btn-outline-primary">+</button></div>
                                 </div>
                                 <!-- <div class="d-flex justify-content-center"><h5 id="engineTree2"></h5></div> -->
-                                <div id="tree2" style="cursor: grab; height:72vh; overflow: auto;"></div>
+                                <div id="tree2" style="cursor: grab; height:80vh; overflow: auto;"></div>
                             </div>
                         </div>
                     </div>

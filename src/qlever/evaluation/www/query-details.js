@@ -26,7 +26,10 @@ function setListenersForQueriesTabs() {
       // If the kb and engine are the same as previously opened, do nothing
       const modalTitle = modalNode.querySelector(".modal-title");
       const tab1Content = modalNode.querySelector("#runtimes-tab-pane");
-      if (modalTitle.textContent.includes(engine) && tab1Content.querySelector(".card-title").innerHTML.includes(kb)) {
+      if (
+        modalTitle.textContent.split(" - ")[1] === engine &&
+        tab1Content.querySelector(".card-title").innerHTML.split(" - ")[1]
+      ) {
         return;
       }
       // Else clear the table with queries and runtimes before the modal is shown
@@ -411,7 +414,7 @@ function generateHTMLTable(queryRow) {
   document.getElementById("resultsTable").replaceChildren();
   const h5Text = document.createElement("h5");
   const totalResults = queryRow.result_size;
-  const resultsShown = totalResults <= 1000 ? totalResults : 1000;
+  const resultsShown = totalResults <= 50 ? totalResults : 50;
   h5Text.textContent = `${
     queryRow.result_size
   } result(s) found for this query in ${queryRow.runtime_info.client_time.toPrecision(

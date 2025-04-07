@@ -205,6 +205,52 @@ function openComparisonModal(kb) {
   hideSpinner();
 }
 
+function getBestRuntime(kb, engines, queryId) {
+  best_time = Infinity;
+  for (let engine of engines) {
+    const result = performanceDataPerKb[kb][engine]["queries"][queryId];
+    let runtime = parseFloat(result.runtime_info.client_time);
+    let failed = result.headers.length === 0 || !Array.isArray(result.results);
+    if (!failed && runtime < best_time) {
+      best_time = runtime;
+    }
+  }
+  return best_time;
+}
+
+function getMajorityResultSize(kb, engines, queryId) {
+  const sizeCounts = new Map();
+  let validResultFound = false;
+
+  for (let engine of engines) {
+    const result = performanceDataPerKb[kb][engine]["queries"][queryId];
+    const failed = result.headers.length === 0 || !Array.isArray(result.results);
+
+    if (!failed && typeof result.result_size === "number" && result.result_size !== 0) {
+      validResultFound = true;
+      const size = result.result_size;
+      sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1);
+    }
+  }
+
+  if (!validResultFound || sizeCounts.size === 0) {
+    // All results failed or only had result_size = 0
+    return null;
+  }
+
+  let majorityResultSize = null;
+  let maxCount = 0;
+
+  for (const [size, count] of sizeCounts.entries()) {
+    if (count > maxCount) {
+      maxCount = count;
+      majorityResultSize = size;
+    }
+  }
+
+  return majorityResultSize;
+}
+
 /**
  * Uses performanceDataPerKb object to create the engine runtime for each query comparison table
  * Gives the user the ability to selectively hide queries to reduce the clutter
@@ -248,6 +294,8 @@ function createCompareResultsTable(kb, enginesToDisplay) {
     row.innerHTML += `<td title="${title}">${
       performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["query"]
     }</td>`;
+    const bestRuntime = getBestRuntime(kb, engines, i);
+    const majorityResultSize = getMajorityResultSize(kb, engines, i);
     for (let engine of engines) {
       const result = performanceDataPerKb[kb][engine]["queries"][i];
       if (!result) {
@@ -255,9 +303,26 @@ function createCompareResultsTable(kb, enginesToDisplay) {
         continue;
       }
       let runtime = result.runtime_info.client_time;
-      let resultClass = result.headers.length === 0 || !Array.isArray(result.results) ? "bg-danger bg-opacity-25" : "";
-      let runtimeText = `${formatNumber(parseFloat(runtime))} s`;
-      row.innerHTML += `<td  class="text-end ${resultClass}">${runtimeText}</td>`;
+      const failed = !Array.isArray(result.results);
+      let resultClass = failed ? "bg-danger bg-opacity-25" : "";
+      if (resultClass === "" && runtime === bestRuntime) {
+        resultClass = "bg-success bg-opacity-25";
+      }
+      let td_title = "";
+      let warningSymbol = "";
+      const actualSize = result.result_size;
+      if (failed) {
+        td_title = EscapeAttribute(result.results);
+      }
+      else if (resultClass.includes("bg-success")) {
+        td_title = "Best runtime for this query!";
+      }
+      if (majorityResultSize !== null && !failed && actualSize !== majorityResultSize) {
+        warningSymbol = ` <span style="color:red">&#9888;</span>` ;
+        td_title += (td_title ? " " : "") + `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
+      }
+      let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
+      row.innerHTML += `<td title="${td_title}" class="text-end ${resultClass}">${runtimeText}</td>`;
     }
     if (!document.querySelector("#compareExecDiv").classList.contains("d-none")) {
       row.style.cursor = "pointer";

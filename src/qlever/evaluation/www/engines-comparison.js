@@ -47,6 +47,12 @@ function setListenersForEnginesComparison() {
     if (kb) {
       openComparisonModal(kb);
     }
+    const popoverTriggerList = [].slice.call(
+      document.querySelector("#comparisonModal").querySelectorAll('[data-bs-toggle="popover"]')
+    );
+    popoverTriggerList.map(function (el) {
+      return new bootstrap.Popover(el);
+    });
     // Scroll to the previously selected row if user is coming back to this modal
     const activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
     if (activeRow) {
@@ -308,21 +314,46 @@ function createCompareResultsTable(kb, enginesToDisplay) {
       if (resultClass === "" && runtime === bestRuntime) {
         resultClass = "bg-success bg-opacity-25";
       }
-      let td_title = "";
+      let popoverContent = "";
       let warningSymbol = "";
-      const actualSize = result.result_size;
+      const actualSize = result.result_size ? result.result_size : 0;
       if (failed) {
-        td_title = EscapeAttribute(result.results);
-      }
-      else if (resultClass.includes("bg-success")) {
-        td_title = "Best runtime for this query!";
+        popoverContent = result.results;
+      } else if (resultClass.includes("bg-success")) {
+        popoverContent = "Best runtime for this query!";
       }
       if (majorityResultSize !== null && !failed && actualSize !== majorityResultSize) {
-        warningSymbol = ` <span style="color:red">&#9888;</span>` ;
-        td_title += (td_title ? " " : "") + `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
+        warningSymbol = ` <span style="color:red">&#9888;</span>`;
+        popoverContent +=
+          (popoverContent ? " " : "") + `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
       }
       let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
-      row.innerHTML += `<td title="${td_title}" class="text-end ${resultClass}">${runtimeText}</td>`;
+      let popoverTitle = "No results returned"
+      if (actualSize === 1 && result.headers.length === 1) {
+        popoverTitle = `Single result: ${result.results[0]}`
+      }
+      else if (actualSize >= 1) {
+        popoverTitle = `Total result(s): ${result.result_size}`;
+      }
+      // const resultSizeLine = `<div class="text-muted small">${actualSize}</div>`;
+      // const cellInnerHTML = `
+      //   ${runtimeText}
+      //   ${resultSizeLine}
+      // `;
+
+      // row.innerHTML += `<td title="${popoverContent}" class="text-end ${resultClass}">${runtimeText}</td>`;
+      row.innerHTML += `
+        <td
+          tabindex="0"
+          class="text-end ${resultClass}"
+          data-bs-toggle="popover"
+          data-bs-trigger="hover focus"
+          title="${EscapeAttribute(popoverTitle)}"
+          data-bs-content="${EscapeAttribute(popoverContent)}"
+        >
+          ${runtimeText}
+        </td>
+      `;
     }
     if (!document.querySelector("#compareExecDiv").classList.contains("d-none")) {
       row.style.cursor = "pointer";

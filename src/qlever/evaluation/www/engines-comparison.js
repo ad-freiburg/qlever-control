@@ -226,7 +226,7 @@ function createCompareResultsTable(kb, enginesToDisplay) {
   `;
 
   // Create dynamic headers and add them to the header row
-  headerRow.innerHTML = "<th>Query</th>";
+  headerRow.innerHTML = "<th class='sticky-top'>Query</th>";
   const engines = enginesToDisplay;
   let engineIndexForQueriesList = 0;
   for (let i = 0; i < engines.length; i++) {
@@ -234,7 +234,7 @@ function createCompareResultsTable(kb, enginesToDisplay) {
       queryCount = performanceDataPerKb[kb][engines[i]]["queries"].length;
       engineIndexForQueriesList = i;
     }
-    headerRow.innerHTML += `<th>${engines[i]}</th>`;
+    headerRow.innerHTML += `<th class='sticky-top'>${engines[i]}</th>`;
   }
 
   thead.appendChild(headerRow);

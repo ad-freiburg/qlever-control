@@ -54,3 +54,8 @@
 .font-size-60 { font-size: 60%; }
 .font-size-70 { font-size: 70%; }
 .font-size-80 { font-size: 80%; }
+
+table td {
+	padding-top: 0.3em !important;
+  padding-bottom: 0.3em !important;
+}

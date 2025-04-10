@@ -4,6 +4,7 @@ import re
 import subprocess
 from configparser import ConfigParser, ExtendedInterpolation
 
+from qlever import script_name
 from qlever.containerize import Containerize
 from qlever.log import log
 
@@ -298,12 +299,12 @@ class Qleverfile:
         runtime_args["index_container"] = arg(
             "--index-container",
             type=str,
-            help="The name of the container used by `qlever index`",
+            help=f"The name of the container used by `{script_name} index`",
         )
         runtime_args["server_container"] = arg(
             "--server-container",
             type=str,
-            help="The name of the container used by `qlever start`",
+            help=f"The name of the container used by `{script_name} start`",
         )
 
         ui_args["ui_port"] = arg(
@@ -400,9 +401,9 @@ class Qleverfile:
             name = config["data"]["name"]
             runtime = config["runtime"]
             if "server_container" not in runtime:
-                runtime["server_container"] = f"qlever.server.{name}"
+                runtime["server_container"] = f"{script_name}.server.{name}"
             if "index_container" not in runtime:
-                runtime["index_container"] = f"qlever.index.{name}"
+                runtime["index_container"] = f"{script_name}.index.{name}"
             if "ui_container" not in config["ui"]:
                 config["ui"]["ui_container"] = f"qlever.ui.{name}"
             index = config["index"]

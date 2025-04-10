@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 import subprocess
-from configparser import ConfigParser, ExtendedInterpolation
+from configparser import ConfigParser, ExtendedInterpolation, RawConfigParser
+from pathlib import Path
 
 from qlever import script_name
 from qlever.containerize import Containerize
@@ -417,3 +418,38 @@ class Qleverfile:
 
         # Return the parsed Qleverfile with the added inherited values.
         return config
+    
+    @staticmethod
+    def filter(
+        qleverfile_path: Path, criteria: dict[str, list[str]]
+    ) -> RawConfigParser:
+        """
+        Given a filter criteria (key: section_header, value: list[options]),
+        return a RawConfigParser object to create a new filtered Qleverfile
+        with only the specified sections and options (selects all options if
+        list[options] is empty). Mainly to be used by non-qlever scripts for
+        the setup-config command
+        """
+        # Read the Qleverfile.
+        config = RawConfigParser()
+        config.optionxform = str  # Preserve case sensitivity of keys
+        config.read(qleverfile_path)
+
+        filtered_config = RawConfigParser()
+        filtered_config.optionxform = str
+
+        for section, desired_fields in criteria.items():
+            if config.has_section(section):
+                filtered_config.add_section(section)
+
+                # If the list is empty, copy all fields
+                if not desired_fields:
+                    for field, value in config.items(section):
+                        filtered_config.set(section, field, value)
+                else:
+                    for desired_field in desired_fields:
+                        if config.has_option(section, desired_field):
+                            value = config.get(section, desired_field)
+                            filtered_config.set(section, desired_field, value)
+
+        return filtered_config

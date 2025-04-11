@@ -11,13 +11,14 @@ function setListenersForEnginesComparison() {
     compareExecutionTreesClicked();
   });
 
+  const comparisonModal = document.querySelector("#comparisonModal");
   // Before the modal is shown, update the url and history Stack and remove the previous table
-  document.querySelector("#comparisonModal").addEventListener("show.bs.modal", async function () {
-    const kb = document.querySelector("#comparisonModal").getAttribute("data-kb");
+  comparisonModal.addEventListener("show.bs.modal", async function () {
+    const kb = comparisonModal.getAttribute("data-kb");
     if (kb) {
       // If back/forward button, do nothing
-      if (document.querySelector("#comparisonModal").getAttribute("pop-triggered")) {
-        document.querySelector("#comparisonModal").removeAttribute("pop-triggered");
+      if (comparisonModal.getAttribute("pop-triggered")) {
+        comparisonModal.removeAttribute("pop-triggered");
       }
       // Else Update the url params and push the page to history stack
       else {
@@ -42,19 +43,37 @@ function setListenersForEnginesComparison() {
   });
 
   // After the modal is shown, populate the modal based on the selected kb
-  document.querySelector("#comparisonModal").addEventListener("shown.bs.modal", async function () {
-    const kb = document.querySelector("#comparisonModal").getAttribute("data-kb");
+  comparisonModal.addEventListener("shown.bs.modal", async function () {
+    const kb = comparisonModal.getAttribute("data-kb");
     if (kb) {
       openComparisonModal(kb);
     }
-    const popoverTriggerList = [].slice.call(
-      document.querySelector("#comparisonModal").querySelectorAll('[data-bs-toggle="popover"]')
-    );
+    const popoverTriggerList = [].slice.call(comparisonModal.querySelectorAll('[data-bs-toggle="popover"]'));
     popoverTriggerList.map(function (el) {
       return new bootstrap.Popover(el);
     });
+
+    const resultSizeCheckbox = document.querySelector("#showResultSize");
+
+    if (!resultSizeCheckbox.hasEventListener) {
+      resultSizeCheckbox.addEventListener("change", function () {
+        const tdElements = comparisonModal.querySelectorAll("td");
+        if (resultSizeCheckbox.checked) {
+          tdElements.forEach((td) => {
+            const resultSizeDiv = td.querySelector("div.text-muted.small");
+            resultSizeDiv?.classList.remove("d-none");
+          });
+        } else {
+          tdElements.forEach((td) => {
+            const resultSizeDiv = td.querySelector("div.text-muted.small");
+            resultSizeDiv?.classList.add("d-none");
+          });
+        }
+      });
+      resultSizeCheckbox.hasEventListener = true;
+    }
     // Scroll to the previously selected row if user is coming back to this modal
-    const activeRow = document.querySelector("#comparisonModal").querySelector(".table-active");
+    const activeRow = comparisonModal.querySelector(".table-active");
     if (activeRow) {
       activeRow.scrollIntoView({
         behavior: "auto",
@@ -65,18 +84,18 @@ function setListenersForEnginesComparison() {
   });
 
   // Handle the modal's `hidden.bs.modal` event
-  document.querySelector("#comparisonModal").addEventListener("hidden.bs.modal", function () {
+  comparisonModal.addEventListener("hidden.bs.modal", function () {
     // Don't execute any url or state based code when back/forward button clicked
-    if (document.querySelector("#comparisonModal").getAttribute("pop-triggered")) {
-      document.querySelector("#comparisonModal").removeAttribute("pop-triggered");
+    if (comparisonModal.getAttribute("pop-triggered")) {
+      comparisonModal.removeAttribute("pop-triggered");
       return;
     }
     // Case: Modal was hidden as a result of clicking on compare execution trees button
-    if (document.querySelector("#comparisonModal").getAttribute("compare-exec-clicked")) {
+    if (comparisonModal.getAttribute("compare-exec-clicked")) {
       const modalNode = document.querySelector("#compareExecTreeModal");
 
       // Set kb, selected sparql engines and query attributes and show compareExecTreeModal
-      const kb = document.querySelector("#comparisonModal").getAttribute("data-kb");
+      const kb = comparisonModal.getAttribute("data-kb");
       const select1 = document.querySelector("#select1").value;
       const select2 = document.querySelector("#select2").value;
       const queryIndex = document.querySelector("#comparisonModal .table-active").rowIndex - 1;
@@ -86,7 +105,7 @@ function setListenersForEnginesComparison() {
       modalNode.setAttribute("data-s2", select2);
       modalNode.setAttribute("data-qid", queryIndex);
 
-      document.querySelector("#comparisonModal").removeAttribute("compare-exec-clicked");
+      comparisonModal.removeAttribute("compare-exec-clicked");
       showModal(document.querySelector("#compareExecTreeModal"));
     }
     // Case: Modal was closed as result of clicking on the close button
@@ -257,6 +276,23 @@ function getMajorityResultSize(kb, engines, queryId) {
   return majorityResultSize;
 }
 
+function extractCoreValue(sparqlValue) {
+  if (sparqlValue.startsWith("<") && sparqlValue.endsWith(">")) {
+    // URI
+    return sparqlValue.slice(1, -1);
+  }
+
+  const literalMatch = sparqlValue.match(/^"((?:[^"\\]|\\.)*)"/);
+  if (literalMatch) {
+    // Decode escape sequences (e.g. \" \\n etc.)
+    const raw = literalMatch[1];
+    return raw.replace(/\\(.)/g, "$1");
+  }
+
+  // fallback: return as-is
+  return sparqlValue;
+}
+
 /**
  * Uses performanceDataPerKb object to create the engine runtime for each query comparison table
  * Gives the user the ability to selectively hide queries to reduce the clutter
@@ -325,21 +361,26 @@ function createCompareResultsTable(kb, enginesToDisplay) {
       if (majorityResultSize !== null && !failed && actualSize !== majorityResultSize) {
         warningSymbol = ` <span style="color:red">&#9888;</span>`;
         popoverContent +=
-          (popoverContent ? " " : "") + `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
+          (popoverContent ? " " : "") +
+          `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
       }
       let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
-      let popoverTitle = "No results returned"
+      let popoverTitle = null;
       if (actualSize === 1 && result.headers.length === 1) {
-        popoverTitle = `Single result: ${result.results[0]}`
+        popoverTitle = `Single result: ${extractCoreValue(result.results[0])}`;
       }
-      else if (actualSize >= 1) {
-        popoverTitle = `Total result(s): ${result.result_size}`;
+      const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
+      const resultSizeLine = `<div class="text-muted small ${resultSizeClass}">${actualSize}</div>`;
+      const cellInnerHTML = `
+        ${runtimeText}
+        ${resultSizeLine}
+      `;
+      if (popoverTitle) {
+        popoverContent = `<b>${EscapeAttribute(popoverTitle)}</b><br>${EscapeAttribute(popoverContent)}`
       }
-      // const resultSizeLine = `<div class="text-muted small">${actualSize}</div>`;
-      // const cellInnerHTML = `
-      //   ${runtimeText}
-      //   ${resultSizeLine}
-      // `;
+      else {
+        popoverContent = EscapeAttribute(popoverContent)
+      }
 
       // row.innerHTML += `<td title="${popoverContent}" class="text-end ${resultClass}">${runtimeText}</td>`;
       row.innerHTML += `
@@ -348,13 +389,14 @@ function createCompareResultsTable(kb, enginesToDisplay) {
           class="text-end ${resultClass}"
           data-bs-toggle="popover"
           data-bs-trigger="hover focus"
-          title="${EscapeAttribute(popoverTitle)}"
-          data-bs-content="${EscapeAttribute(popoverContent)}"
+          data-bs-html="true"
+          data-bs-content="${popoverContent}"
         >
-          ${runtimeText}
+        ${cellInnerHTML}
         </td>
       `;
     }
+    // title="${EscapeAttribute(popoverTitle)}"
     if (!document.querySelector("#compareExecDiv").classList.contains("d-none")) {
       row.style.cursor = "pointer";
       row.addEventListener("click", function () {

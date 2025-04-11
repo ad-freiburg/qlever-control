@@ -59,3 +59,8 @@ table td {
 	padding-top: 0.2em !important;
   padding-bottom: 0.2em !important;
 }
+
+td[title]:hover,
+td[data-bs-toggle="popover"]:hover {
+  cursor: pointer;
+}

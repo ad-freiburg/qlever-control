@@ -69,6 +69,11 @@ class UiCommand(QleverCommand):
             "(default: <name>.ui-config.yml)",
         )
         subparser.add_argument(
+            "--ui-db-file",
+            help="Name of the database file for the QLever UI "
+            "(default: <name>.ui-db.sqlite3)",
+        )
+        subparser.add_argument(
             "--no-pull-latest",
             action="store_true",
             default=False,
@@ -104,34 +109,50 @@ class UiCommand(QleverCommand):
         # Construct commands and show them.
         pull_latest_image = "/" in args.ui_image and not args.no_pull_latest
         ui_config_name = args.name
+        ui_db_file = args.ui_db_file or f"{args.name}.ui-db.sqlite3"
+        ui_db_file_from_image = "qleverui.sqlite3"
         ui_config_file = args.ui_config_file or f"{args.name}.ui-config.yml"
         sparql_endpoint = f"http://{args.host_name}:{args.port}"
         ui_url = f"http://{args.host_name}:{args.ui_port}"
         pull_cmd = f"{args.ui_system} pull -q {args.ui_image}"
-        get_config_cmd = (
-            f"{args.ui_system} exec -it "
+        get_db_cmd = (
+            f"{args.ui_system} create "
+            f"--name {args.ui_container} "
             f"{args.ui_image} "
-            f'bash -c "python manage.py config {ui_config_name}"'
+            f"&& {args.ui_system} cp "
+            f"{args.ui_container}:/app/db/{ui_db_file_from_image} {ui_db_file} "
+            f"&& {args.ui_system} rm -f {args.ui_container}"
         )
         start_ui_cmd = (
             f"{args.ui_system} run -d "
-            f"--volume $(pwd):/db "
+            f"--volume $(pwd):/app/db "
+            # f"--volume $(pwd)/{ui_db_file}:/app/db/{ui_db_file_from_image} "
+            # f"--volume $(pwd)/{ui_config_file}:/app/db/{ui_config_file} "
+            f"--env QLEVERUI_DATABASE_URL=sqlite:////app/db/{ui_db_file} "
             f"--publish {args.ui_port}:7000 "
             f"--name {args.ui_container} "
             f"{args.ui_image}"
+        )
+        get_config_cmd = (
+            f"{args.ui_system} exec -it "
+            f"{args.ui_container} "
+            f'bash -c "python manage.py config {ui_config_name}"'
         )
         set_config_cmd = (
             f"{args.ui_system} exec -it "
             f"{args.ui_container} "
             f'bash -c "python manage.py config {ui_config_name} '
-            f'/db/{ui_config_file} --hide-all-other-backends"'
+            f'/app/db/{ui_config_file} --hide-all-other-backends"'
         )
         commands_to_show = []
         commands_to_show.append("Check for running containers and stop them")
         if not args.stop:
             if pull_latest_image:
                 commands_to_show.append(pull_cmd)
-            commands_to_show.append(get_config_cmd)
+            if not Path(ui_db_file).exists():
+                commands_to_show.append(get_db_cmd)
+            if not Path(ui_config_file).exists():
+                commands_to_show.append(get_config_cmd)
             commands_to_show.append(start_ui_cmd)
             commands_to_show.append(set_config_cmd)
         self.show("\n".join(commands_to_show), only_show=args.show)
@@ -160,6 +181,17 @@ class UiCommand(QleverCommand):
                 f"is already in use. You can set another port in the "
                 f" Qleverfile in the [ui] section with the UI_PORT variable."
             )
+
+        # Get the QLever UI database.
+        if Path(ui_db_file).exists():
+            log.info(f"Found QLever UI database `{ui_db_file}`, reusing it")
+        else:
+            log.info(f"Getting QLever UI database `{ui_db_file}` from image")
+            try:
+                run_command(get_db_cmd)
+            except subprocess.CalledProcessError as e:
+                log.error(f"Failed to get the QLever UI database ({e})")
+                return False
 
         # Start the QLever UI.
         try:

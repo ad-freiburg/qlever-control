@@ -20,7 +20,8 @@ classifiers = [
  "Topic :: Database :: Front-Ends"
 ]
 
-dependencies = [ "psutil", "termcolor", "argcomplete" ]
+dependencies = [ "psutil", "termcolor", "argcomplete", "matplotlib", "shapely"
+]
 
 [project.urls]
 Github = "https://github.com/ad-freiburg/qlever"

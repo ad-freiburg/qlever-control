@@ -65,9 +65,9 @@ class UiCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
             "--ui-config-file",
-            default="Qleveruifile.yml",
+            default="Qleverfile-ui.yml",
             help="Name of the config file for the QLever UI "
-            "(default: Qleveruifile.yml)",
+            "(default: Qleverfile-ui.yml)",
         )
         subparser.add_argument(
             "--ui-db-file",

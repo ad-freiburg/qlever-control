@@ -65,8 +65,9 @@ class UiCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
             "--ui-config-file",
+            default="Qleveruifile.yml",
             help="Name of the config file for the QLever UI "
-            "(default: <name>.ui-config.yml)",
+            "(default: Qleveruifile.yml)",
         )
         subparser.add_argument(
             "--ui-db-file",
@@ -111,7 +112,7 @@ class UiCommand(QleverCommand):
         ui_config_name = args.name
         ui_db_file = args.ui_db_file or f"{args.name}.ui-db.sqlite3"
         ui_db_file_from_image = "qleverui.sqlite3"
-        ui_config_file = args.ui_config_file or f"{args.name}.ui-config.yml"
+        ui_config_file = args.ui_config_file
         sparql_endpoint = f"http://{args.host_name}:{args.port}"
         ui_url = f"http://{args.host_name}:{args.ui_port}"
         pull_cmd = f"{args.ui_system} pull -q {args.ui_image}"
@@ -151,10 +152,11 @@ class UiCommand(QleverCommand):
                 commands_to_show.append(pull_cmd)
             if not Path(ui_db_file).exists():
                 commands_to_show.append(get_db_cmd)
+            commands_to_show.append(start_ui_cmd)
             if not Path(ui_config_file).exists():
                 commands_to_show.append(get_config_cmd)
-            commands_to_show.append(start_ui_cmd)
-            commands_to_show.append(set_config_cmd)
+            else:
+                commands_to_show.append(set_config_cmd)
         self.show("\n".join(commands_to_show), only_show=args.show)
         if qlever_is_running_in_container:
             return False

@@ -72,24 +72,30 @@ class IndexCommand(QleverCommand):
         return ini_msg
 
     @staticmethod
-    def replace_ini_ports(name: str, isql_port: int, http_port: str) -> bool:
+    def replace_ini_sections(
+        name: str, isql_port: int, http_port: str
+    ) -> bool:
         """
         Replace the ServerPort in [Parameters] and [HTTPServer] sections
         of {name}.virtuoso.ini with isql_port and http_port respectively
+        and ErrorLogFile in [Database] section with {name}.index-log.txt
         """
         try:
-            for section, port in [
-                ("Parameters", isql_port),
-                ("HTTPServer", http_port),
+            for section, option, new_value in [
+                ("Parameters", "ServerPort", isql_port),
+                ("HTTPServer", "ServerPort", http_port),
+                ("Database", "ErrorLogFile", f"{name}.index-log.txt"),
             ]:
                 sed_cmd = (
-                    rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\(ServerPort"
-                    rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.]*/\1{port}/}}'"
+                    rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\({option}"
+                    rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.-]*/\1{new_value}/}}'"
                 )
                 run_command(f"{sed_cmd} {name}.virtuoso.ini")
             return True
         except Exception as e:
-            log.error(f"Couldn't replace the ServerPort in virtuoso.ini: {e}")
+            log.error(
+                f"Couldn't replace the necessary sections in virtuoso.ini: {e}"
+            )
             return False
 
     @staticmethod
@@ -221,7 +227,7 @@ class IndexCommand(QleverCommand):
             if args.system == "native"
             else str(args.port)
         )
-        if not self.replace_ini_ports(
+        if not self.replace_ini_sections(
             name=args.name, isql_port=args.isql_port, http_port=http_port
         ):
             return False

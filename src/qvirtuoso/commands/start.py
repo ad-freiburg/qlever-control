@@ -143,6 +143,23 @@ class StartCommand(QleverCommand):
                 return False
 
         try:
+            section, option, new_value = (
+                "Database",
+                "ErrorLogFile",
+                f"{args.name}.server-log.txt",
+            )
+            sed_cmd = (
+                rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\({option}"
+                rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.-]*/\1{new_value}/}}'"
+            )
+            run_command(f"{sed_cmd} {args.name}.virtuoso.ini")
+        except Exception as e:
+            log.error(
+                f"Couldn't replace the necessary sections in virtuoso.ini: {e}"
+            )
+            return False
+
+        try:
             process = run_command(
                 start_cmd,
                 use_popen=args.run_in_foreground,
@@ -165,7 +182,7 @@ class StartCommand(QleverCommand):
                 " (Ctrl-C stops following the log, but NOT the server)"
             )
         log.info("")
-        log_cmd = "exec tail -f virtuoso.log"
+        log_cmd = f"exec tail -f {args.name}.server-log.txt"
         log_proc = subprocess.Popen(log_cmd, shell=True)
         while not is_server_alive(endpoint_url):
             time.sleep(1)

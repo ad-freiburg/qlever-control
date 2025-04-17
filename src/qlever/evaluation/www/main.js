@@ -126,7 +126,9 @@ async function getOutputFiles(url) {
     // Parse the HTML response to extract file names
     const parser = new DOMParser();
     const htmlDoc = parser.parseFromString(data, "text/html");
-    const fileList = Array.from(htmlDoc.querySelectorAll("a")).map((link) => link.textContent.trim());
+    const fileList = Array.from(htmlDoc.querySelectorAll("a"))
+      .map((link) => link.textContent.trim())
+      .filter((file) => file.endsWith(".yaml") || file.endsWith(".yml"));
     for (const file of fileList) {
       const parts = file.split(".");
       if (parts.length === 4 && parts[2] === "results") {

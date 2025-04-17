@@ -55,6 +55,25 @@ function setListenersForQueriesTabs() {
     if (kb && engine) {
       await openQueryDetailsModal(kb, engine, selectedQuery, tab);
     }
+    const resultSizeCheckbox = document.querySelector("#showResultSizeQd");
+
+    if (!resultSizeCheckbox.hasEventListener) {
+      resultSizeCheckbox.addEventListener("change", function () {
+        const tdElements = modalNode.querySelectorAll("td");
+        if (resultSizeCheckbox.checked) {
+          tdElements.forEach((td) => {
+            const resultSizeDiv = td.querySelector("div.text-muted.small");
+            resultSizeDiv?.classList.remove("d-none");
+          });
+        } else {
+          tdElements.forEach((td) => {
+            const resultSizeDiv = td.querySelector("div.text-muted.small");
+            resultSizeDiv?.classList.add("d-none");
+          });
+        }
+      });
+      resultSizeCheckbox.hasEventListener = true;
+    }
   });
 
   // Handle the modal's `hidden.bs.modal` event
@@ -249,10 +268,27 @@ function createQueryTable(queryResult, tabBody) {
       runtime = "N/A";
     }
 
+    const actualSize = query.result_size ? query.result_size : 0;
+    const resultSizeClass = !document.querySelector("#showResultSizeQd").checked ? "d-none" : "";
+    let resultSizeText = format(actualSize);
+    if (actualSize === 1 && query.headers.length === 1 && Array.isArray(query.results) && query.results.length == 1) {
+      let singleResult = extractCoreValue(query.results[0]);
+      singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
+      resultSizeText = `1 [${singleResult}]`;
+    }
+    const resultSizeLine = `<div class="text-muted small ${resultSizeClass}">${resultSizeText}</div>`;
+    const cellInnerHTML = `
+      ${runtime}
+      ${resultSizeLine}
+    `;
+    
+    const failed = query.headers.length === 0 || !Array.isArray(query.results);
+    const failedTitle = failed ? EscapeAttribute(query.results) : "";
+
     resultClass = query.headers.length === 0 || !Array.isArray(query.results) ? "bg-danger bg-opacity-25" : "";
     tabRow.innerHTML = `
             <td title="${EscapeAttribute(query.sparql)}">${query.query}</td>
-            <td class="text-end ${resultClass}">${runtime}</td>
+            <td class="text-end ${resultClass}" title="${failedTitle}">${cellInnerHTML}</td>
         `;
     tabBody.appendChild(tabRow);
   });

@@ -189,3 +189,20 @@ function showModal(modalNode, attributes = {}, fromPopState = false) {
     modal.show();
   }
 }
+
+function extractCoreValue(sparqlValue) {
+  if (sparqlValue?.startsWith("<") && sparqlValue?.endsWith(">")) {
+    // URI
+    return sparqlValue.slice(1, -1);
+  }
+
+  const literalMatch = sparqlValue?.match(/^"((?:[^"\\]|\\.)*)"/);
+  if (literalMatch) {
+    // Decode escape sequences (e.g. \" \\n etc.)
+    const raw = literalMatch[1];
+    return raw.replace(/\\(.)/g, "$1");
+  }
+
+  // fallback: return as-is
+  return sparqlValue;
+}

@@ -276,23 +276,6 @@ function getMajorityResultSize(kb, engines, queryId) {
   return majorityResultSize;
 }
 
-function extractCoreValue(sparqlValue) {
-  if (sparqlValue.startsWith("<") && sparqlValue.endsWith(">")) {
-    // URI
-    return sparqlValue.slice(1, -1);
-  }
-
-  const literalMatch = sparqlValue.match(/^"((?:[^"\\]|\\.)*)"/);
-  if (literalMatch) {
-    // Decode escape sequences (e.g. \" \\n etc.)
-    const raw = literalMatch[1];
-    return raw.replace(/\\(.)/g, "$1");
-  }
-
-  // fallback: return as-is
-  return sparqlValue;
-}
-
 /**
  * Uses performanceDataPerKb object to create the engine runtime for each query comparison table
  * Gives the user the ability to selectively hide queries to reduce the clutter
@@ -345,7 +328,7 @@ function createCompareResultsTable(kb, enginesToDisplay) {
         continue;
       }
       let runtime = result.runtime_info.client_time;
-      const failed = !Array.isArray(result.results);
+      const failed = result.headers.length === 0 || !Array.isArray(result.results);
       let resultClass = failed ? "bg-danger bg-opacity-25" : "";
       if (resultClass === "" && runtime === bestRuntime) {
         resultClass = "bg-success bg-opacity-25";
@@ -362,15 +345,18 @@ function createCompareResultsTable(kb, enginesToDisplay) {
         warningSymbol = ` <span style="color:red">&#9888;</span>`;
         popoverContent +=
           (popoverContent ? " " : "") +
-          `Warning: Result size (${actualSize}) differs from majority (${majorityResultSize}).`;
+          `Warning: Result size (${format(actualSize)}) differs from majority (${format(majorityResultSize)}).`;
       }
       let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
       let popoverTitle = null;
-      if (actualSize === 1 && result.headers.length === 1) {
-        popoverTitle = `Single result: ${extractCoreValue(result.results[0])}`;
-      }
       const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
-      const resultSizeLine = `<div class="text-muted small ${resultSizeClass}">${actualSize}</div>`;
+      let resultSizeText = format(actualSize);
+      if (actualSize === 1 && result.headers.length === 1 && Array.isArray(result.results) && result.results.length == 1) {
+        let singleResult = extractCoreValue(result.results[0]);
+        singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
+        resultSizeText = `1 [${singleResult}]`;
+      }
+      const resultSizeLine = `<div class="text-muted small ${resultSizeClass}">${resultSizeText}</div>`;
       const cellInnerHTML = `
         ${runtimeText}
         ${resultSizeLine}

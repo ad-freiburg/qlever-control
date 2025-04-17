@@ -193,7 +193,7 @@ class ExampleQueriesCommand(QleverCommand):
                 pretty_print_query_cmd, return_output=True
             )
             return query_pretty_printed.rstrip()
-        except Exception:
+        except Exception as e:
             log.error(
                 f"Failed to pretty-print query, returning original query: {e}"
             )

@@ -16,6 +16,9 @@ class QueryCommand(QleverCommand):
 
     def __init__(self):
         self.predefined_queries = {
+            "number-of-triples": (
+                "SELECT (COUNT(*) AS ?count) WHERE { ?s ?p ?o }"
+            ),
             "all-predicates": (
                 "SELECT (?p AS ?predicate) (COUNT(?p) AS ?count) "
                 "WHERE { ?s ?p ?o } "

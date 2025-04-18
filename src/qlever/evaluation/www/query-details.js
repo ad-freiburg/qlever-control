@@ -272,7 +272,8 @@ function createQueryTable(queryResult, tabBody) {
     const resultSizeClass = !document.querySelector("#showResultSizeQd").checked ? "d-none" : "";
     let resultSizeText = format(actualSize);
     if (actualSize === 1 && query.headers.length === 1 && Array.isArray(query.results) && query.results.length == 1) {
-      let singleResult = extractCoreValue(query.results[0]);
+      const resultValue = Array.isArray(query.results[0]) ? query.results[0][0] : query.results[0];
+      let singleResult = extractCoreValue(resultValue);
       singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
       resultSizeText = `1 [${singleResult}]`;
     }

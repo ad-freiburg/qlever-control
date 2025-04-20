@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-import requests
+import json
+import re
+import shlex
+
 import sseclient
 
 from qlever.command import QleverCommand
 from qlever.log import log
+from qlever.util import run_command
 
 
 class UpdateCommand(QleverCommand):
@@ -25,7 +29,7 @@ class UpdateCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["access_token"]}
+        return {"server": ["port", "access_token"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -46,14 +50,94 @@ class UpdateCommand(QleverCommand):
         if args.show:
             return True
 
-        # Execute the command.
-        response = requests.get(
-            args.url,
-            stream=True,
-            headers={
-                "Accept": "text/event-stream",
-            },
+        # Execute the command, by iterating over all messages in the stream.
+        client = sseclient.SSEClient(
+            args.url, headers={"Accept": "text/event-stream"}
         )
-        client = sseclient.SSEClient(response)
-        for event in client.events():
-            log.info(event.data)
+        for event in client:
+            # Only process non-empty messages.
+            if event.event != "message" or not event.data:
+                continue
+            try:
+                event_data = json.loads(event.data)
+                date = event_data.get("dt")
+                entity_id = event_data.get("entity_id")
+                operation = event_data.get("operation")
+                rdf_added_data = event_data.get("rdf_added_data")
+                rdf_deleted_data = event_data.get("rdf_deleted_data")
+                if rdf_added_data is not None:
+                    rdf_added_data = rdf_added_data.get("data")
+                if rdf_deleted_data is not None:
+                    rdf_deleted_data = rdf_deleted_data.get("data")
+            except Exception as e:
+                log.error(f"Error reading data from message: {e}")
+                continue
+
+            # Process this message.
+            log.info(
+                f"Processing operation {operation} from date {date} "
+                f"for entity {entity_id}"
+            )
+
+            # Construct update operation.
+            delete_insert_operation = (
+                f"DELETE {{"
+                f"{rdf_deleted_data if rdf_deleted_data else ''}"
+                f"}} INSERT {{"
+                f"{rdf_added_data if rdf_added_data else ''}"
+                f"}} WHERE {{ }}"
+            )
+            delete_insert_operation = re.sub(
+                "\s+", " ", delete_insert_operation
+            )
+            # log.warn(delete_insert_operation)
+
+            # Construct and issue curl command.
+            sparql_endpoint = f"localhost:{args.port}"
+            update_arg = f"update={shlex.quote(delete_insert_operation)}"
+            access_arg = f"access-token={shlex.quote(args.access_token)}"
+            curl_cmd = (
+                f"curl -s {sparql_endpoint}"
+                f" --data-urlencode {update_arg}"
+                f" --data-urlencode {access_arg}"
+            )
+            log.warn(curl_cmd)
+            try:
+                result = run_command(curl_cmd, return_output=True)
+            except Exception as e:
+                log.warn(f"Error running {curl_cmd}: {e}")
+                continue
+
+            # Results should be a JSON, parse it.
+            try:
+                result = json.loads(result)
+            except Exception as e:
+                log.warn(f"Error parsing JSON result: {e}")
+                log.warn(curl_cmd)
+                continue
+
+            # Check if the result contains a QLever exception.
+            if "exception" in result:
+                error_msg = result["exception"]
+                log.error(f"QLever exception: {error_msg}")
+                log.warn(curl_cmd)
+                continue
+
+            # Show statistics of the update operation.
+            try:
+                ins_before = result["delta-triples"]["before"]["inserted"]
+                del_before = result["delta-triples"]["before"]["deleted"]
+                ins_after = result["delta-triples"]["after"]["inserted"]
+                del_after = result["delta-triples"]["after"]["deleted"]
+                time_total = result["time"]["total"]
+                print(
+                    f"INS: {ins_before} -> {ins_after}, "
+                    f"DEL: {del_before} -> {del_after}, "
+                    f"TIME: {time_total}"
+                )
+            except Exception as e:
+                log.warn(
+                    f"Error extracting statistics: {e}, "
+                    f"curl command was: {curl_cmd}"
+                )
+                continue

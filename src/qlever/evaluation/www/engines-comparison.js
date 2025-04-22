@@ -181,7 +181,6 @@ function getEnginesToDisplay(kb) {
  * - Updates the modal content and displays the query details.
  * - Manages the state of the query execution tree and tab content.
  *
- * @async
  * @param {string} kb - The selected knowledge base
  */
 function openComparisonModal(kb) {
@@ -230,25 +229,27 @@ function openComparisonModal(kb) {
   hideSpinner();
 }
 
-function getBestRuntime(kb, engines, queryId) {
+function getBestRuntime(engines, engineStats) {
   best_time = Infinity;
   for (let engine of engines) {
-    const result = performanceDataPerKb[kb][engine]["queries"][queryId];
+    const result = engineStats[engine];
+    if (!result) continue;
     let runtime = parseFloat(result.runtime_info.client_time);
     let failed = result.headers.length === 0 || !Array.isArray(result.results);
     if (!failed && runtime < best_time) {
       best_time = runtime;
     }
   }
-  return best_time;
+  return isFinite(best_time) ? best_time : null;
 }
 
-function getMajorityResultSize(kb, engines, queryId) {
+function getMajorityResultSize(engines, engineStats) {
   const sizeCounts = new Map();
   let validResultFound = false;
 
   for (let engine of engines) {
-    const result = performanceDataPerKb[kb][engine]["queries"][queryId];
+    const result = engineStats[engine];
+    if (!result) continue;
     const failed = result.headers.length === 0 || !Array.isArray(result.results);
 
     if (!failed && typeof result.result_size === "number" && result.result_size !== 0) {
@@ -282,8 +283,7 @@ function getMajorityResultSize(kb, engines, queryId) {
  * @param  kb Name of the knowledge base for which to get engine runtimes
  * @return HTML table with queries as rows and engine runtimes as columns
  */
-function createCompareResultsTable(kb, enginesToDisplay) {
-  let queryCount = 0;
+function createCompareResultsTable(kb, engines) {
   const table = document.createElement("table");
   table.classList.add("table", "table-hover", "table-bordered", "w-auto");
 
@@ -298,31 +298,39 @@ function createCompareResultsTable(kb, enginesToDisplay) {
 
   // Create dynamic headers and add them to the header row
   headerRow.innerHTML = "<th class='sticky-top'>Query</th>";
-  const engines = enginesToDisplay;
-  let engineIndexForQueriesList = 0;
-  for (let i = 0; i < engines.length; i++) {
-    if (performanceDataPerKb[kb][engines[i]]["queries"].length > queryCount) {
-      queryCount = performanceDataPerKb[kb][engines[i]]["queries"].length;
-      engineIndexForQueriesList = i;
-    }
-    headerRow.innerHTML += `<th class='sticky-top'>${engines[i]}</th>`;
+  for (const engine of engines) {
+    headerRow.innerHTML += `<th class='sticky-top'>${engine}</th>`;
   }
 
   thead.appendChild(headerRow);
   table.appendChild(thead);
 
+  const queryLookup = {};
+  for (const [engine, { queries }] of Object.entries(performanceDataPerKb[kb])) {
+    for (const { query, ...rest } of queries) {
+      if (!queryLookup[query]) {
+        queryLookup[query] = {};
+      }
+      queryLookup[query][engine] = rest;
+    }
+  }
   // Create the table body and add rows and cells
   const tbody = document.createElement("tbody");
-  for (let i = 0; i < queryCount; i++) {
+
+  for (const [query, engineStats] of Object.entries(queryLookup)) {
     const row = document.createElement("tr");
-    const title = EscapeAttribute(performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["sparql"]);
-    row.innerHTML += `<td title="${title}">${
-      performanceDataPerKb[kb][engines[engineIndexForQueriesList]]["queries"][i]["query"]
-    }</td>`;
-    const bestRuntime = getBestRuntime(kb, engines, i);
-    const majorityResultSize = getMajorityResultSize(kb, engines, i);
-    for (let engine of engines) {
-      const result = performanceDataPerKb[kb][engine]["queries"][i];
+    let title;
+    for (const engineStat of Object.values(engineStats)) {
+      if (engineStat?.sparql) {
+        title = EscapeAttribute(engineStat.sparql);
+        break;
+      }
+    }
+    row.innerHTML += `<td title="${title}">${query}</td>`;
+    const bestRuntime = getBestRuntime(engines, engineStats);
+    const majorityResultSize = getMajorityResultSize(engines, engineStats);
+    for (const engine of engines) {
+      const result = engineStats[engine];
       if (!result) {
         row.innerHTML += "<td class='text-end'>N/A</td>";
         continue;
@@ -363,10 +371,9 @@ function createCompareResultsTable(kb, enginesToDisplay) {
         ${resultSizeLine}
       `;
       if (popoverTitle) {
-        popoverContent = `<b>${EscapeAttribute(popoverTitle)}</b><br>${EscapeAttribute(popoverContent)}`
-      }
-      else {
-        popoverContent = EscapeAttribute(popoverContent)
+        popoverContent = `<b>${EscapeAttribute(popoverTitle)}</b><br>${EscapeAttribute(popoverContent)}`;
+      } else {
+        popoverContent = EscapeAttribute(popoverContent);
       }
 
       // row.innerHTML += `<td title="${popoverContent}" class="text-end ${resultClass}">${runtimeText}</td>`;

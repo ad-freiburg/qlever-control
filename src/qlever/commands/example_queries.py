@@ -848,8 +848,12 @@ class ExampleQueriesCommand(QleverCommand):
             results_str = run_command(get_result_cmd, return_output=True)
             results_json = json.loads(results_str)
             results = []
-            for binding in results_json["bindings"]:
+            bindings = results_json.get("bindings", [])
+            for binding in bindings:
                 result = []
+                if not binding or not isinstance(binding, dict):
+                    results.append([])
+                    continue
                 for obj in binding.values():
                     value = '"' + obj["value"] + '"'
                     if obj["type"] == "uri":

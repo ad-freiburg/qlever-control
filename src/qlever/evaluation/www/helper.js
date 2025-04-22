@@ -65,10 +65,9 @@ function addQueryStatistics(queryData) {
     runtimeArray.push(runtime);
     totalTime += runtime;
     totalLogTime += Math.max(Math.log(runtime), 0.001);
-    if (query.headers.length === 0 && typeof(query.results) == "string") {
-      failedQueries++
-    }
-    else {
+    if (query.headers.length === 0 && typeof query.results == "string") {
+      failedQueries++;
+    } else {
       if (runtime < 1) {
         queriesUnder1s++;
       }
@@ -115,13 +114,17 @@ function getTxtData(txtContent) {
  * @returns {string}
  */
 function EscapeAttribute(text) {
-  return text.replace(/[&<>"']/g, match => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  }[match]));
+  return text.replace(
+    /[&<>"']/g,
+    (match) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      }[match])
+  );
 }
 
 /**
@@ -191,12 +194,20 @@ function showModal(modalNode, attributes = {}, fromPopState = false) {
 }
 
 function extractCoreValue(sparqlValue) {
-  if (sparqlValue?.startsWith("<") && sparqlValue?.endsWith(">")) {
+  if (Array.isArray(sparqlValue)) {
+    if (sparqlValue.length === 0) return "";
+    sparqlValue = sparqlValue[0];
+  }
+  if (typeof sparqlValue !== "string" || sparqlValue.trim() === "") {
+    return "";
+  }
+
+  if (sparqlValue.startsWith("<") && sparqlValue.endsWith(">")) {
     // URI
     return sparqlValue.slice(1, -1);
   }
 
-  const literalMatch = sparqlValue?.match(/^"((?:[^"\\]|\\.)*)"/);
+  const literalMatch = sparqlValue.match(/^"((?:[^"\\]|\\.)*)"/);
   if (literalMatch) {
     // Decode escape sequences (e.g. \" \\n etc.)
     const raw = literalMatch[1];

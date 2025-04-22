@@ -359,8 +359,18 @@ function createCompareResultsTable(kb, engines) {
       let popoverTitle = null;
       const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
       let resultSizeText = format(actualSize);
-      if (actualSize === 1 && result.headers.length === 1 && Array.isArray(result.results) && result.results.length == 1) {
-        const resultValue = Array.isArray(result.results[0]) ? result.results[0][0] : result.results[0];
+      if (
+        actualSize === 1 &&
+        result.headers.length === 1 &&
+        Array.isArray(result.results) &&
+        result.results.length == 1
+      ) {
+        let resultValue;
+        if (Array.isArray(result.results[0]) && result.results[0].length > 0) {
+          resultValue = result.results[0][0];
+        } else {
+          resultValue = result.results[0];
+        }
         let singleResult = extractCoreValue(resultValue);
         singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
         resultSizeText = `1 [${singleResult}]`;

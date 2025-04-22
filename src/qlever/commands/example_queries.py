@@ -884,8 +884,8 @@ class ExampleQueriesCommand(QleverCommand):
         output_dir = Path(__file__).parent.parent / "evaluation" / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
         yaml_file_path = output_dir / out_file
-        with open(yaml_file_path, "wb") as eval_yaml_file, open(
-            out_file, "wb"
-        ) as cwd_yaml_file:
+        with open(yaml_file_path, "wb") as eval_yaml_file:
             yaml.dump(query_data, eval_yaml_file)
-            yaml.dump(query_data, cwd_yaml_file)
+        symlink_path = Path(out_file)
+        if not symlink_path.exists():
+            symlink_path.symlink_to(yaml_file_path)

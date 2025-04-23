@@ -81,7 +81,8 @@ class TestIndexCommand(unittest.TestCase):
 
         # Expected command-line options string based on the JSON data
         expected_result = (
-            "-f <(test_data1) -g - -F json -f " "<(test_data2) -g - -F jsonld"
+            "-f <(test_data1) -g - -F json -p false "
+            "-f <(test_data2) -g - -F jsonld -p false"
         )
         self.assertEqual(result, expected_result)
 

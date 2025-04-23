@@ -30,6 +30,8 @@ def construct_command(args) -> str:
         start_cmd += f" -s {args.timeout}"
     if args.access_token:
         start_cmd += f" -a {args.access_token}"
+    if args.persist_updates:
+        start_cmd += " --persist-updates"
     if args.only_pso_and_pos_permutations:
         start_cmd += " --only-pso-and-pos-permutations"
     if not args.use_patterns:
@@ -148,6 +150,7 @@ class StartCommand(QleverCommand):
                 "cache_max_num_entries",
                 "num_threads",
                 "timeout",
+                "persist_updates",
                 "only_pso_and_pos_permutations",
                 "use_patterns",
                 "use_text_index",

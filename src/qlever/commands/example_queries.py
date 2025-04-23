@@ -103,8 +103,8 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--clear-cache",
             choices=["yes", "no"],
-            default="yes",
-            help="Clear the cache before each query",
+            default="no",
+            help="Clear the cache before each query (only works for QLever)",
         )
         subparser.add_argument(
             "--width-query-description",
@@ -213,9 +213,18 @@ class ExampleQueriesCommand(QleverCommand):
             not args.sparql_endpoint
             or args.sparql_endpoint.startswith("https://qlever")
         )
-        if args.clear_cache == "yes" and not is_qlever:
-            log.warning("Clearing the cache only works for QLever")
-            args.clear_cache = "no"
+        if args.clear_cache == "yes":
+            if is_qlever:
+                log.warning(
+                    "Clearing the cache before each query"
+                    " (only works for QLever)"
+                )
+            else:
+                log.warning(
+                    "Clearing the cache only works for QLever"
+                    ", option `--clear-cache` is ignored"
+                )
+                args.clear_cache = "no"
 
         # Show what the command will do.
         get_queries_cmd = (
@@ -237,8 +246,6 @@ class ExampleQueriesCommand(QleverCommand):
             f"Obtain queries via: {get_queries_cmd}\n"
             f"SPARQL endpoint: {sparql_endpoint}\n"
             f"Accept header: {args.accept}\n"
-            f"Clear cache before each query:"
-            f" {args.clear_cache.upper()}\n"
             f"Download result for each query or just count:"
             f" {args.download_or_count.upper()}"
             + (f" with LIMIT {args.limit}" if args.limit else ""),
@@ -404,6 +411,7 @@ class ExampleQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
+                single_int_result = None
                 # CASE 0: The result is empty despite a 200 HTTP code (not a
                 # problem for CONSTRUCT and DESCRIBE queries).
                 if Path(result_file).stat().st_size == 0 and (
@@ -461,16 +469,29 @@ class ExampleQueriesCommand(QleverCommand):
                         )
                     else:
                         try:
-                            result_size = run_command(
-                                f'jq -r ".results.bindings | length"'
-                                f" {result_file}",
-                                return_output=True,
+                            result_size = int(
+                                run_command(
+                                    f'jq -r ".results.bindings | length"'
+                                    f" {result_file}",
+                                    return_output=True,
+                                ).rstrip()
                             )
                         except Exception as e:
                             error_msg = {
                                 "short": "Malformed JSON",
                                 "long": re.sub(r"\s+", " ", str(e)),
                             }
+                        if result_size == 1:
+                            try:
+                                single_int_result = int(
+                                    run_command(
+                                        f'jq -e -r ".results.bindings[0][] | .value"'
+                                        f" {result_file}",
+                                        return_output=True,
+                                    ).rstrip()
+                                )
+                            except Exception:
+                                pass
 
             # Remove the result file (unless in debug mode).
             if args.log_level != "DEBUG":
@@ -485,10 +506,16 @@ class ExampleQueriesCommand(QleverCommand):
                 )
             if error_msg is None:
                 result_size = int(result_size)
+                single_int_result = (
+                    f"   [single int result: {single_int_result:,}]"
+                    if single_int_result is not None
+                    else ""
+                )
                 log.info(
                     f"{description:<{width_query_description}}  "
                     f"{time_seconds:6.2f} s  "
                     f"{result_size:>{args.width_result_size},}"
+                    f"{single_int_result}"
                 )
                 query_times.append(time_seconds)
                 result_sizes.append(result_size)

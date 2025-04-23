@@ -85,6 +85,11 @@ class ExampleQueriesCommand(QleverCommand):
             help="Remove OFFSET and LIMIT from the query",
         )
         subparser.add_argument(
+            "--access-token",
+            type=str,
+            help="Access token for privileged requests to the SPARQL endpoint",
+        )
+        subparser.add_argument(
             "--accept",
             type=str,
             choices=[
@@ -99,6 +104,17 @@ class ExampleQueriesCommand(QleverCommand):
             help="Accept header for the SPARQL query; AUTO means "
             "`text/turtle` for CONSTRUCT AND DESCRIBE queries, "
             "`application/sparql-results+json` for all others",
+        )
+        subparser.add_argument(
+            "--content-type",
+            type=str,
+            choices=[
+                "application/sparql-query",
+                "application/sparql-update",
+            ],
+            default="application/sparql-query",
+            help="Content-Type header for the SPARQL query "
+            "(default: application/sparql-query)",
         )
         subparser.add_argument(
             "--clear-cache",
@@ -245,6 +261,7 @@ class ExampleQueriesCommand(QleverCommand):
         self.show(
             f"Obtain queries via: {get_queries_cmd}\n"
             f"SPARQL endpoint: {sparql_endpoint}\n"
+            f"Content-Type header: {args.content_type}\n"
             f"Accept header: {args.accept}\n"
             f"Download result for each query or just count:"
             f" {args.download_or_count.upper()}"
@@ -372,11 +389,18 @@ class ExampleQueriesCommand(QleverCommand):
 
             # Launch query.
             try:
+                query_or_update = (
+                    "query"
+                    if args.content_type == "application/sparql-query"
+                    else "update"
+                )
                 curl_cmd = (
                     f"curl -s {sparql_endpoint}"
                     f' -w "HTTP code: %{{http_code}}\\n"'
+                    f' -H "Content-Type: {args.content_type}"'
                     f' -H "Accept: {accept_header}"'
-                    f" --data-urlencode query={shlex.quote(query)}"
+                    f" --data-urlencode {query_or_update}={shlex.quote(query)}"
+                    f" --data-urlencode access-token={args.access_token}"
                 )
                 log.debug(curl_cmd)
                 result_file = (
@@ -387,7 +411,10 @@ class ExampleQueriesCommand(QleverCommand):
                 http_code = run_curl_command(
                     sparql_endpoint,
                     headers={"Accept": accept_header},
-                    params={"query": query},
+                    params={
+                        query_or_update: query,
+                        "access-token": args.access_token,
+                    },
                     result_file=result_file,
                 ).strip()
                 if http_code == "200":

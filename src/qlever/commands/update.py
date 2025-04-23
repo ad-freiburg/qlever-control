@@ -97,6 +97,7 @@ class UpdateCommand(QleverCommand):
             if current_group_size < args.group_size:
                 continue
             else:
+                date_list.sort()
                 insert_data = "\n".join(insert_data_list)
                 delete_data = "\n".join(delete_data_list)
                 insert_data_list = []
@@ -121,7 +122,7 @@ class UpdateCommand(QleverCommand):
                 f"WHERE {{ }}"
             )
             delete_insert_operation = re.sub(
-                "\s+", " ", delete_insert_operation
+                r"\s+", " ", delete_insert_operation
             )
             # log.warn(delete_insert_operation)
 

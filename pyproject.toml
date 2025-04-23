@@ -20,7 +20,7 @@ classifiers = [
  "Topic :: Database :: Front-Ends"
 ]
 
-dependencies = [ "psutil", "termcolor", "argcomplete", "sseclient" ]
+dependencies = [ "psutil", "termcolor", "argcomplete", "requests-sse" ]
 
 [project.urls]
 Github = "https://github.com/ad-freiburg/qlever"

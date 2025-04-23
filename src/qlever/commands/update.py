@@ -4,7 +4,7 @@ import json
 import re
 import shlex
 
-import sseclient
+import requests_sse
 
 from qlever.command import QleverCommand
 from qlever.log import log
@@ -61,17 +61,16 @@ class UpdateCommand(QleverCommand):
             return True
 
         # Execute the command, by iterating over all messages in the stream.
-        client = sseclient.SSEClient(
-            args.url, headers={"Accept": "text/event-stream"}
-        )
+        source = requests_sse.EventSource(args.url, headers={"Accept": "text/event-stream"})
+        source.connect()
         date_list = []
         insert_data_list = []
         delete_data_list = []
         current_group_size = 0
         curl_cmd_count = 0
-        for event in client:
+        for event in source:
             # Only process non-empty messages.
-            if event.event != "message" or not event.data:
+            if event.type != "message" or not event.data:
                 continue
             try:
                 event_data = json.loads(event.data)

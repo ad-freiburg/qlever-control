@@ -46,7 +46,7 @@ class UpdateCommand(QleverCommand):
             help="Group this many messages together into one update "
             "(default: one update for each message); NOTE: this simply "
             "concatenates the `rdf_added_data` and `rdf_deleted_data` fields, "
-            "which is not 100% correct; as soon as chaining is supported, "
+            "which is not 100%% correct; as soon as chaining is supported, "
             "this will be fixed",
         )
 

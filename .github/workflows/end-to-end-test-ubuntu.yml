@@ -24,7 +24,7 @@ jobs:
       - name: Install qlever script locally + dependencies needed for testing
         working-directory: ${{github.workspace}}/qlever-control
         run: |
-          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install --upgrade pip setuptools wheel packaging
           python3 --version
           pip3 --version
           pip3 show setuptools wheel

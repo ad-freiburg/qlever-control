@@ -215,6 +215,22 @@ function openComparisonModal(kb) {
   // Create a DocumentFragment to build the table
   const fragment = document.createDocumentFragment();
   const table = createCompareResultsTable(kb, enginesToDisplay);
+  table.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const td = e.target.closest("td");
+    if (td && td.title) {
+      const textToCopy = td.title.trim();
+      navigator.clipboard
+        .writeText(textToCopy)
+        .then(() => {
+          const copyToast = bootstrap.Toast.getOrCreateInstance(document.getElementById("copyToast"));
+          copyToast.show();
+        })
+        .catch((err) => {
+          console.error("Copy failed:", err);
+        });
+    }
+  });
 
   fragment.appendChild(table);
 
@@ -293,7 +309,8 @@ function createCompareResultsTable(kb, engines) {
   headerRow.title = `
     Click on a column to sort it in descending or ascending order. 
     Sort multiple columns simultaneously by holding down the Shift key 
-    and clicking a second, third or even fourth column header!
+    and clicking a second, third or even fourth column header!\n
+    Right click on any table cell to copy the content of its tooltip!
   `;
 
   // Create dynamic headers and add them to the header row
@@ -356,7 +373,6 @@ function createCompareResultsTable(kb, engines) {
           `Warning: Result size (${format(actualSize)}) differs from majority (${format(majorityResultSize)}).`;
       }
       let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
-      let popoverTitle = null;
       const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
       let resultSizeText = format(actualSize);
       if (
@@ -380,25 +396,25 @@ function createCompareResultsTable(kb, engines) {
         ${runtimeText}
         ${resultSizeLine}
       `;
-      if (popoverTitle) {
-        popoverContent = `<b>${EscapeAttribute(popoverTitle)}</b><br>${EscapeAttribute(popoverContent)}`;
-      } else {
-        popoverContent = EscapeAttribute(popoverContent);
-      }
+      // if (popoverTitle) {
+      //   popoverContent = `<b>${EscapeAttribute(popoverTitle)}</b><br>${EscapeAttribute(popoverContent)}`;
+      // } else {
+      popoverContent = EscapeAttribute(popoverContent);
+      // }
 
-      // row.innerHTML += `<td title="${popoverContent}" class="text-end ${resultClass}">${runtimeText}</td>`;
-      row.innerHTML += `
-        <td
-          tabindex="0"
-          class="text-end ${resultClass}"
-          data-bs-toggle="popover"
-          data-bs-trigger="hover focus"
-          data-bs-html="true"
-          data-bs-content="${popoverContent}"
-        >
-        ${cellInnerHTML}
-        </td>
-      `;
+      row.innerHTML += `<td title="${popoverContent}" class="text-end ${resultClass}">${cellInnerHTML}</td>`;
+      // row.innerHTML += `
+      //   <td
+      //     tabindex="0"
+      //     class="text-end ${resultClass}"
+      //     data-bs-toggle="popover"
+      //     data-bs-trigger="hover focus"
+      //     data-bs-html="true"
+      //     data-bs-content="${popoverContent}"
+      //   >
+      //   ${cellInnerHTML}
+      //   </td>
+      // `;
     }
     // title="${EscapeAttribute(popoverTitle)}"
     if (!document.querySelector("#compareExecDiv").classList.contains("d-none")) {

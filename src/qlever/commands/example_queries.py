@@ -21,7 +21,7 @@ from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
 
-MAX_RESULT_SIZE = 50
+MAX_RESULT_SIZE = 20
 
 
 class ExampleQueriesCommand(QleverCommand):
@@ -163,20 +163,23 @@ class ExampleQueriesCommand(QleverCommand):
             help="When showing the query, also show the prefixes",
         )
         subparser.add_argument(
-            "--generate-output-file",
-            action="store_true",
-            default=False,
-            help="Generate output file in the 'output' directory",
+            "--results-dir",
+            type=str,
+            default=".",
+            help=(
+                "The directory where the yaml result file would be saved "
+                "for evaluation web app (Default = current working directory)"
+            ),
         )
         subparser.add_argument(
-            "--backend-name",
+            "--result-file",
+            type=str,
             default=None,
-            help="Name for the backend that would be used in performance comparison",
-        )
-        subparser.add_argument(
-            "--output-basename",
-            default=None,
-            help="Name for the dataset that would be used in performance comparison",
+            help=(
+                "Name that would be used for result yaml file. "
+                "Make sure it is of the form <dataset>.<engine> "
+                "for e.g.: wikidata.jena or dblp.qlever+"
+            ),
         )
 
     def pretty_printed_query(self, query: str, show_prefixes: bool) -> str:
@@ -286,13 +289,28 @@ class ExampleQueriesCommand(QleverCommand):
             log.error("Cannot have both --remove-offset-and-limit and --limit")
             return False
 
-        if args.generate_output_file:
-            if args.output_basename is None or args.backend_name is None:
+        dataset, engine = None, None
+        if args.result_file is not None:
+            result_file_parts = args.result_file.split(".")
+            if len(result_file_parts) != 2:
                 log.error(
-                    "Both --output-basename and --backend-name parameters"
-                    " must be passed when --generate-output-file is passed"
+                    "Make sure --result-file is of the form <dataset>.<engine> "
+                    "for e.g.: wikidata.jena or dblp.qlever+"
                 )
                 return False
+            results_dir_path = Path(args.results_dir)
+            if results_dir_path.exists():
+                if not results_dir_path.is_dir():
+                    log.error(
+                        f"{results_dir_path} exists but is not a directory."
+                    )
+                    return False
+            else:
+                log.info(
+                    f"Creating results directory: {results_dir_path.absolute()}"
+                )
+                results_dir_path.mkdir(parents=True, exist_ok=True)
+            dataset, engine = result_file_parts
 
         # If `args.accept` is `application/sparql-results+json` or
         # `application/qlever-results+json` or `AUTO`, we need `jq`.
@@ -327,8 +345,8 @@ class ExampleQueriesCommand(QleverCommand):
             not args.sparql_endpoint
             or args.sparql_endpoint.startswith("https://qlever")
         )
-        if args.generate_output_file:
-            is_qlever = is_qlever or "qlever" in args.backend_name.lower()
+        if engine is not None:
+            is_qlever = is_qlever or "qlever" in engine.lower()
         if args.clear_cache == "yes":
             if is_qlever:
                 log.warning(
@@ -680,7 +698,7 @@ class ExampleQueriesCommand(QleverCommand):
                     log.info("")
 
             # Get the yaml record if output file needs to be generated
-            if args.generate_output_file:
+            if args.result_file is not None:
                 result_length = None if error_msg is not None else 1
                 result_length = (
                     result_size
@@ -714,9 +732,8 @@ class ExampleQueriesCommand(QleverCommand):
         assert len(query_times) + num_failed == len(example_query_lines)
 
         if len(yaml_records["queries"]) != 0:
-            outfile = (
-                f"{args.output_basename}.{args.backend_name}.results.yaml"
-            )
+            outfile_name = f"{dataset}.{engine}.results.yaml"
+            outfile = Path(args.results_dir) / outfile_name
             self.write_query_data_to_yaml(
                 query_data=yaml_records,
                 out_file=outfile,
@@ -878,18 +895,17 @@ class ExampleQueriesCommand(QleverCommand):
 
     @staticmethod
     def write_query_data_to_yaml(
-        query_data: dict[str, list[dict[str, Any]]], out_file: str
+        query_data: dict[str, list[dict[str, Any]]], out_file: Path
     ) -> None:
         """
         Write yaml record for all queries to output yaml file
         """
         yaml = YAML()
         yaml.default_flow_style = False
-        output_dir = Path(__file__).parent.parent / "evaluation" / "output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        yaml_file_path = output_dir / out_file
-        with open(yaml_file_path, "wb") as eval_yaml_file:
+        with open(out_file, "wb") as eval_yaml_file:
             yaml.dump(query_data, eval_yaml_file)
-        symlink_path = Path(out_file)
-        if not symlink_path.exists():
-            symlink_path.symlink_to(yaml_file_path)
+            log.info("")
+            log.info(
+                f"Generated result yaml file: {out_file.stem}{out_file.suffix} "
+                f"in the directory {out_file.parent.resolve()}"
+            )

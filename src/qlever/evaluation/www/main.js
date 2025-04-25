@@ -58,93 +58,6 @@ function addEventListenersForCard(cardNode) {
 }
 
 /**
- * Create promises out of eval and fail logs and return the results
- * @param  fileUrls fileUrls array from getFileUrls function
- * @return Promise that is reolved with array of results of fetching eval and fail logs
- * @async
- */
-async function fetchAndProcessFiles(fileUrls) {
-  const fetchPromises = fileUrls.map(async (url) => {
-    try {
-      //const content = await response.text();
-      const content = await getYamlData(url, {
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      });
-      if (content == null) {
-        throw new Error(`Failed to fetch ${url}`);
-      }
-      console.log(`File ${url} content: ${content}`);
-      // Process the content as needed
-      return { status: "fulfilled", value: content };
-    } catch (error) {
-      console.error(`Error fetching ${url}: ${error.message}`);
-      // Handle the error gracefully
-      return { status: "rejected", reason: error.message };
-    }
-  });
-
-  const results = await Promise.allSettled(fetchPromises);
-  return results; // Return the results to be accessed later
-}
-
-/**
- * Fetch all the relevant metrics required by populateCard function
- * @param  results      Array withresults from fetching yaml file
- * @param  fileList     fileList array from getOutputFiles function
- */
-function processResults(results, fileList) {
-  for (let i = 0; i < results.length; i++) {
-    let fileNameComponents = fileList[i].split(".");
-    const kb = fileNameComponents[0];
-    const engine = fileNameComponents[1];
-    if (results[i].status == "fulfilled" && results[i].value.status == "fulfilled") {
-      const queryData = results[i].value.value;
-      addQueryStatistics(queryData);
-      for (const query of queryData.queries) {
-        if (query.headers.length !== 0 && query.runtime_info.hasOwnProperty("query_execution_tree")) {
-          execTreeEngines.push(engine);
-          break;
-        }
-      }
-      performanceDataPerKb[kb][engine] = queryData;
-    }
-  }
-}
-
-/**
- * Populate global sparqlEngines and kbs array based on files in the output directory
- * @param  url url of the output directory
- * @async
- */
-async function getOutputFiles(url) {
-  try {
-    const response = await fetch(url);
-    const data = await response.text();
-
-    // Parse the HTML response to extract file names
-    const parser = new DOMParser();
-    const htmlDoc = parser.parseFromString(data, "text/html");
-    const fileList = Array.from(htmlDoc.querySelectorAll("a"))
-      .map((link) => link.textContent.trim())
-      .filter((file) => file.endsWith(".yaml") || file.endsWith(".yml"));
-    for (const file of fileList) {
-      const parts = file.split(".");
-      if (parts.length === 4 && parts[2] === "results") {
-        const kb = parts[0];
-        if (!kbs.includes(kb)) kbs.push(kb);
-        const engine = parts[1];
-        if (!sparqlEngines.includes(engine)) sparqlEngines.push(engine);
-      }
-    }
-    return fileList;
-  } catch (error) {
-    console.error("Error fetching file list:", error);
-  }
-}
-
-/**
  * Hide a modal if it is currently open.
  * Adds a custom `pop-triggered` attribute to the modal so that modal.hide() doesn't execute any code after closing
  * @param {HTMLElement} modalNode - The DOM node representing the modal to be hidden.
@@ -269,41 +182,41 @@ function getSanitizedQAndT(q, t) {
 
 // Use the DOMContentLoaded event listener to ensure the DOM is ready
 document.addEventListener("DOMContentLoaded", async function () {
-  getOutputFiles(outputUrl).then(async function (fileList) {
-    // Fetch the card template
-    const response = await fetch("card-template.html");
-    const templateText = await response.text();
+  // Fetch the card template
+  const response = await fetch("card-template.html");
+  const templateText = await response.text();
 
-    // Create a virtual DOM element to hold the template
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = templateText;
-    const cardTemplate = tempDiv.querySelector("#cardTemplate");
+  // Create a virtual DOM element to hold the template
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = templateText;
+  const cardTemplate = tempDiv.querySelector("#cardTemplate");
 
-    const fragment = document.createDocumentFragment();
+  const fragment = document.createDocumentFragment();
 
-    for (let kb of kbs) {
-      performanceDataPerKb[kb.toLowerCase()] = {};
+  try {
+    const response = await fetch("/yaml_data");
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
     }
-
-    // For all the tsv files in the output folder, create bootstrap card and display on main page
-    fetchAndProcessFiles(fileList).then(async (results) => {
-      processResults(results, fileList, fragment, cardTemplate);
-      for (const kb of Object.keys(performanceDataPerKb)) {
-        fragment.appendChild(populateCard(cardTemplate, kb));
-      }
-      document.getElementById("cardsContainer").appendChild(fragment);
-      $("#cardsContainer table").tablesorter({
-        theme: "bootstrap",
-        sortStable: true,
-        sortInitialOrder: "desc",
-      });
-      // Navigate to the correct page (or modal) based on the url
-      await showPageFromUrl();
+    performanceDataPerKb = await response.json();
+    for (const kb of Object.keys(performanceDataPerKb)) {
+      fragment.appendChild(populateCard(cardTemplate, kb));
+    }
+    document.getElementById("cardsContainer").appendChild(fragment);
+    $("#cardsContainer table").tablesorter({
+      theme: "bootstrap",
+      sortStable: true,
+      sortInitialOrder: "desc",
     });
+    // Navigate to the correct page (or modal) based on the url
+    await showPageFromUrl();
+  } catch (error) {
+    console.error("Failed to fetch performance data:", error);
+    return null;
+  }
 
-    // Setup event listeners for queryDetailsModal, comparisonModal and compareExecModal
-    setListenersForQueriesTabs();
-    setListenersForCompareExecModal();
-    setListenersForEnginesComparison();
-  });
+  // Setup event listeners for queryDetailsModal, comparisonModal and compareExecModal
+  setListenersForQueriesTabs();
+  setListenersForCompareExecModal();
+  setListenersForEnginesComparison();
 });

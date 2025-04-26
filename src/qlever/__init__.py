@@ -34,7 +34,6 @@ command_names = [
 command_objects = {}
 for command_name in command_names:
     module_path = f"{script_name}.commands.{command_name}"
-    class_name = snake_to_camel(command_name) + "Command"
     try:
         module = import_module(module_path)
     except ImportError as e:
@@ -43,5 +42,6 @@ for command_name in command_names:
         ) from e
     # Create an object of the class and store it in the dictionary. For the
     # commands, take - instead of _.
+    class_name = snake_to_camel(command_name) + "Command"
     command_class = getattr(module, class_name)
     command_objects[command_name.replace("_", "-")] = command_class()

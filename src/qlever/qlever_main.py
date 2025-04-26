@@ -47,6 +47,10 @@ def main():
     except Exception as e:
         # Check if it's a certain kind of `AttributeError` and give a hint in
         # that case.
+        log.debug(
+            "Command failed with exception, full traceback: "
+            f"{traceback.format_exc()}"
+        )
         match_error = re.search(r"object has no attribute '(.+)'", str(e))
         match_trace = re.search(
             rf"({script_name}/commands/.+\.py)\", line (\d+)",

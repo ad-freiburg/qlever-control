@@ -421,7 +421,7 @@ class Qleverfile:
     
     @staticmethod
     def filter(
-        qleverfile_path: Path, criteria: dict[str, list[str]]
+        qleverfile_path: Path, options_included: dict[str, list[str]]
     ) -> RawConfigParser:
         """
         Given a filter criteria (key: section_header, value: list[options]),
@@ -438,7 +438,7 @@ class Qleverfile:
         filtered_config = RawConfigParser()
         filtered_config.optionxform = str
 
-        for section, desired_fields in criteria.items():
+        for section, desired_fields in options_included.items():
             if config.has_section(section):
                 filtered_config.add_section(section)
 

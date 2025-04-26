@@ -9,7 +9,7 @@ from pathlib import Path
 import argcomplete
 from termcolor import colored
 
-from qlever import command_objects, script_name
+from qlever import command_objects, engine_name, script_name
 from qlever.log import log, log_levels
 from qlever.qleverfile import Qleverfile
 
@@ -178,7 +178,7 @@ class QleverConfig:
         parser = argparse.ArgumentParser(
             description=colored(
                 f"This is the {script_name} command line tool, "
-                f"it's all you need to work with {script_name.capitalize()}",
+                f"it's all you need to work with {engine_name}",
                 attrs=["bold"],
             )
         )

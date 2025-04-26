@@ -14,6 +14,13 @@ def snake_to_camel(str):
 # Get the name of the script (without the path and without the extension).
 script_name = Path(sys.argv[0]).stem
 
+ENGINE_NAMES = {
+    "qlever": "QLever",
+    "qmdb": "MillenniumDB",
+}
+# Default engine_name = script_name without starting 'q' and capitalized
+engine_name = ENGINE_NAMES.get(script_name, script_name[1:].capitalize())
+
 # Each module in `qlever/commands` corresponds to a command. The name
 # of the command is the base name of the module file.
 package_path = Path(__file__).parent.parent / script_name

@@ -61,7 +61,9 @@ class UpdateCommand(QleverCommand):
             return True
 
         # Execute the command, by iterating over all messages in the stream.
-        source = requests_sse.EventSource(args.url, headers={"Accept": "text/event-stream"})
+        source = requests_sse.EventSource(
+            args.url, headers={"Accept": "text/event-stream"}
+        )
         source.connect()
         date_list = []
         insert_data_list = []
@@ -126,25 +128,23 @@ class UpdateCommand(QleverCommand):
             )
             # log.warn(delete_insert_operation)
 
-            # Construct curl command.
+            # Construct curl command. For group size 1, send the operation via
+            # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
             sparql_endpoint = f"localhost:{args.port}"
-            update_arg = f"update={shlex.quote(delete_insert_operation)}"
-            access_arg = f"access-token={shlex.quote(args.access_token)}"
             curl_cmd = (
-                f"curl -s {sparql_endpoint}"
-                f" --data-urlencode {update_arg}"
-                f" --data-urlencode {access_arg}"
+                f"curl -s -X POST {sparql_endpoint}"
+                f" -H 'Authorization: Bearer {args.access_token}'"
+                f" -H 'Content-Type: application/sparql-update'"
             )
-
-            # For group size 1, show the command, otherwise write to file.
             if args.group_size == 1:
-                log.warn(curl_cmd)
+                curl_cmd += f" --data {shlex.quote(delete_insert_operation)}"
             else:
                 curl_cmd_count += 1
-                curl_cmd_file_name = f"update.curl-cmd.{curl_cmd_count}"
-                with open(curl_cmd_file_name, "w") as f:
-                    f.write(curl_cmd)
-                log.warn(f"curl command written to {curl_cmd_file_name}")
+                update_arg_file_name = f"update.sparql.{curl_cmd_count}"
+                with open(update_arg_file_name, "w") as f:
+                    f.write(delete_insert_operation)
+                curl_cmd += f" --data-binary @{update_arg_file_name}"
+            log.warn(curl_cmd)
 
             # Run it.
             try:

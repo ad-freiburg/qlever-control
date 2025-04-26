@@ -15,6 +15,7 @@ var very_high_query_time_ms = 1000;
  * @returns {string} The formatted number as a string.
  */
 function formatNumber(number) {
+  if (Number.isNaN(number)) return "N/A "
   return number.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 

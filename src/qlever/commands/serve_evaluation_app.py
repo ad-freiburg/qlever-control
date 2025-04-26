@@ -15,33 +15,44 @@ from qlever.log import log
 EVAL_DIR = Path(__file__).parent.parent / "evaluation"
 
 
-def get_query_stats(queries: list[dict]) -> dict[str, float | int]:
-    failed, under_1, bw_1_to_5, over_5 = 0, 0, 0, 0
-    total_time, total_log_time = 0.0, 0.0
+def get_query_stats(queries: list[dict]) -> dict[str, float | None]:
+    query_data = {
+        "ameanTime": None,
+        "gmeanTime": None,
+        "medianTime": None,
+        "under1s": 0.0,
+        "between1to5s": 0.0,
+        "over5s": 0.0,
+        "failed": 0.0,
+    } 
+    failed = under_1 = bw_1_to_5 = over_5 = 0
+    total_time = total_log_time = 0.0
     runtimes = []
     for query in queries:
-        runtime = float(query["runtime_info"]["client_time"])
-        runtimes.append(runtime)
-        total_time += runtime
-        total_log_time += max(math.log(runtime), 0.001)
         if len(query["headers"]) == 0 and isinstance(query["results"], str):
             failed += 1
-        elif runtime <= 1:
-            under_1 += 1
-        elif runtime > 5:
-            over_5 += 1
         else:
-            bw_1_to_5 += 1
-    total_queries = len(queries)
-    query_data = {
-        "ameanTime": total_time / total_queries,
-        "gmeanTime": math.exp(total_log_time / total_queries),
-        "medianTime": sorted(runtimes)[total_queries // 2], 
-        "under1s": (under_1 / total_queries) * 100,
-        "between1to5s": (bw_1_to_5 / total_queries) * 100,
-        "over5s": (over_5 / total_queries) * 100,
-        "failed": (failed / total_queries) * 100,
-    }
+            runtime = float(query["runtime_info"]["client_time"])
+            total_time += runtime
+            total_log_time += max(math.log(runtime), 0.001)
+            runtimes.append(runtime)
+            if runtime <= 1:
+                under_1 += 1
+            elif runtime > 5:
+                over_5 += 1
+            else:
+                bw_1_to_5 += 1
+    total_successful = len(runtimes)
+    if total_successful == 0:
+        query_data["failed"] = 100.0
+    else:
+        query_data["ameanTime"] = total_time / total_successful
+        query_data["gmeanTime"] = math.exp(total_log_time / total_successful)
+        query_data["medianTime"] = sorted(runtimes)[total_successful // 2]
+        query_data["under1s"] = (under_1 / total_successful) * 100
+        query_data["between1to5s"] = (bw_1_to_5 / total_successful) * 100
+        query_data["over5s"] = (over_5 / total_successful) * 100
+        query_data["failed"] = (failed / len(queries)) * 100
     return query_data
 
 

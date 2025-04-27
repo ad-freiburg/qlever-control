@@ -389,32 +389,20 @@ class ExampleQueriesCommand(QleverCommand):
 
             # Launch query.
             try:
-                query_or_update = (
-                    "query"
-                    if args.content_type == "application/sparql-query"
-                    else "update"
-                )
-                curl_cmd = (
-                    f"curl -s {sparql_endpoint}"
-                    f' -w "HTTP code: %{{http_code}}\\n"'
-                    f' -H "Content-Type: {args.content_type}"'
-                    f' -H "Accept: {accept_header}"'
-                    f" --data-urlencode {query_or_update}={shlex.quote(query)}"
-                    f" --data-urlencode access-token={args.access_token}"
-                )
-                log.debug(curl_cmd)
-                result_file = (
-                    f"qlever.example_queries.result."
-                    f"{abs(hash(curl_cmd))}.tmp"
-                )
+                if args.content_type == "application/sparql-query":
+                    params = {"query": query}
+                else:
+                    params = {
+                        "update": query,
+                        "access-token": args.access_token,
+                    }
+                unique_id = abs(hash(query))
+                result_file = f"qlever.example_queries.result.{unique_id}.tmp"
                 start_time = time.time()
                 http_code = run_curl_command(
                     sparql_endpoint,
                     headers={"Accept": accept_header},
-                    params={
-                        query_or_update: query,
-                        "access-token": args.access_token,
-                    },
+                    params=params,
                     result_file=result_file,
                 ).strip()
                 if http_code == "200":

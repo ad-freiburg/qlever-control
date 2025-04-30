@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 from os import environ
 from pathlib import Path
 
@@ -127,20 +126,18 @@ class UiCommand(QleverCommand):
         start_ui_cmd = (
             f"{args.ui_system} run -d "
             f"--volume $(pwd):/app/db "
-            # f"--volume $(pwd)/{ui_db_file}:/app/db/{ui_db_file_from_image} "
-            # f"--volume $(pwd)/{ui_config_file}:/app/db/{ui_config_file} "
             f"--env QLEVERUI_DATABASE_URL=sqlite:////app/db/{ui_db_file} "
             f"--publish {args.ui_port}:7000 "
             f"--name {args.ui_container} "
             f"{args.ui_image}"
         )
         get_config_cmd = (
-            f"{args.ui_system} exec -it "
+            f"{args.ui_system} exec -i "
             f"{args.ui_container} "
             f'bash -c "python manage.py config {ui_config_name}"'
         )
         set_config_cmd = (
-            f"{args.ui_system} exec -it "
+            f"{args.ui_system} exec -i "
             f"{args.ui_container} "
             f'bash -c "python manage.py config {ui_config_name} '
             f'/app/db/{ui_config_file} --hide-all-other-backends"'
@@ -170,11 +167,16 @@ class UiCommand(QleverCommand):
                 container_system, args.ui_container
             )
         if was_found_and_stopped:
-            log.info(f"Stopped and removed container `{args.ui_container}`")
+            log.debug(f"Stopped and removed container `{args.ui_container}`")
         else:
-            log.info(f"No container with name `{args.ui_container}` found")
+            log.debug(f"No container with name `{args.ui_container}` found")
         if args.stop:
             return True
+
+        # Pull the latest image.
+        if pull_latest_image:
+            log.info(f"Pulling image `{args.ui_image}` for QLever UI")
+            run_command(pull_cmd)
 
         # Check if the UI port is already being used.
         if is_port_used(args.ui_port):
@@ -184,26 +186,28 @@ class UiCommand(QleverCommand):
                 f" Qleverfile in the [ui] section with the UI_PORT variable."
             )
 
-        # Get the QLever UI database.
+        # Get the QLever UI database from the image, unless it already exists.
         if Path(ui_db_file).exists():
-            log.info(f"Found QLever UI database `{ui_db_file}`, reusing it")
+            log.debug(f"Found QLever UI database `{ui_db_file}`, reusing it")
         else:
-            log.info(f"Getting QLever UI database `{ui_db_file}` from image")
+            log.debug(f"Getting QLever UI database `{ui_db_file}` from image")
             try:
                 run_command(get_db_cmd)
-            except subprocess.CalledProcessError as e:
-                log.error(f"Failed to get the QLever UI database ({e})")
+            except Exception as e:
+                log.error(
+                    f"Failed to get {ui_db_file} from {args.ui_image} "
+                    f"({e})"
+                )
                 return False
 
         # Start the QLever UI.
         try:
-            if pull_latest_image:
-                log.info(f"Pulling image `{args.ui_image}` for QLever UI")
-                run_command(pull_cmd)
-            log.info(f"Starting new container with name `{args.ui_container}`")
+            log.debug(
+                f"Starting new container with name `{args.ui_container}`"
+            )
             run_command(start_ui_cmd)
-        except subprocess.CalledProcessError as e:
-            log.error(f"Failed to start the QLever UI ({e})")
+        except Exception as e:
+            log.error(f"Failed to start container `{args.ui_container}` ({e})")
             return False
 
         # Check if config file with name `ui_config_file` exists. If not, try
@@ -211,43 +215,28 @@ class UiCommand(QleverCommand):
         if Path(ui_config_file).exists():
             log.info(f"Found config file `{ui_config_file}` and reusing it")
         else:
-            log.info(
-                f"Checking if config `{ui_config_name}` exists in "
-                f"image `{args.ui_image}` "
-            )
             try:
-                config_yaml = run_command(get_config_cmd, return_output=True)
                 log.info(
-                    f"Found it and setting URL for SPARQL endpoint to "
-                    f"{sparql_endpoint}"
+                    f"Get default config file `{ui_config_file}` from image "
+                    f"`{args.ui_image}`, and set endpoint to "
+                    f"`{sparql_endpoint}`"
                 )
+                config_yaml = run_command(get_config_cmd, return_output=True)
                 config_dict = yaml.safe_load(config_yaml)
                 config_dict["config"]["backend"]["isDefault"] = True
                 config_dict["config"]["backend"]["baseUrl"] = sparql_endpoint
                 config_dict["config"]["backend"]["sortKey"] = 1
                 config_yaml = dict_to_yaml(config_dict)
-                log.info(f"Writing config to `{ui_config_file}`")
                 with open(ui_config_file, "w") as f:
                     f.write(config_yaml)
             except Exception as e:
-                log.error(
-                    f"Neither found config file `{ui_config_file}` nor "
-                    f"could obtain default config for `{ui_config_name}`"
-                )
-                log.info("")
-                log.info(f"Error message: {e}")
-                log.info("")
-                log.info(
-                    "TODO: provide further instructions for this case "
-                    "(obtain `default` config file, edit it, rename it, "
-                    "then try again)"
-                )
+                log.error(f"Export failed ({e})")
                 return False
 
         # Configure the QLever UI.
         try:
             run_command(set_config_cmd)
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             log.error(f"Failed to configure the QLever UI ({e})")
             return False
 
@@ -257,8 +246,8 @@ class UiCommand(QleverCommand):
             f"The QLever UI should now be up at {ui_url}/{ui_config_name}"
         )
         log.info("")
-        log.info(
-            "You can log in as QLever UI admin with "
+        log.debug(
+            "If you must, you can log in as QLever UI admin with "
             'username and password "demo"'
         )
         log.info(

@@ -28,7 +28,7 @@ class CacheStatsCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument("--server-url",
                                help="URL of the QLever server, default is "
-                               "localhost:{port}")
+                               "{host_name}:{port}")
         subparser.add_argument("--detailed",
                                action="store_true",
                                default=False,
@@ -37,7 +37,7 @@ class CacheStatsCommand(QleverCommand):
     def execute(self, args) -> bool:
         # Construct the two curl commands.
         server_url = (args.server_url if args.server_url
-                      else f"localhost:{args.port}")
+                      else f"{args.host_name}:{args.port}")
         cache_stats_cmd = (f"curl -s {server_url} "
                            f"--data-urlencode \"cmd=cache-stats\"")
         cache_settings_cmd = (f"curl -s {server_url} "

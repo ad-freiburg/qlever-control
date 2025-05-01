@@ -143,7 +143,6 @@ class UiCommand(QleverCommand):
             f'/app/db/{ui_config_file} --hide-all-other-backends"'
         )
         commands_to_show = []
-        commands_to_show.append("Check for running containers and stop them")
         if not args.stop:
             if pull_latest_image:
                 commands_to_show.append(pull_cmd)
@@ -218,8 +217,7 @@ class UiCommand(QleverCommand):
             try:
                 log.info(
                     f"Get default config file `{ui_config_file}` from image "
-                    f"`{args.ui_image}`, and set endpoint to "
-                    f"`{sparql_endpoint}`"
+                    f"`{args.ui_image}` and set endpoint to `{sparql_endpoint}`"
                 )
                 config_yaml = run_command(get_config_cmd, return_output=True)
                 config_dict = yaml.safe_load(config_yaml)

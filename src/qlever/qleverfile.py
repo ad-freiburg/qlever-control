@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import socket
 import subprocess
 from configparser import ConfigParser, ExtendedInterpolation
 
@@ -413,6 +414,12 @@ class Qleverfile:
             server = config["server"]
         if index.get("text_index", "none") != "none":
             server["use_text_index"] = "yes"
+
+        # Add other non-trivial default values.
+        try:
+            config["server"]["host_name"] = socket.gethostname()
+        except Exception:
+            pass
 
         # Return the parsed Qleverfile with the added inherited values.
         return config

@@ -134,7 +134,7 @@ class ExampleQueriesCommand(QleverCommand):
         subparser.add_argument(
             "--width-error-message",
             type=int,
-            default=80,
+            default=50,
             help="Width for printing the error message (0 = no limit)",
         )
         subparser.add_argument(

@@ -9,6 +9,7 @@ from qlever.commands.index import IndexCommand
 
 # Test execute of index command for basic case with successful execution
 class TestIndexCommand(unittest.TestCase):
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.index.run_command")
     @patch("qlever.commands.index.Containerize")
     @patch("qlever.commands.index.get_existing_index_files")
@@ -20,7 +21,8 @@ class TestIndexCommand(unittest.TestCase):
         mock_get_total_file_size,
         mock_get_existing_index_files,
         mock_containerize,
-        mock_run_command,
+        mock_index_run_command,
+        mock_util_run_command,
     ):
         # Setup args
         args = MagicMock()
@@ -49,7 +51,7 @@ class TestIndexCommand(unittest.TestCase):
         mock_glob.glob.return_value = ["input1.nt", "input2.nt"]
         mock_get_total_file_size.return_value = 5e9  # 5 GB
         mock_get_existing_index_files.return_value = []
-        mock_run_command.return_value = None
+        mock_index_run_command.return_value = None
         mock_containerize.supported_systems.return_value = ["docker"]
 
         # Instantiate and executing the IndexCommand
@@ -73,9 +75,11 @@ class TestIndexCommand(unittest.TestCase):
 
         # Testing if run_command was called exactly 3 times with the correct
         # parameters and in the correct order
-        mock_run_command.assert_has_calls(
+        mock_util_run_command.assert_called_once_with(
+            expected_index_binary_cmd
+        )
+        mock_index_run_command.assert_has_calls(
             [
-                call(expected_index_binary_cmd),
                 call(expected_settings_json_cmd),
                 index_cmd_call,
             ],
@@ -84,7 +88,7 @@ class TestIndexCommand(unittest.TestCase):
         assert result
 
     # Test execute for file already existing
-    @patch("qlever.commands.index.run_command")
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.index.Containerize")
     @patch("qlever.commands.index.get_existing_index_files")
     @patch("qlever.commands.index.get_total_file_size")
@@ -145,11 +149,11 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.assert_called_once_with(f"{args.index_binary} --help")
 
     # Test execute for no index binary found
-    @patch("qlever.commands.index.run_command")
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.index.Containerize")
     @patch("qlever.commands.index.get_existing_index_files")
     @patch("qlever.commands.index.get_total_file_size")
-    @patch("qlever.commands.index.log")
+    @patch("qlever.util.log")
     @patch("qlever.commands.index.glob")
     def test_execute_fails_if_no_indexing_binary_is_found(
         self,
@@ -208,6 +212,7 @@ class TestIndexCommand(unittest.TestCase):
         mock_run_command.assert_called_once_with(f"{args.index_binary} --help")
 
     # Test execute for file size > 10gb
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.index.run_command")
     @patch("qlever.commands.index.Containerize")
     @patch("qlever.commands.index.get_existing_index_files")
@@ -219,7 +224,8 @@ class TestIndexCommand(unittest.TestCase):
         mock_get_total_file_size,
         mock_get_existing_index_files,
         mock_containerize,
-        mock_run_command,
+        mock_index_run_command,
+        mock_util_run_command,
     ):
         # Setup args
         args = MagicMock()
@@ -248,7 +254,7 @@ class TestIndexCommand(unittest.TestCase):
         mock_glob.glob.return_value = ["input1.nt", "input2.nt"]
         mock_get_total_file_size.return_value = 15e9  # 15 GB
         mock_get_existing_index_files.return_value = []
-        mock_run_command.return_value = None
+        mock_index_run_command.return_value = None
         mock_containerize.supported_systems.return_value = []
 
         # Instantiate IndexCommand and execute the function
@@ -261,7 +267,12 @@ class TestIndexCommand(unittest.TestCase):
             f" -F {args.format} -f -"
             f" | tee {args.name}.index-log.txt"
         )
-        mock_run_command.assert_any_call(expected_index_cmd, show_output=True)
+        mock_util_run_command.assert_called_once_with(
+            f"{args.index_binary} --help"
+        )
+        mock_index_run_command.assert_any_call(
+            expected_index_cmd, show_output=True
+        )
         self.assertTrue(result)
 
     # Test elif branch for multi_input_json
@@ -368,7 +379,7 @@ class TestIndexCommand(unittest.TestCase):
 
         # Verify that show was called with the right parameters
         mock_show.assert_called_once_with(
-            f"{settings_json_cmd}\n" f"{expected_index_cmd}",
+            f"{settings_json_cmd}\n{expected_index_cmd}",
             only_show=args.show,
         )
         assert result

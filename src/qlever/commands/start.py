@@ -10,7 +10,7 @@ from qlever.commands.stop import StopCommand
 from qlever.commands.warmup import WarmupCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import is_qlever_server_alive, run_command
+from qlever.util import binary_exists, is_qlever_server_alive, run_command
 
 
 # Construct the command line based on the config file.
@@ -69,22 +69,6 @@ def wrap_command_in_container(args, start_cmd) -> str:
         working_directory="/index",
     )
     return start_cmd
-
-
-# When running natively, check if the binary exists and works.
-def check_binary(binary) -> bool:
-    try:
-        run_command(f"{binary} --help")
-        return True
-    except Exception as e:
-        log.error(
-            f'Running "{binary}" failed, '
-            f"set `--server-binary` to a different binary or "
-            f"set `--system to a container system`"
-        )
-        log.info("")
-        log.info(f"The error message was: {e}")
-        return False
 
 
 # Set the index description.
@@ -220,8 +204,7 @@ class StartCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            ret = check_binary(args.server_binary)
-            if not ret:
+            if not binary_exists(args.server_binary, "server-binary"):
                 return False
 
         # Check if a QLever server is already running on this port.

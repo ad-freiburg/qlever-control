@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, call, patch
 
 import qlever.commands.start
+import qlever.util
 from qlever.commands.start import StartCommand
 
 
@@ -119,7 +120,7 @@ def test_wrap_command_in_container(mock_containerize_command):
 
 # Tests the check_binary help function for the case of success of the
 # run_cmd in the try/except block
-@patch("qlever.commands.start.run_command")
+@patch("qlever.util.run_command")
 def test_check_binary_success(mock_run_cmd):
     # Setup args
     args = MagicMock()
@@ -128,7 +129,7 @@ def test_check_binary_success(mock_run_cmd):
     mock_run_cmd.return_value = "Command works"
 
     # Execute the function
-    result = qlever.commands.start.check_binary(args.server_binary)
+    result = qlever.util.binary_exists(args.server_binary, "server-binary")
     # check if run_cmd was called once with
     mock_run_cmd.assert_called_once_with(f"{args.server_binary} --help")
     assert result
@@ -136,8 +137,8 @@ def test_check_binary_success(mock_run_cmd):
 
 # Tests the check_binary help function for the case of exception for the
 # run_cmd in the try/except block
-@patch("qlever.commands.start.run_command")
-@patch("qlever.commands.start.log")
+@patch("qlever.util.run_command")
+@patch("qlever.util.log")
 def test_check_binary_exception(mock_log, mock_run_cmd):
     # Setup args
     args = MagicMock()
@@ -147,7 +148,7 @@ def test_check_binary_exception(mock_log, mock_run_cmd):
     mock_run_cmd.side_effect = Exception("Mocked command failure")
 
     # Execute the function
-    result = qlever.commands.start.check_binary(args.server_binary)
+    result = qlever.util.binary_exists(args.server_binary, "server-binary")
 
     # check if run_cmd was called once with
     mock_run_cmd.assert_called_once_with(f"{args.server_binary} --help")
@@ -294,6 +295,7 @@ def test_set_text_description_exception(mock_log, mock_run_cmd):
 class TestStartCommand(unittest.TestCase):
     @patch("qlever.commands.start.CacheStatsCommand.execute")
     @patch("qlever.commands.stop.StopCommand.execute", return_value=True)
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.start.run_command")
     @patch("qlever.commands.start.is_qlever_server_alive")
     @patch("subprocess.Popen")
@@ -305,7 +307,8 @@ class TestStartCommand(unittest.TestCase):
         mock_containerize,
         mock_popen,
         mock_is_qlever_server_alive,
-        mock_run_command,
+        mock_start_run_command,
+        mock_util_run_command,
         mock_stop,
         mock_cache_stats_command,
     ):
@@ -375,21 +378,15 @@ class TestStartCommand(unittest.TestCase):
         )
         run_call_2 = f"nohup {start_command} &"
         # Assert that run_command was called exactly twice with the
-        # correct arguments in order
-        mock_run_command.assert_has_calls(
-            [
-                call(run_call_1),
-                call(
-                    run_call_2,
-                    use_popen=False,
-                ),
-            ],
-            any_order=False,
+
+        mock_util_run_command.assert_has_calls([call(run_call_1)])
+        mock_start_run_command.assert_has_calls(
+            [call(run_call_2, use_popen=False)]
         )
         # Ensure execution was successful
         self.assertTrue(result)
 
-    @patch("qlever.commands.start.run_command")
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.start.is_qlever_server_alive")
     @patch("qlever.commands.start.Containerize")
     def test_execute_fails_due_to_existing_server(
@@ -436,6 +433,7 @@ class TestStartCommand(unittest.TestCase):
         self.assertFalse(result)
 
     @patch("qlever.commands.start.CacheStatsCommand.execute")
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.start.run_command")
     @patch("qlever.commands.start.is_qlever_server_alive")
     @patch("subprocess.Popen")
@@ -447,7 +445,8 @@ class TestStartCommand(unittest.TestCase):
         mock_containerize,
         mock_popen,
         mock_is_qlever_server_alive,
-        mock_run_command,
+        mock_start_run_command,
+        mock_util_run_command,
         mock_cache_stats_command,
     ):
         # Setup args
@@ -490,11 +489,13 @@ class TestStartCommand(unittest.TestCase):
         # Server status should be checked
         mock_is_qlever_server_alive.assert_called()
         # Ensure the server was started
-        self.assertTrue(mock_run_command.called)
+        self.assertTrue(mock_util_run_command.called)
+        self.assertTrue(mock_start_run_command.called)
         # Ensure execution was successful
         self.assertTrue(result)
 
     @patch("qlever.commands.start.CacheStatsCommand.execute")
+    @patch("qlever.util.run_command")
     @patch("qlever.commands.start.run_command")
     @patch("qlever.commands.start.is_qlever_server_alive")
     @patch("subprocess.Popen")
@@ -506,7 +507,8 @@ class TestStartCommand(unittest.TestCase):
         mock_run,
         mock_popen,
         mock_is_qlever_server_alive,
-        mock_run_command,
+        mock_start_run_command,
+        mock_util_run_command,
         mock_cache_stats_command,
     ):
         # Setup args
@@ -557,7 +559,8 @@ class TestStartCommand(unittest.TestCase):
         # Ensure the server status was checked
         mock_is_qlever_server_alive.assert_called()
         # Ensure the server was started
-        mock_run_command.assert_called()
+        mock_util_run_command.assert_called()
+        mock_start_run_command.assert_called()
         # Execution should succeed
         self.assertTrue(result)
 

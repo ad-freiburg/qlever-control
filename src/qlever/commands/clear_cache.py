@@ -34,7 +34,7 @@ class ClearCacheCommand(QleverCommand):
             "--complete",
             action="store_true",
             default=False,
-            help="Clear the cache completely, including " "the pinned queries",
+            help="Clear the cache completely, including the pinned queries",
         )
 
     def execute(self, args) -> bool:

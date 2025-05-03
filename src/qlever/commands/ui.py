@@ -71,7 +71,7 @@ class UiCommand(QleverCommand):
         subparser.add_argument(
             "--ui-db-file",
             help="Name of the database file for the QLever UI "
-            "(default: <name>.ui-db.sqlite3)",
+            "(default: {name}.ui-db.sqlite3)",
         )
         subparser.add_argument(
             "--no-pull-latest",

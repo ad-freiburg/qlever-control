@@ -38,7 +38,7 @@ class QueryCommand(QleverCommand):
         return False
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["port", "access_token"]}
+        return {"server": ["host_name", "port", "access_token"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -109,7 +109,7 @@ class QueryCommand(QleverCommand):
         sparql_endpoint = (
             args.sparql_endpoint
             if args.sparql_endpoint
-            else f"localhost:{args.port}"
+            else f"{args.host_name}:{args.port}"
         )
         curl_cmd = (
             f"curl -s {sparql_endpoint}"

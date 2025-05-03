@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import socket
 import subprocess
 from configparser import ConfigParser, ExtendedInterpolation, RawConfigParser
 from pathlib import Path
@@ -416,9 +417,18 @@ class Qleverfile:
         if index.get("text_index", "none") != "none":
             server["use_text_index"] = "yes"
 
+        # Add other non-trivial default values.
+        try:
+            config["server"]["host_name"] = socket.gethostname()
+        except Exception:
+            log.warning(
+                "Could not get the hostname, using `localhost` as default"
+            )
+            pass
+
         # Return the parsed Qleverfile with the added inherited values.
         return config
-    
+
     @staticmethod
     def filter(
         qleverfile_path: Path, options_included: dict[str, list[str]]

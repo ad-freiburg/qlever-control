@@ -28,7 +28,7 @@ class ClearCacheCommand(QleverCommand):
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
             "--server-url",
-            help="URL of the QLever server, default is " "{host_name}:{port}",
+            help="URL of the QLever server, default is {host_name}:{port}",
         )
         subparser.add_argument(
             "--complete",

@@ -395,6 +395,7 @@ class TestStartCommand(unittest.TestCase):
         # Setup args
         args = MagicMock()
         args.kill_existing_with_same_port = False
+        args.port = "localhorst"
         args.port = 1234
         args.cmdline_regex = f"^ServerMain.* -p {args.port}"
         args.no_containers = True
@@ -422,7 +423,7 @@ class TestStartCommand(unittest.TestCase):
 
         # Assertions
         # Ensure the server status was checked
-        endpoint_url = f"http://localhost:{args.port}"
+        endpoint_url = f"http://{args.host_name}:{args.port}"
         mock_is_qlever_server_alive.assert_called_once_with(endpoint_url)
         # Check that `run_command` was called only for the `--help` check,
         # but not the actual start command

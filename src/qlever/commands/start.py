@@ -74,7 +74,7 @@ def wrap_command_in_container(args, start_cmd) -> str:
 # Set the index description.
 def set_index_description(access_arg, port, desc) -> bool:
     curl_cmd = (
-        f"curl -Gs http://{args.host_name}:{port}/api"
+        f"curl -Gs http://localhost:{port}/api"
         f' --data-urlencode "index-description={desc}"'
         f" {access_arg} > /dev/null"
     )
@@ -90,7 +90,7 @@ def set_index_description(access_arg, port, desc) -> bool:
 # Set the text description.
 def set_text_description(access_arg, port, text_desc) -> bool:
     curl_cmd = (
-        f"curl -Gs http://{args.host_name}:{port}/api"
+        f"curl -Gs http://localhost:{port}/api"
         f' --data-urlencode "text-description={text_desc}"'
         f" {access_arg} > /dev/null"
     )

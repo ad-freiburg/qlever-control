@@ -174,7 +174,7 @@ class UiCommand(QleverCommand):
 
         # Pull the latest image.
         if pull_latest_image:
-            log.info(f"Pulling image `{args.ui_image}` for QLever UI")
+            log.debug(f"Pulling image `{args.ui_image}` for QLever UI")
             run_command(pull_cmd)
 
         # Check if the UI port is already being used.
@@ -221,6 +221,14 @@ class UiCommand(QleverCommand):
                 )
                 config_yaml = run_command(get_config_cmd, return_output=True)
                 config_dict = yaml.safe_load(config_yaml)
+            except Exception as e:
+                log.error("")
+                log.error(
+                    f"An error occured while getting and parsing the "
+                    f"config file ({e})"
+                )
+                return False
+            try:
                 config_dict["config"]["backend"]["isDefault"] = True
                 config_dict["config"]["backend"]["baseUrl"] = sparql_endpoint
                 config_dict["config"]["backend"]["sortKey"] = 1
@@ -228,7 +236,11 @@ class UiCommand(QleverCommand):
                 with open(ui_config_file, "w") as f:
                     f.write(config_yaml)
             except Exception as e:
-                log.error(f"Export failed ({e})")
+                log.error("")
+                log.error(
+                    f"An error occured while modifying and writing the "
+                    f"config file ({e})"
+                )
                 return False
 
         # Configure the QLever UI.

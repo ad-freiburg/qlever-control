@@ -9,6 +9,7 @@ from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import (
+    binary_exists,
     get_existing_index_files,
     get_total_file_size,
     run_command,
@@ -267,16 +268,7 @@ class IndexCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            try:
-                run_command(f"{args.index_binary} --help")
-            except Exception as e:
-                log.error(
-                    f'Running "{args.index_binary}" failed, '
-                    f"set `--index-binary` to a different binary or "
-                    f"set `--system to a container system`"
-                )
-                log.info("")
-                log.info(f"The error message was: {e}")
+            if not binary_exists(args.index_binary, "index-binary"):
                 return False
 
         # Check if all of the input files exist.

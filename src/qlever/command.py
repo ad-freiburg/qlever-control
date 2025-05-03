@@ -81,7 +81,7 @@ class QleverCommand(ABC):
         log.info("")
         if only_show:
             log.info(
-                'You called "qlever ... --show", therefore the command '
+                'You passed the argument "--show", therefore the command '
                 'is only shown, but not executed (omit the "--show" to '
                 "execute it)"
             )

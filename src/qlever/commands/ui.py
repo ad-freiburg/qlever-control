@@ -108,7 +108,7 @@ class UiCommand(QleverCommand):
 
         # Construct commands and show them.
         pull_latest_image = "/" in args.ui_image and not args.no_pull_latest
-        ui_config_name = args.name
+        ui_config_name = args.ui_config
         ui_db_file = args.ui_db_file or f"{args.name}.ui-db.sqlite3"
         ui_db_file_from_image = "qleverui.sqlite3"
         ui_config_file = args.ui_config_file

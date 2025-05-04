@@ -144,12 +144,6 @@ class StartCommand(QleverCommand):
         }
 
     def additional_arguments(self, subparser) -> None:
-        # subparser.add_argument("--kill-existing-with-same-name",
-        #                        action="store_true",
-        #                        default=False,
-        #                        help="If a QLever server is already running "
-        #                             "with the same name, kill it before "
-        #                             "starting a new server")
         subparser.add_argument(
             "--kill-existing-with-same-port",
             action="store_true",
@@ -214,7 +208,7 @@ class StartCommand(QleverCommand):
                 return False
 
         # Check if a QLever server is already running on this port.
-        endpoint_url = f"http://localhost:{args.port}"
+        endpoint_url = f"http://{args.host_name}:{args.port}"
         if is_qlever_server_alive(endpoint_url):
             log.error(f"QLever server already running on {endpoint_url}")
             log.info("")

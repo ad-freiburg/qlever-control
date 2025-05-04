@@ -40,7 +40,7 @@ class ExampleQueriesCommand(QleverCommand):
         return False
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["port"], "ui": ["ui_config"]}
+        return {"server": ["host_name", "port"], "ui": ["ui_config"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -374,7 +374,7 @@ class ExampleQueriesCommand(QleverCommand):
         sparql_endpoint = (
             args.sparql_endpoint
             if args.sparql_endpoint
-            else f"localhost:{args.port}"
+            else f"{args.host_name}:{args.port}"
         )
         self.show(
             f"Obtain queries via: {get_queries_cmd}\n"

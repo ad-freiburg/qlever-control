@@ -261,36 +261,41 @@ function getBestRuntime(engines, engineStats) {
 
 function getMajorityResultSize(engines, engineStats) {
   const sizeCounts = new Map();
-  let validResultFound = false;
 
   for (let engine of engines) {
     const result = engineStats[engine];
     if (!result) continue;
-    const failed = result.headers.length === 0 || !Array.isArray(result.results);
+    if (result.failed) continue;
 
-    if (!failed && typeof result.result_size === "number" && result.result_size !== 0) {
-      validResultFound = true;
-      const size = result.result_size;
-      sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1);
-    }
+    const resultSize = result.singleResult ? result.singleResult : format(result.result_size);
+    sizeCounts.set(resultSize, (sizeCounts.get(resultSize) || 0) + 1);
   }
 
-  if (!validResultFound || sizeCounts.size === 0) {
+  if (sizeCounts.size === 0) {
     // All results failed or only had result_size = 0
     return null;
   }
 
   let majorityResultSize = null;
   let maxCount = 0;
+  let tie = false;
 
   for (const [size, count] of sizeCounts.entries()) {
     if (count > maxCount) {
       maxCount = count;
       majorityResultSize = size;
+      tie = false;
+    } else if (count === maxCount) {
+      tie = true;
     }
   }
 
-  return majorityResultSize;
+  return tie ? "no_consensus" : majorityResultSize;
+}
+
+function resultSizeToDisplay(result) {
+  const resultSizeText = result.singleResult ? `1 [${result.singleResult}]` : result.result_size.toString();
+  return resultSizeText;
 }
 
 /**
@@ -336,61 +341,68 @@ function createCompareResultsTable(kb, engines) {
 
   for (const [query, engineStats] of Object.entries(queryLookup)) {
     const row = document.createElement("tr");
+
+    // Get full sparql query from any engine
     let title;
     for (const engineStat of Object.values(engineStats)) {
       if (engineStat?.sparql) {
-        title = EscapeAttribute(engineStat.sparql);
+        title = engineStat.sparql;
         break;
       }
     }
-    row.innerHTML += `<td title="${title}">${query}</td>`;
+    warningSymbol = `<span style="color:red">&#9888;</span>`;
+
     const bestRuntime = getBestRuntime(engines, engineStats);
     const majorityResultSize = getMajorityResultSize(engines, engineStats);
+    let showRowWarning = "";
+    if (majorityResultSize === "no_consensus") {
+      showRowWarning = warningSymbol;
+      title = `The result sizes for the engines do not match!\n\n${title}`;
+    }
+
+    row.innerHTML += `<td title="${EscapeAttribute(title)}">${query} ${showRowWarning}</td>`;
+
     for (const engine of engines) {
       const result = engineStats[engine];
       if (!result) {
         row.innerHTML += "<td class='text-end'>N/A</td>";
         continue;
       }
+      // set result class to show failed and best runtime queries
       let runtime = result.runtime_info.client_time;
-      const failed = result.headers.length === 0 || !Array.isArray(result.results);
-      let resultClass = failed ? "bg-danger bg-opacity-25" : "";
-      if (resultClass === "" && runtime === bestRuntime) {
+      let resultClass = result.failed ? "bg-danger bg-opacity-25" : "";
+      if (!result.failed && runtime === bestRuntime) {
         resultClass = "bg-success bg-opacity-25";
       }
+
       let popoverContent = "";
-      let warningSymbol = "";
-      const actualSize = result.result_size ? result.result_size : 0;
-      if (failed) {
+      if (result.failed) {
         popoverContent = result.results;
-      } else if (resultClass.includes("bg-success")) {
-        popoverContent = "Best runtime for this query!";
+      } else {
+        popoverContent = `Result size: ${resultSizeToDisplay(result)}`;
       }
-      if (majorityResultSize !== null && !failed && actualSize !== majorityResultSize) {
-        warningSymbol = ` <span style="color:red">&#9888;</span>`;
-        popoverContent +=
-          (popoverContent ? " " : "") +
-          `Warning: Result size (${format(actualSize)}) differs from majority (${format(majorityResultSize)}).`;
-      }
-      let runtimeText = `${formatNumber(parseFloat(runtime))} s${warningSymbol}`;
-      const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
-      let resultSizeText = format(actualSize);
-      if (
-        actualSize === 1 &&
-        result.headers.length === 1 &&
-        Array.isArray(result.results) &&
-        result.results.length == 1
-      ) {
-        let resultValue;
-        if (Array.isArray(result.results[0]) && result.results[0].length > 0) {
-          resultValue = result.results[0][0];
+
+      // Add warning if result size doesn"t match
+      let showWarning = "";
+      if (!["no_consensus", null].includes(majorityResultSize) && !result.failed) {
+        if (result.singleResult) {
+          if (result.singleResult !== majorityResultSize) {
+            showWarning = warningSymbol;
+            popoverContent += `\nWarning: Result size ${result.singleResult} differs from majority ${majorityResultSize}.`;
+          }
         } else {
-          resultValue = result.results[0];
+          if (format(result.result_size) !== majorityResultSize) {
+            showWarning = warningSymbol;
+            popoverContent += `\nWarning: Result size ${format(
+              result.result_size
+            )} differs from majority ${majorityResultSize}.`;
+          }
         }
-        let singleResult = extractCoreValue(resultValue);
-        singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
-        resultSizeText = `1 [${singleResult}]`;
       }
+      let runtimeText = `${formatNumber(parseFloat(runtime))} s ${showWarning}`;
+
+      const resultSizeClass = !document.querySelector("#showResultSize").checked ? "d-none" : "";
+      let resultSizeText = resultSizeToDisplay(result);
       const resultSizeLine = `<div class="text-muted small ${resultSizeClass}">${resultSizeText}</div>`;
       const cellInnerHTML = `
         ${runtimeText}

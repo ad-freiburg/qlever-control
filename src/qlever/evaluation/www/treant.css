@@ -11,41 +11,41 @@
 .Treant > .node img {	border: none; float: left; }
 
 .node {
-    padding: 2px;
-    border-radius: 3px;
-    background-color: #FEFEFE;
-    border: 1px solid #000;
-    min-width: 20em;
-    max-width: 30em;
-    color: black;
-  }
-  
-  .node > p { margin: 0; }
-  .node-name { font-weight: bold; }
-  .node-size:before { content: "Size: "; }
-  .node-cols:before { content: "Cols: "; }
-  .node-size:before { content: "Size: "; }
-  .node-time:before { content: "Time: "; }
-  .node-time:after { content: "ms"; }
-  div.cached .node-time:after { content: "ms (cached -> 0ms)"; }
-  .node-total { display: none; }
-  .node-cached { display: none; }
-  .node.cached { color: grey; border: 1px solid grey; }
-  .node.high { background-color: #FFF7F7; }
-  .node.veryhigh { background-color: #FFEEEE; }
-  .node.high.cached { background-color: #FFFFF7; }
-  .node.veryhigh.cached { background-color: #FFFFEE; }
+  padding: 2px;
+  border-radius: 3px;
+  background-color: #FEFEFE;
+  border: 1px solid #000;
+  min-width: 20em;
+  max-width: 30em;
+  color: black;
+}
 
-  #spinner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(186, 179, 179, 0.7);
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
+.node > p { margin: 0; }
+.node-name { font-weight: bold; }
+.node-size:before { content: "Size: "; }
+.node-cols:before { content: "Cols: "; }
+.node-size:before { content: "Size: "; }
+.node-time:before { content: "Time: "; }
+.node-time:after { content: "ms"; }
+div.cached .node-time:after { content: "ms (cached -> 0ms)"; }
+.node-total { display: none; }
+.node-cached { display: none; }
+.node.cached { color: grey; border: 1px solid grey; }
+.node.high { background-color: #FFF7F7; }
+.node.veryhigh { background-color: #FFEEEE; }
+.node.high.cached { background-color: #FFFFF7; }
+.node.veryhigh.cached { background-color: #FFFFEE; }
+
+#spinner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(186, 179, 179, 0.7);
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
 }
 
 .font-size-30 { font-size: 30%; }

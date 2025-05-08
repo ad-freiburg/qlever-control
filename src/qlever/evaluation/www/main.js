@@ -180,6 +180,35 @@ function getSanitizedQAndT(q, t) {
   return { selectedQuery: selectedQuery, tab: tab };
 }
 
+function augmentPerformanceDataPerKb(performanceDataPerKb) {
+  for (const engines of Object.values(performanceDataPerKb)) {
+    for (const { queries } of Object.values(engines)) {
+      for (const query of queries) {
+        const failed = query.headers.length === 0 || !Array.isArray(query.results);
+        let singleResult = null;
+        if (
+          query.result_size === 1 &&
+          query.headers.length === 1 &&
+          Array.isArray(query.results) &&
+          query.results.length == 1
+        ) {
+          let resultValue;
+          if (Array.isArray(query.results[0]) && query.results[0].length > 0) {
+            resultValue = query.results[0][0];
+          } else {
+            resultValue = query.results[0];
+          }
+          singleResult = extractCoreValue(resultValue);
+          singleResult = parseInt(singleResult) ? format(singleResult) : singleResult;
+        }
+        query.failed = failed;
+        query.singleResult = singleResult;
+        query.result_size = query.result_size ? query.result_size : 0;
+      }
+    }
+  }
+}
+
 // Use the DOMContentLoaded event listener to ensure the DOM is ready
 document.addEventListener("DOMContentLoaded", async function () {
   // Fetch the card template
@@ -194,11 +223,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   const fragment = document.createDocumentFragment();
 
   try {
-    const response = await fetch("/yaml_data");
+    const response = await fetch(window.location.origin + "/yaml_data");
     if (!response.ok) {
       throw new Error(`Server error: ${response.status}`);
     }
     performanceDataPerKb = await response.json();
+    augmentPerformanceDataPerKb(performanceDataPerKb);
     for (const kb of Object.keys(performanceDataPerKb)) {
       fragment.appendChild(populateCard(cardTemplate, kb));
     }

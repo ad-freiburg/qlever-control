@@ -11,13 +11,13 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import yaml
 from rdflib import Graph
-from ruamel.yaml import YAML
-from ruamel.yaml.scalarstring import LiteralScalarString
 from termcolor import colored
 
 from qlever.command import QleverCommand
 from qlever.commands.clear_cache import ClearCacheCommand
+from qlever.commands.ui import dict_to_yaml
 from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
 
@@ -216,10 +216,9 @@ class ExampleQueriesCommand(QleverCommand):
         """
         Parse a YAML file and validate its structure.
         """
-        yaml = YAML(typ="safe")
-        with open(queries_file, "r", encoding="utf-8") as file:
+        with open(queries_file, "r", encoding="utf-8") as q_file:
             try:
-                data = yaml.load(file)  # Load YAML safely
+                data = yaml.safe_load(q_file)  # Load YAML safely
             except yaml.YAMLError as exc:
                 log.error(f"Error parsing {queries_file} file: {exc}")
 
@@ -801,7 +800,7 @@ class ExampleQueriesCommand(QleverCommand):
         """
         record = {
             "query": query,
-            "sparql": LiteralScalarString(sparql),
+            "sparql": sparql,
             "runtime_info": {},
         }
         if result_size is None:
@@ -900,10 +899,9 @@ class ExampleQueriesCommand(QleverCommand):
         """
         Write yaml record for all queries to output yaml file
         """
-        yaml = YAML()
-        yaml.default_flow_style = False
-        with open(out_file, "wb") as eval_yaml_file:
-            yaml.dump(query_data, eval_yaml_file)
+        config_yaml = dict_to_yaml(query_data)
+        with open(out_file, "w") as eval_yaml_file:
+            eval_yaml_file.write(config_yaml)
             log.info("")
             log.info(
                 f"Generated result yaml file: {out_file.stem}{out_file.suffix} "

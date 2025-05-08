@@ -7,7 +7,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
 
-from ruamel.yaml import YAML
+import yaml
 
 from qlever.command import QleverCommand
 from qlever.log import log
@@ -57,7 +57,6 @@ def get_query_stats(queries: list[dict]) -> dict[str, float | None]:
 
 
 def create_performance_data(yaml_dir: Path) -> dict | None:
-    yaml_parser = YAML(typ="safe")
     performance_data = {}
     if not yaml_dir.is_dir():
         return None
@@ -71,7 +70,7 @@ def create_performance_data(yaml_dir: Path) -> dict | None:
         if performance_data[dataset].get(engine) is None:
             performance_data[dataset][engine] = {}
         with yaml_file.open("r", encoding="utf-8") as queries_file:
-            queries_data = yaml_parser.load(queries_file)
+            queries_data = yaml.safe_load(queries_file)
             query_stats = get_query_stats(queries_data["queries"])
             performance_data[dataset][engine] = {**query_stats, **queries_data}
     return performance_data

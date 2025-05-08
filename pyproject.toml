@@ -20,7 +20,7 @@ classifiers = [
  "Topic :: Database :: Front-Ends"
 ]
 
-dependencies = [ "psutil", "termcolor", "argcomplete", "pyyaml", "ruamel.yaml", "rdflib" ]
+dependencies = [ "psutil", "termcolor", "argcomplete", "pyyaml", "rdflib" ]
 
 [project.urls]
 Github = "https://github.com/ad-freiburg/qlever"

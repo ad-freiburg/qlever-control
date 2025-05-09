@@ -21,6 +21,7 @@ class TestCacheStatsCommand(unittest.TestCase):
         # Mock arguments for basic cache stats
         args = MagicMock()
         args.server_url = None
+        args.host_name = "localhorst"
         args.port = 1234
         args.show = False
         args.detailed = False
@@ -43,11 +44,11 @@ class TestCacheStatsCommand(unittest.TestCase):
 
         # Assertions
         expected_stats_call = (
-            f"curl -s localhost:{args.port} "
+            f"curl -s {args.host_name}:{args.port} "
             f'--data-urlencode "cmd=cache-stats"'
         )
         expected_settings_call = (
-            f"curl -s localhost:{args.port} "
+            f"curl -s {args.host_name}:{args.port} "
             f'--data-urlencode "cmd=get-settings"'
         )
 

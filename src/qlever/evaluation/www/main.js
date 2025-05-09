@@ -228,7 +228,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     const yaml_path = window.location.origin +
       window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
     const response = await fetch(yaml_path + "yaml_data");
-    // const response = await fetch("../yaml_data");
     if (!response.ok) {
       throw new Error(`Server error: ${response.status}`);
     }

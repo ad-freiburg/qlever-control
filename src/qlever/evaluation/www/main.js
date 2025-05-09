@@ -223,7 +223,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   const fragment = document.createDocumentFragment();
 
   try {
-    const response = await fetch(window.location.origin + "/yaml_data");
+    // Get the current URL without the part after the final `/` (and ignore a
+    // `/` at the end)
+    const yaml_path = window.location.origin +
+      window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
+    const response = await fetch(yaml_path + "yaml_data");
+    // const response = await fetch("../yaml_data");
     if (!response.ok) {
       throw new Error(`Server error: ${response.status}`);
     }

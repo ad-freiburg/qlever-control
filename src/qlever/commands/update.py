@@ -63,8 +63,12 @@ class UpdateCommand(QleverCommand):
         # Construct the command and show it.
         cmd_description = (
             f"Process SSE stream from {args.url} "
-            f"as long as this command is running"
+            f"in groups of {args.group_size:,} messages"
         )
+        if args.num_groups > 0:
+            cmd_description += f", for {args.num_groups} groups"
+        else:
+            cmd_description += ", until interrupted or stream ends"
         self.show(cmd_description, only_show=args.show)
         if args.show:
             return True
@@ -78,7 +82,7 @@ class UpdateCommand(QleverCommand):
         insert_data_list = []
         delete_data_list = []
         current_group_size = 0
-        curl_cmd_count = 0
+        group_count = 0
         total_num_ops = 0
         total_time_ms = 0
         for event in source:
@@ -110,6 +114,7 @@ class UpdateCommand(QleverCommand):
             if current_group_size < args.group_size:
                 continue
             else:
+                group_count += 1
                 date_list.sort()
                 insert_data = "\n".join(insert_data_list)
                 delete_data = "\n".join(delete_data_list)
@@ -123,8 +128,9 @@ class UpdateCommand(QleverCommand):
                     )
                 else:
                     log.info(
-                        f"Processing group of {args.group_size} messages "
-                        f"from dates {date_list[0]} to {date_list[-1]}"
+                        f"Processing group #{group_count} "
+                        f"with {args.group_size:,} messages, "
+                        f"date range: {date_list[0]} - {date_list[-1]}"
                     )
                 date_list = []
 
@@ -150,8 +156,7 @@ class UpdateCommand(QleverCommand):
             if args.group_size == 1:
                 curl_cmd += f" --data {shlex.quote(delete_insert_operation)}"
             else:
-                curl_cmd_count += 1
-                update_arg_file_name = f"update.sparql.{curl_cmd_count}"
+                update_arg_file_name = f"update.sparql.{group_count}"
                 with open(update_arg_file_name, "w") as f:
                     f.write(delete_insert_operation)
                 curl_cmd += f" --data-binary @{update_arg_file_name}"
@@ -210,15 +215,15 @@ class UpdateCommand(QleverCommand):
                 del_before = result["delta-triples"]["before"]["deleted"]
                 ins_after = result["delta-triples"]["after"]["inserted"]
                 del_after = result["delta-triples"]["after"]["deleted"]
-                num_ops = result["delta-triples"]["operation"]["total"]
+                num_ops = int(result["delta-triples"]["operation"]["total"])
                 time_ms = get_time_ms("total")
                 time_ms_per_op = time_ms / num_ops
                 log.info(
                     colored(
-                        f"NUM_OPS: {num_ops:6}, "
-                        f"INS: {ins_before:6} -> {ins_after:6}, "
-                        f"DEL: {del_before:6} -> {del_after:6}, "
-                        f"TIME: {time_ms:7} ms, "
+                        f"NUM_OPS: {num_ops:6,}, "
+                        f"INS: {ins_before:6,} -> {ins_after:6,}, "
+                        f"DEL: {del_before:6,} -> {del_after:6,}, "
+                        f"TIME: {time_ms:7,} ms, "
                         f"TIME/OP: {time_ms_per_op:4.1f} ms",
                         attrs=["bold"],
                     )
@@ -267,15 +272,16 @@ class UpdateCommand(QleverCommand):
             # Stop after processing the specified number of groups.
             log.info("")
             if args.num_groups > 0:
-                if curl_cmd_count >= args.num_groups:
+                if group_count >= args.num_groups:
                     log.info(
-                        f"Processed specified number of groups "
-                        f"({args.num_groups}), terminating update command"
+                        f"Processed {group_count} "
+                        f"group{'s' if group_count > 1 else ''}, "
+                        f"terminating update command"
                     )
                     log.info(
                         colored(
-                            f"TOTAL NUM_OPS: {total_num_ops:6}, "
-                            f"TOTAL TIME: {total_time_ms:7} ms, "
+                            f"TOTAL NUM_OPS: {total_num_ops:6,}, "
+                            f"TOTAL TIME: {total_time_ms:7,} ms, "
                             f"AVG TIME/OP: {total_time_ms / total_num_ops:4.1f} ms",
                             attrs=["bold"],
                         )

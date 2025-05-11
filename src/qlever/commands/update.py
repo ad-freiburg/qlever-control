@@ -4,8 +4,8 @@ import json
 import re
 import shlex
 
-import requests_sse
 import requests
+import requests_sse
 from termcolor import colored
 
 from qlever.command import QleverCommand
@@ -141,7 +141,7 @@ class UpdateCommand(QleverCommand):
 
             # Construct curl command. For group size 1, send the operation via
             # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
-            sparql_endpoint = f"localhost:{args.port}"
+            sparql_endpoint = f"http://localhost:{args.port}"
             curl_cmd = (
                 f"curl -s -X POST {sparql_endpoint}"
                 f" -H 'Authorization: Bearer {args.access_token}'"
@@ -157,11 +157,26 @@ class UpdateCommand(QleverCommand):
                 curl_cmd += f" --data-binary @{update_arg_file_name}"
             log.warn(curl_cmd)
 
-            # Run it.
+            # Run it (using `curl` for group size up to 1000, otherwise
+            # `requests`).
             try:
-                result = run_command(curl_cmd, return_output=True)
+                if args.group_size <= 1000:
+                    warning_message = "Error running `curl`: {e}"
+                    result = run_command(curl_cmd, return_output=True)
+                else:
+                    warning_message = "Error running `requests.post`: {e}"
+                    headers = {
+                        "Authorization": f"Bearer {args.access_token}",
+                        "Content-Type": "application/sparql-update",
+                    }
+                    response = requests.post(
+                        url=sparql_endpoint,
+                        headers=headers,
+                        data=delete_insert_operation,
+                    )
+                    result = response.text
             except Exception as e:
-                log.warn(f"Error running curl command: {e}")
+                log.warn(warning_message.format(e=e))
                 if args.group_size == 1:
                     log.warn(curl_cmd)
                 continue
@@ -183,6 +198,12 @@ class UpdateCommand(QleverCommand):
                     log.warn(curl_cmd)
                 continue
 
+            # Helper function for getting the value of `result["time"][...]`
+            # without the "ms" suffix.
+            def get_time_ms(key: str) -> int:
+                value = result["time"][key]
+                return int(re.sub(r"ms$", "", value))
+
             # Show statistics of the update operation.
             try:
                 ins_before = result["delta-triples"]["before"]["inserted"]
@@ -190,7 +211,7 @@ class UpdateCommand(QleverCommand):
                 ins_after = result["delta-triples"]["after"]["inserted"]
                 del_after = result["delta-triples"]["after"]["deleted"]
                 num_ops = result["delta-triples"]["operation"]["total"]
-                time_ms = int(re.sub(r"ms$", "", result["time"]["total"]))
+                time_ms = get_time_ms("total")
                 time_ms_per_op = time_ms / num_ops
                 log.info(
                     colored(
@@ -204,11 +225,43 @@ class UpdateCommand(QleverCommand):
                 )
                 total_num_ops += num_ops
                 total_time_ms += time_ms
+
+                # Also show a detailed breakdown of the total time.
+                time_preparation = get_time_ms("preparation")
+                time_planning = get_time_ms("planning")
+                time_insert = get_time_ms("insert")
+                time_delete = get_time_ms("delete")
+                time_snapshot = get_time_ms("snapshot")
+                time_writeback = get_time_ms("diskWriteback")
+                time_where = get_time_ms("where")
+                time_unaccounted = time_ms - (
+                    time_delete
+                    + time_insert
+                    + time_planning
+                    + time_preparation
+                    + time_snapshot
+                    + time_where
+                    + time_writeback
+                )
+                log.info(
+                    f"PREPARATION: {100 * time_preparation / time_ms:2.0f}%, "
+                    f"PLANNING: {100 * time_planning / time_ms:2.0f}%, "
+                    f"INSERT: {100 * time_insert / time_ms:2.0f}%, "
+                    f"DELETE: {100 * time_delete / time_ms:2.0f}%, "
+                    f"SNAPSHOT: {100 * time_snapshot / time_ms:2.0f}%, "
+                    f"WRITEBACK: {100 * time_writeback / time_ms:2.0f}%, "
+                    f"UNACCOUNTED: {100 * time_unaccounted / time_ms:2.0f}%",
+                )
+
             except Exception as e:
                 log.warn(
                     f"Error extracting statistics: {e}, "
                     f"curl command was: {curl_cmd}"
                 )
+                # Show traceback for debugging.
+                import traceback
+
+                traceback.print_exc()
                 continue
 
             # Stop after processing the specified number of groups.

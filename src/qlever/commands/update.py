@@ -5,6 +5,8 @@ import re
 import shlex
 
 import requests_sse
+import requests
+from termcolor import colored
 
 from qlever.command import QleverCommand
 from qlever.log import log
@@ -49,6 +51,13 @@ class UpdateCommand(QleverCommand):
             "which is not 100%% correct; as soon as chaining is supported, "
             "this will be fixed",
         )
+        subparser.add_argument(
+            "--num-groups",
+            type=int,
+            default=0,
+            help="Number of groups to process before stopping "
+            "(default: 0, i.e., process until interrupted)",
+        )
 
     def execute(self, args) -> bool:
         # Construct the command and show it.
@@ -70,6 +79,8 @@ class UpdateCommand(QleverCommand):
         delete_data_list = []
         current_group_size = 0
         curl_cmd_count = 0
+        total_num_ops = 0
+        total_time_ms = 0
         for event in source:
             # Only process non-empty messages.
             if event.type != "message" or not event.data:
@@ -178,15 +189,42 @@ class UpdateCommand(QleverCommand):
                 del_before = result["delta-triples"]["before"]["deleted"]
                 ins_after = result["delta-triples"]["after"]["inserted"]
                 del_after = result["delta-triples"]["after"]["deleted"]
-                time_total = result["time"]["total"]
-                print(
-                    f"INS: {ins_before} -> {ins_after}, "
-                    f"DEL: {del_before} -> {del_after}, "
-                    f"TIME: {time_total}"
+                num_ops = result["delta-triples"]["operation"]["total"]
+                time_ms = int(re.sub(r"ms$", "", result["time"]["total"]))
+                time_ms_per_op = time_ms / num_ops
+                log.info(
+                    colored(
+                        f"NUM_OPS: {num_ops:6}, "
+                        f"INS: {ins_before:6} -> {ins_after:6}, "
+                        f"DEL: {del_before:6} -> {del_after:6}, "
+                        f"TIME: {time_ms:7} ms, "
+                        f"TIME/OP: {time_ms_per_op:4.1f} ms",
+                        attrs=["bold"],
+                    )
                 )
+                total_num_ops += num_ops
+                total_time_ms += time_ms
             except Exception as e:
                 log.warn(
                     f"Error extracting statistics: {e}, "
                     f"curl command was: {curl_cmd}"
                 )
                 continue
+
+            # Stop after processing the specified number of groups.
+            log.info("")
+            if args.num_groups > 0:
+                if curl_cmd_count >= args.num_groups:
+                    log.info(
+                        f"Processed specified number of groups "
+                        f"({args.num_groups}), terminating update command"
+                    )
+                    log.info(
+                        colored(
+                            f"TOTAL NUM_OPS: {total_num_ops:6}, "
+                            f"TOTAL TIME: {total_time_ms:7} ms, "
+                            f"AVG TIME/OP: {total_time_ms / total_num_ops:4.1f} ms",
+                            attrs=["bold"],
+                        )
+                    )
+                    return True

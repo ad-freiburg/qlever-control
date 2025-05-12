@@ -7,15 +7,15 @@ import pandas as pd
 import streamlit as st
 from st_aggrid import GridOptionsBuilder, JsCode
 
-JSON_KEY_TO_DISPLAY_NAME = {
-    "failed": "Failed",
-    "gmeanTime": "Geometric Mean",
-    "ameanTime": "Arithmetic Mean",
-    "medianTime": "Median",
-    "under1s": "<= 1s",
-    "between1to5s": "(1.0s, 5.0s]",
-    "over5s": "> 5s",
-}
+METRIC_KEYS = [
+    "failed",
+    "gmeanTime",
+    "ameanTime",
+    "medianTime",
+    "under1s",
+    "between1to5s",
+    "over5s",
+]
 
 
 def remove_top_padding() -> None:
@@ -36,16 +36,12 @@ def get_all_query_stats_by_kb(
     performance_data: dict[str, dict[str, float | list]], kb: str
 ) -> pd.DataFrame:
     engines_dict = performance_data[kb]
-    engines_dict_for_df = {
-        col: []
-        for col in ["SPARQL Engine"] + list(JSON_KEY_TO_DISPLAY_NAME.values())
-    }
-    for engine in engines_dict:
-        engines_dict_for_df["SPARQL Engine"].append(engine.capitalize())
-        for json_key, display_name in JSON_KEY_TO_DISPLAY_NAME.items():
-            metric = engines_dict[engine][json_key]
-            metric = "N/A" if metric is None else f"{round(metric, 2)}%"
-            engines_dict_for_df[display_name].append(metric)
+    engines_dict_for_df = {col: [] for col in ["engine_name"] + METRIC_KEYS}
+    for engine, engine_stats in engines_dict.items():
+        engines_dict_for_df["engine_name"].append(engine.capitalize())
+        for metric_key in METRIC_KEYS:
+            metric = engine_stats[metric_key]
+            engines_dict_for_df[metric_key].append(metric)
     return pd.DataFrame.from_dict(engines_dict_for_df)
 
 

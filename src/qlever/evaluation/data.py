@@ -171,7 +171,9 @@ def get_query_results_df(
     return pd.DataFrame.from_dict(query_results_for_df)
 
 
-def grid_options_for_comparison_df(engines: list[str]) -> dict:
+def grid_options_for_comparison_df(
+    engines: list[str], engines_to_hide: list[str] | None = None
+) -> dict:
     gb = GridOptionsBuilder()
     # makes columns resizable, sortable and filterable by default
     gb.configure_default_column(
@@ -309,6 +311,7 @@ def grid_options_for_comparison_df(engines: list[str]) -> dict:
             tooltipValueGetter=tooltip_js,
             tooltipComponent=sparql_tooltip_js,
             filter="agNumberColumnFilter",
+            hide=(engine in engines_to_hide),
         )
 
     gb.configure_grid_options(tooltipShowDelay=0, tooltipInteraction=True)

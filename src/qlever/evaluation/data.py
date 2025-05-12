@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import math
+import os
 import re
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import streamlit as st
+import yaml
 from st_aggrid import GridOptionsBuilder, JsCode
 
 METRIC_KEYS = [
@@ -16,6 +20,71 @@ METRIC_KEYS = [
     "between1to5s",
     "over5s",
 ]
+
+
+def get_query_stats(queries: list[dict]) -> dict[str, float | None]:
+    query_data = {
+        "ameanTime": None,
+        "gmeanTime": None,
+        "medianTime": None,
+        "under1s": 0.0,
+        "between1to5s": 0.0,
+        "over5s": 0.0,
+        "failed": 0.0,
+    }
+    failed = under_1 = bw_1_to_5 = over_5 = 0
+    total_time = total_log_time = 0.0
+    runtimes = []
+    for query in queries:
+        if len(query["headers"]) == 0 and isinstance(query["results"], str):
+            failed += 1
+        else:
+            runtime = float(query["runtime_info"]["client_time"])
+            total_time += runtime
+            total_log_time += max(math.log(runtime), 0.001)
+            runtimes.append(runtime)
+            if runtime <= 1:
+                under_1 += 1
+            elif runtime > 5:
+                over_5 += 1
+            else:
+                bw_1_to_5 += 1
+    total_successful = len(runtimes)
+    if total_successful == 0:
+        query_data["failed"] = 100.0
+    else:
+        query_data["ameanTime"] = total_time / total_successful
+        query_data["gmeanTime"] = math.exp(total_log_time / total_successful)
+        query_data["medianTime"] = sorted(runtimes)[total_successful // 2]
+        query_data["under1s"] = (under_1 / total_successful) * 100
+        query_data["between1to5s"] = (bw_1_to_5 / total_successful) * 100
+        query_data["over5s"] = (over_5 / total_successful) * 100
+        query_data["failed"] = (failed / len(queries)) * 100
+    return query_data
+
+
+def create_performance_data(yaml_dir: Path) -> dict | None:
+    performance_data = {}
+    if not yaml_dir.is_dir():
+        return None
+    for yaml_file in yaml_dir.glob("*.results.yaml"):
+        file_name_split = yaml_file.stem.split(".")
+        if len(file_name_split) != 3:
+            continue
+        dataset, engine, _ = file_name_split
+        if performance_data.get(dataset) is None:
+            performance_data[dataset] = {}
+        if performance_data[dataset].get(engine) is None:
+            performance_data[dataset][engine] = {}
+        with yaml_file.open("r", encoding="utf-8") as queries_file:
+            queries_data = yaml.safe_load(queries_file)
+            query_stats = get_query_stats(queries_data["queries"])
+            performance_data[dataset][engine] = {**query_stats, **queries_data}
+    return performance_data
+
+
+results_dir = os.environ.get("QLEVER_YAML_RESULTS_DIR")
+yaml_data = create_performance_data(Path(results_dir))
 
 
 def remove_top_padding() -> None:
@@ -126,18 +195,25 @@ def grid_options_for_runtimes_df() -> dict:
         editable=False,
     )
 
-    gb.configure_column(field="query", header_name="Query", flex=4)
+    gb.configure_column(
+        field="query",
+        header_name="Query",
+        flex=4,
+        filter="agTextColumnFilter",
+    )
     gb.configure_column(
         field="runtime",
         header_name="Runtime (s)",
         type="numericColumn",
         flex=1,
+        filter="agNumberColumnFilter",
     )
     gb.configure_column(
         field="result_size",
         header_name="Result size",
         type="numericColumn",
         flex=1.5,
+        filter="agTextColumnFilter",
     )
     row_style_jscode = JsCode("""
         function(params) {
@@ -159,7 +235,7 @@ def get_query_results_df(
 ) -> pd.DataFrame:
     query_results_lists = [[] for _ in headers]
     for result in query_results:
-        for i in range(len(result)):
+        for i in range(len(headers)):
             query_results_lists[i].append(result[i])
     query_results_for_df = {
         header: query_results_lists[i] for i, header in enumerate(headers)
@@ -190,7 +266,7 @@ def grid_options_for_comparison_df(
                 warning.style.marginRight = "4px";
 
                 if (params.column.getColId() === "Query") {
-                    container.appendChild(document.createTextNode(`${value} s `));
+                    container.appendChild(document.createTextNode(value));
                     if (params.data.row_warning) {
                         container.appendChild(warning);
                     }
@@ -296,6 +372,7 @@ def grid_options_for_comparison_df(
         cellRenderer=cell_renderer_js,
         tooltipValueGetter=tooltip_js,
         tooltipComponent=sparql_tooltip_js,
+        filter="agTextColumnFilter",
     )
     for engine in engines:
         gb.configure_column(
@@ -406,7 +483,7 @@ def get_performance_comparison_per_kb_df(
                 )
                 if majority_result_size != result_size_final:
                     size_warning = True
-            
+
             stat["size_warning"] = size_warning
             stat["result_size_to_display"] = (
                 f"{result_size:,}"

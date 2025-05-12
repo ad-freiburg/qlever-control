@@ -8,10 +8,10 @@ from qlever.evaluation.data import (
     get_query_runtimes,
     grid_options_for_runtimes_df,
     remove_top_padding,
+    yaml_data,
 )
-from qlever.evaluation.main import yaml_data
 
-st.set_page_config("centered")
+st.set_page_config(page_title="Query Details", layout="centered")
 remove_top_padding()
 
 st.title("SPARQL Engine Evaluation - Details")
@@ -19,19 +19,32 @@ st.title("SPARQL Engine Evaluation - Details")
 col1, col2 = st.columns(2)
 
 with col1:
+    kb_options = list(yaml_data.keys())
+    # try:
+    #     kb_idx_from_url_params = kb_options.index(st.query_params["kb"])
+    # except (ValueError, KeyError):
+    kb_idx_from_url_params = 0
     kb = st.selectbox(
         label="Knowledge Graph",
-        options=list(yaml_data.keys()),
+        options=kb_options,
+        index=kb_idx_from_url_params,
     )
+    # st.query_params["kb"] = kb
 
 with col2:
     engine_options = yaml_data.get(kb, [])
     if engine_options != []:
         engine_options = list(engine_options.keys())
+    # try:
+    #     engine_idx_from_url_params = engine_options.index(st.query_params["engine"])
+    # except (ValueError, KeyError):
+    engine_idx_from_url_params = 0
     engine = st.selectbox(
         label="SPARQL Engine",
         options=engine_options,
+        index=engine_idx_from_url_params,
     )
+    # st.query_params["engine"] = engine
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["Query Runtimes", "Full Query", "Execution Tree", "Query Results"]
@@ -66,7 +79,16 @@ with tab2:
         ]
         st.code(body=full_query, language="sparql")
 with tab3:
-    st.header("Execution Tree")
+    queries = yaml_data[kb][engine]["queries"]
+    has_exec_tree = False
+    for query in queries:
+        if not isinstance(query["results"], str):
+            if query["runtime_info"].get("query_execution_tree") is not None:
+                has_exec_tree = True
+    if not has_exec_tree:
+        st.write("Execution tree is only available for QLever with qlever-results+json format!")
+    else:
+        st.write("Execution tree coming soon...")
 
 with tab4:
     selected_query_idx = get_selected_query_idx(selected_query)

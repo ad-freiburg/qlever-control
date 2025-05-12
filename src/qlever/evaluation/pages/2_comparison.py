@@ -7,10 +7,12 @@ from qlever.evaluation.data import (
     get_performance_comparison_per_kb_df,
     grid_options_for_comparison_df,
     remove_top_padding,
+    yaml_data,
 )
-from qlever.evaluation.main import yaml_data
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    page_title="SPARQL Engine Performance Comparison", layout="wide"
+)
 remove_top_padding()
 
 st.title("Performance Comparison")

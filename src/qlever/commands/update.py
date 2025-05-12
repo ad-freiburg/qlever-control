@@ -73,7 +73,7 @@ class UpdateCommand(QleverCommand):
         if args.show:
             return True
 
-        # Execute the command, by iterating over all messages in the stream.
+        # Initialize the SSE stream and all the statistics variables.
         source = requests_sse.EventSource(
             args.url, headers={"Accept": "text/event-stream"}
         )
@@ -85,7 +85,14 @@ class UpdateCommand(QleverCommand):
         group_count = 0
         total_num_ops = 0
         total_time_ms = 0
+
+        # Iterating over all messages in the stream.
         for event in source:
+            # Check if the `args.group_size` is reached (note that we come here
+            # after a `continue` due to an error).
+            if group_count >= args.num_groups:
+                break
+
             # Only process non-empty messages.
             if event.type != "message" or not event.data:
                 continue
@@ -184,6 +191,7 @@ class UpdateCommand(QleverCommand):
                 log.warn(warning_message.format(e=e))
                 if args.group_size == 1:
                     log.warn(curl_cmd)
+                log.info("")
                 continue
 
             # Results should be a JSON, parse it.
@@ -201,6 +209,7 @@ class UpdateCommand(QleverCommand):
                 log.error(f"QLever exception: {error_msg}")
                 if args.group_size == 1:
                     log.warn(curl_cmd)
+                log.info("")
                 continue
 
             # Helper function for getting the value of `result["time"][...]`
@@ -267,23 +276,27 @@ class UpdateCommand(QleverCommand):
                 import traceback
 
                 traceback.print_exc()
+                log.info("")
                 continue
 
             # Stop after processing the specified number of groups.
             log.info("")
             if args.num_groups > 0:
                 if group_count >= args.num_groups:
-                    log.info(
-                        f"Processed {group_count} "
-                        f"group{'s' if group_count > 1 else ''}, "
-                        f"terminating update command"
-                    )
-                    log.info(
-                        colored(
-                            f"TOTAL NUM_OPS: {total_num_ops:6,}, "
-                            f"TOTAL TIME: {total_time_ms:7,} ms, "
-                            f"AVG TIME/OP: {total_time_ms / total_num_ops:4.1f} ms",
-                            attrs=["bold"],
-                        )
-                    )
-                    return True
+                    break
+
+        # Final statistics after all groups have been processed.
+        log.info(
+            f"Processed {group_count} "
+            f"group{'s' if group_count > 1 else ''}, "
+            f"terminating update command"
+        )
+        log.info(
+            colored(
+                f"TOTAL NUM_OPS: {total_num_ops:6,}, "
+                f"TOTAL TIME: {total_time_ms:7,} ms, "
+                f"AVG TIME/OP: {total_time_ms / total_num_ops:4.1f} ms",
+                attrs=["bold"],
+            )
+        )
+        return True

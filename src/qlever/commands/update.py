@@ -90,7 +90,7 @@ class UpdateCommand(QleverCommand):
         for event in source:
             # Check if the `args.group_size` is reached (note that we come here
             # after a `continue` due to an error).
-            if group_count >= args.num_groups:
+            if group_count >= args.num_groups and args.num_groups > 0:
                 break
 
             # Only process non-empty messages.

@@ -244,7 +244,9 @@ def get_query_results_df(
 
 
 def grid_options_for_comparison_df(
-    engines: list[str], engines_to_hide: list[str] | None = None
+    engines: list[str],
+    engines_to_hide: list[str] | None = None,
+    show_result_size: bool = False,
 ) -> dict:
     gb = GridOptionsBuilder()
     # makes columns resizable, sortable and filterable by default
@@ -258,15 +260,15 @@ def grid_options_for_comparison_df(
         class WarningCellRenderer {
             init(params) {
                 const value = params.value;
-                const container = document.createElement("span");
+                const container = document.createElement("div");
+                container.style.whiteSpace = "normal";
 
                 const warning = document.createElement("span");
                 warning.textContent = "⚠️";
-                warning.style.color = "red";
                 warning.style.marginRight = "4px";
 
                 if (params.column.getColId() === "Query") {
-                    container.appendChild(document.createTextNode(value));
+                    container.appendChild(document.createTextNode(`${value}  `));
                     if (params.data.row_warning) {
                         container.appendChild(warning);
                     }
@@ -277,6 +279,17 @@ def grid_options_for_comparison_df(
                         container.appendChild(warning);
                     }                
                     container.appendChild(document.createTextNode(`${value} s`));
+                    if (params.showResultSize) {
+                        //container.appendChild(document.createElement("br"));
+                        const resultSizeLine = document.createElement("div");
+                        resultSizeLine.textContent = engineStats.result_size_to_display;
+                        resultSizeLine.style.color = "#888"; 
+                        resultSizeLine.style.fontSize = "90%";
+                        resultSizeLine.style.marginTop = "-10px";
+                        // container.appendChild(document.createTextNode(engineStats.result_size_to_display));
+                        container.appendChild(resultSizeLine);
+                    }
+
                 }
                 this.eGui = container;
             }
@@ -352,7 +365,8 @@ def grid_options_for_comparison_df(
                     const engineStats = params.data[engineStatsColumn];
                     tooltipText = params.value;
                     if (engineStats && typeof engineStats === "object" && engineStats.size_warning) {
-                        tooltipText += `<br>Result size ${engineStats.result_size_to_display} doesn't match the majority ${engineStats.majority_result_size}!`;
+                        tooltipText += `<br>Result size ${engineStats.result_size_to_display} doesn't 
+                                        match the majority ${engineStats.majority_result_size}!`;
                     }  
                 }
                 eGui.innerHTML = `
@@ -366,13 +380,73 @@ def grid_options_for_comparison_df(
         }
     """)
 
+    on_cell_dblclick = JsCode("""
+        function(params) {
+            function showToast(message) {
+                const toast = document.createElement('div');
+                toast.textContent = message;
+
+                Object.assign(toast.style, {
+                    position: 'fixed',
+                    bottom: '32px',
+                    left: '80%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#333',
+                    color: '#fff',
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'system-ui, sans-serif',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    zIndex: 9999,
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease',
+                });
+
+                document.body.appendChild(toast);
+
+                requestAnimationFrame(() => {
+                    toast.style.opacity = 1;
+                });
+
+                setTimeout(() => {
+                    toast.style.opacity = 0;
+                    toast.addEventListener('transitionend', () => {
+                        if (toast.parentElement) {
+                            document.body.removeChild(toast);
+                        }
+                    });
+                }, 2000);
+            }
+
+
+            let tooltipText = "";
+            try {
+                const getter = params.colDef.tooltipValueGetter;
+                if (getter) {
+                    tooltipText = getter(params);
+                }
+            } catch (e) {
+                console.warn("No tooltip text found.");
+            }
+
+            if (tooltipText) {
+                navigator.clipboard.writeText(tooltipText).then(() => {
+                    showToast("Tooltip Text Copied");
+                });
+            }
+        }
+    """)
+
     gb.configure_column(
         field="Query",
         flex=4,
         cellRenderer=cell_renderer_js,
         tooltipValueGetter=tooltip_js,
         tooltipComponent=sparql_tooltip_js,
+        onCellDoubleClicked=on_cell_dblclick,
         filter="agTextColumnFilter",
+        autoHeight=True,
     )
     for engine in engines:
         gb.configure_column(
@@ -380,14 +454,17 @@ def grid_options_for_comparison_df(
             type="numericColumn",
             flex=1,
             cellRenderer=cell_renderer_js,
+            cellRendererParams={"showResultSize": show_result_size},
             cellStyle=cell_style_jscode,
+            autoHeight=True,
             tooltipValueGetter=tooltip_js,
             tooltipComponent=sparql_tooltip_js,
+            onCellDoubleClicked=on_cell_dblclick,
             filter="agNumberColumnFilter",
             hide=(engine in engines_to_hide),
         )
 
-    gb.configure_grid_options(tooltipShowDelay=0, tooltipInteraction=True)
+    gb.configure_grid_options(tooltipShowDelay=0, tooltipTrigger="focus")
     return gb.build()
 
 
@@ -493,3 +570,70 @@ def get_performance_comparison_per_kb_df(
             performance_data_per_kb_for_df[engine].append(runtime)
             performance_data_per_kb_for_df[f"{engine}_stats"].append(stat)
     return pd.DataFrame.from_dict(performance_data_per_kb_for_df)
+
+
+def format_number(n):
+    return f"{n:,}" if isinstance(n, int) else str(round(n, 2))
+
+
+def format_description(desc):
+    desc = re.sub(r"<.*[#\/\.](.*)>", r"<\1>", desc or "")
+    desc = desc.replace("qlc_", "")
+    desc = re.sub(r"\?[A-Z_]*", lambda m: m.group().lower(), desc)
+    desc = re.sub(r"([a-z])([A-Z])", r"\1-\2", desc)
+    desc = re.sub(r"^([a-zA-Z-])*", lambda m: m.group().upper(), desc)
+    desc = re.sub(r"([A-Z])-([A-Z])", r"\1 \2", desc)
+    desc = desc.replace("AVAILABLE ", "").replace("a all", "all")
+    return desc.strip()
+
+
+def build_graph_treant_style(
+    node, graph, parent_id=None, node_id=[0], parent_cached=False
+):
+    current_id = node_id[0]
+    node_id[0] += 1
+
+    # Extract values
+    description = format_description(node.get("description", "Unknown"))
+    cols = ", ".join(node.get("column_names", ["not yet available"]))
+    cols = cols.replace("qlc_", "")
+    cols = re.sub(r"\?[A-Z_]*", lambda m: m.group().lower(), cols)
+
+    size = f"{format_number(node.get('result_rows', '?'))} x {format_number(node.get('result_cols', '?'))}"
+    time = node.get("operation_time", "?")
+    cached = parent_cached or node.get("was_cached", False)
+
+    fill_color = "#FEFEFE"
+    if isinstance(time, int):
+        if time > 200:
+            fill_color = "#FFF7F7"
+        elif time > 1000:
+            fill_color = "#FF6666"
+
+    label = f"""<
+        <B>{description.replace("<", "&lt;").replace(">", "&gt;")}</B><BR/>
+        Cols: {cols}<BR/>
+        Size: {size}<BR/>
+        Time: {time}ms{" [cached]" if cached else ""}
+    >"""
+    graph.node(
+        str(current_id),
+        label,
+        shape="box",
+        style="rounded,filled",
+        fillcolor=fill_color,
+        color="black",
+        fontcolor="black",
+        width="3",
+        height="1",
+        fontsize="10",
+    )
+    print(f"Adding node {current_id} with label:\n{label}")
+
+    if parent_id is not None:
+        graph.edge(str(current_id), str(parent_id))
+
+    for child in node.get("children", []):
+        build_graph_treant_style(child, graph, current_id, node_id, cached)
+
+    return graph

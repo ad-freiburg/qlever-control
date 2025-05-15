@@ -13,6 +13,13 @@ remove_top_padding()
 
 st.title("SPARQL Engine Comparison")
 
+if not yaml_data:
+    st.error("No Knowledge Graphs or SPARQL Engines data available!")
+    st.markdown(
+        "Make sure you called the `serve-evaluation-app` with the correct `--results-dir`"
+    )
+    st.stop()
+
 for kb in yaml_data:
     st.write(f"### {kb.capitalize()}")
     df = get_all_query_stats_by_kb(yaml_data, kb)

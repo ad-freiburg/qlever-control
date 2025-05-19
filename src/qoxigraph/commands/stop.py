@@ -3,6 +3,7 @@ from __future__ import annotations
 from qlever.command import QleverCommand
 from qlever.commands import stop as qlever_stop
 from qlever.log import log
+from qlever.util import stop_process_with_regex
 from qoxigraph.commands.status import StatusCommand
 
 
@@ -49,11 +50,7 @@ class StopCommand(QleverCommand):
             return True
 
         if args.system == "native":
-            stop_process_results = (
-                qlever_stop.StopCommand().stop_process_with_regex(
-                    cmdline_regex
-                )
-            )
+            stop_process_results = stop_process_with_regex(cmdline_regex)
             if stop_process_results is None:
                 return False
             if len(stop_process_results) > 0:

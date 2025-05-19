@@ -8,5 +8,5 @@ from qlever.commands.example_queries import (
 class ExampleQueriesCommand(QleverExampleQueriesCommand):
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
-            args.sparql_endpoint = f"localhost:{args.port}/query"
+            args.sparql_endpoint = f"{args.host_name}:{args.port}/query"
         return super().execute(args)

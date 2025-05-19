@@ -28,10 +28,13 @@ with st.sidebar:
     #     kb_idx_from_url_params = kb_options.index(st.query_params["kb"])
     # except (ValueError, KeyError):
     # kb_idx_from_url_params = 0
+    kb_idx = 0
+    if "details_kb" in st.session_state:
+        kb_idx = kb_options.index(st.session_state.details_kb)
     kb = st.selectbox(
         label="Knowledge Graph",
         options=kb_options,
-        # index=kb_idx_from_url_params,
+        index=kb_idx,
     )
     # st.query_params["kb"] = kb
 
@@ -45,10 +48,13 @@ with st.sidebar:
     #     engine_idx_from_url_params = engine_options.index(st.query_params["engine"])
     # except (ValueError, KeyError):
     # engine_idx_from_url_params = 0
+    engine_idx = 0
+    if "details_engine" in st.session_state:
+        engine_idx = st.session_state.details_engine
     engine = st.selectbox(
         label="SPARQL Engine",
         options=engine_options,
-        # index=engine_idx_from_url_params,
+        index=engine_idx,
     )
     # st.query_params["engine"] = engine
 
@@ -106,19 +112,25 @@ with tab3:
         if not isinstance(query["results"], str):
             if query["runtime_info"].get("query_execution_tree") is not None:
                 has_exec_tree = True
+                break
     if not has_exec_tree:
         st.write(
-            "Execution tree is only available for QLever with qlever-results+json format!"
+            "Execution tree is only available for QLever with "
+            "qlever-results+json format!"
         )
     else:
         selected_query_idx = get_selected_query_idx(selected_query)
         if selected_query_idx is None:
             st.write("Please select a query from the Query runtimes table!")
+        elif (
+            "query_execution_tree"
+            not in queries[selected_query_idx]["runtime_info"]
+        ):
+            st.write("Execution Tree not available for this query!")
         else:
-            query_tree = yaml_data[kb][engine]["queries"][selected_query_idx][
-                "runtime_info"
-            ]["query_execution_tree"]
-
+            query_tree = queries[selected_query_idx]["runtime_info"][
+                "query_execution_tree"
+            ]
             dot = Graph(format="svg")
             dot.attr(rankdir="BT")  # Bottom to top
             dot = build_graph_treant_style(query_tree, dot)

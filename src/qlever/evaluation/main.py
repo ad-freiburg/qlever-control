@@ -21,11 +21,19 @@ if not yaml_data:
     st.stop()
 
 for kb in yaml_data:
-    st.write(f"### {kb.capitalize()}")
+    cols = st.columns([3.5, 1], vertical_alignment="bottom")
+    cols[0].write(f"### {kb.capitalize()}")
+
+    if cols[1].button("Compare results", key=f"{kb}_comparison"):
+        st.session_state.comparison_kb = kb
+        st.switch_page("pages/2_comparison.py")
+
     df = get_all_query_stats_by_kb(yaml_data, kb)
-    st.dataframe(
+    selected_row_state = st.dataframe(
         df,
         hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
         column_config={
             "engine_name": "SPARQL Engine",
             "failed": st.column_config.NumberColumn(
@@ -58,3 +66,10 @@ for kb in yaml_data:
             ),
         },
     )
+    selected_row = selected_row_state.selection.rows
+
+    if selected_row:
+        selected_row_idx = selected_row[0]
+        st.session_state.details_kb = kb
+        st.session_state.details_engine = selected_row_idx
+        st.switch_page("pages/1_details.py")

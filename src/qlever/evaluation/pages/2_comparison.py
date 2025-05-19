@@ -23,12 +23,15 @@ with st.sidebar:
     # try:
     #     kb_idx_from_url_params = kb_options.index(st.query_params["kb"])
     # except (ValueError, KeyError):
-    kb_idx_from_url_params = 0
+    if "comparison_kb" not in st.session_state:
+        kb_idx = 0
+    else:
+        kb_idx = kb_options.index(st.session_state.comparison_kb)
 
     kb = st.selectbox(
         label="Knowledge Graph",
         options=kb_options,
-        index=kb_idx_from_url_params,
+        index=kb_idx,
     )
     # st.query_params["kb"] = kb
 

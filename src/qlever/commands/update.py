@@ -3,14 +3,27 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import time
 
+import rdflib.term
 import requests
 import requests_sse
+from rdflib import Graph
 from termcolor import colored
 
 from qlever.command import QleverCommand
 from qlever.log import log
 from qlever.util import run_command
+
+
+# Monkey patch `rdflib.term._castLexicalToPython` to avoid casting of literals
+# to Python types. We do not need it (all we want it convert Turtle to N-Triples),
+# and we can speed up parsing by a factor of about 2.
+def custom_cast_lexical_to_python(lexical, datatype):
+    return None  # Your desired behavior
+
+
+rdflib.term._castLexicalToPython = custom_cast_lexical_to_python
 
 
 class UpdateCommand(QleverCommand):
@@ -78,9 +91,6 @@ class UpdateCommand(QleverCommand):
             args.url, headers={"Accept": "text/event-stream"}
         )
         source.connect()
-        date_list = []
-        insert_data_list = []
-        delete_data_list = []
         current_group_size = 0
         group_count = 0
         total_num_ops = 0
@@ -88,6 +98,13 @@ class UpdateCommand(QleverCommand):
 
         # Iterating over all messages in the stream.
         for event in source:
+            # Beginning of a new group of messages.
+            if current_group_size == 0:
+                date_list = []
+                group_assembly_start_time = time.perf_counter()
+                insert_triples = set()
+                delete_triples = set()
+
             # Check if the `args.group_size` is reached (note that we come here
             # after a `continue` due to an error).
             if group_count >= args.num_groups and args.num_groups > 0:
@@ -103,54 +120,89 @@ class UpdateCommand(QleverCommand):
                 operation = event_data.get("operation")
                 rdf_added_data = event_data.get("rdf_added_data")
                 rdf_deleted_data = event_data.get("rdf_deleted_data")
-                if rdf_added_data is not None:
-                    rdf_added_data = rdf_added_data.get("data")
+
+                # Process the to-be-deleted triples.
                 if rdf_deleted_data is not None:
-                    rdf_deleted_data = rdf_deleted_data.get("data")
+                    try:
+                        rdf_deleted_data = rdf_deleted_data.get("data")
+                        graph = Graph()
+                        log.debug(f"RDF deleted data: {rdf_deleted_data}")
+                        graph.parse(data=rdf_deleted_data, format="turtle")
+                        for s, p, o in graph:
+                            triple = f"{s.n3()} {p.n3()} {o.n3()}"
+                            # NOTE: In case there was a previous `insert` of that
+                            # triple, it is safe to remove that `insert`, but not
+                            # the `delete` (in case the triple is contained in the
+                            # original data).
+                            if triple in insert_triples:
+                                insert_triples.remove(triple)
+                            delete_triples.add(triple)
+                    except Exception as e:
+                        log.error(f"Error reading `rdf_deleted_data`: {e}")
+                        return False
+
+                # Process the to-be-added triples.
+                if rdf_added_data is not None:
+                    try:
+                        rdf_added_data = rdf_added_data.get("data")
+                        graph = Graph()
+                        log.debug("RDF added data: {rdf_added_data}")
+                        graph.parse(data=rdf_added_data, format="turtle")
+                        for s, p, o in graph:
+                            triple = f"{s.n3()} {p.n3()} {o.n3()}"
+                            # NOTE: In case there was a previous `delete` of that
+                            # triple, it is safe to remove that `delete`, but not
+                            # the `insert` (in case the triple is not contained in
+                            # the original data).
+                            if triple in delete_triples:
+                                delete_triples.remove(triple)
+                            insert_triples.add(triple)
+                    except Exception as e:
+                        log.error(f"Error reading `rdf_added_data`: {e}")
+                        return False
+
             except Exception as e:
                 log.error(f"Error reading data from message: {e}")
                 continue
 
-            # Adding to current group until group size is reached.
+            # Continue assembling until the group size is reached.
             date_list.append(date)
-            if rdf_added_data:
-                insert_data_list.append(rdf_added_data)
-            if rdf_deleted_data:
-                delete_data_list.append(rdf_deleted_data)
             current_group_size += 1
             if current_group_size < args.group_size:
                 continue
+
+            # Process the current group of messages.
+            group_assembly_end_time = time.perf_counter()
+            group_assembly_time_ms = int(
+                1000 * (group_assembly_end_time - group_assembly_start_time)
+            )
+            group_count += 1
+            date_list.sort()
+            current_group_size = 0
+            if args.group_size == 1:
+                log.info(
+                    f"Processing operation {operation} from date {date} "
+                    f"for entity {entity_id}"
+                    f"  [assembly time: {group_assembly_time_ms:,} ms]"
+                )
             else:
-                group_count += 1
-                date_list.sort()
-                insert_data = "\n".join(insert_data_list)
-                delete_data = "\n".join(delete_data_list)
-                insert_data_list = []
-                delete_data_list = []
-                current_group_size = 0
-                if args.group_size == 1:
-                    log.info(
-                        f"Processing operation {operation} from date {date} "
-                        f"for entity {entity_id}"
-                    )
-                else:
-                    log.info(
-                        f"Processing group #{group_count} "
-                        f"with {args.group_size:,} messages, "
-                        f"date range: {date_list[0]} - {date_list[-1]}"
-                    )
-                date_list = []
+                log.info(
+                    f"Processing group #{group_count} "
+                    f"with {args.group_size:,} messages, "
+                    f"date range: {date_list[0]} - {date_list[-1]}"
+                    f"  [assembly time: {group_assembly_time_ms:,} ms]"
+                )
 
             # Construct update operation.
             delete_insert_operation = (
-                f"DELETE {{ {delete_data} }} "
-                f"INSERT {{ {insert_data} }} "
-                f"WHERE {{ }}"
-            )
-            delete_insert_operation = re.sub(
-                r"\s+", " ", delete_insert_operation
+                f"DELETE {{\n  {' . \n  '.join(delete_triples)} .\n}} "
+                f"INSERT {{\n  {' . \n  '.join(insert_triples)} .\n}} "
+                f"WHERE {{ }}\n"
             )
             # log.warn(delete_insert_operation)
+            # delete_insert_operation = re.sub(
+            #     r"\s+", " ", delete_insert_operation
+            # )
 
             # Construct curl command. For group size 1, send the operation via
             # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
@@ -187,6 +239,8 @@ class UpdateCommand(QleverCommand):
                         data=delete_insert_operation,
                     )
                     result = response.text
+                    with open(f"update.result.{group_count}", "w") as f:
+                        f.write(result)
             except Exception as e:
                 log.warn(warning_message.format(e=e))
                 if args.group_size == 1:
@@ -198,7 +252,12 @@ class UpdateCommand(QleverCommand):
             try:
                 result = json.loads(result)
             except Exception as e:
-                log.warn(f"Error parsing JSON result: {e}")
+                log.error(
+                    f"Error parsing JSON result: {e}"
+                    f", the first 1000 characters are:"
+                )
+                log.info(result[:1000])
+                log.info("")
                 if args.group_size == 1:
                     log.warn(curl_cmd)
                 continue
@@ -226,14 +285,14 @@ class UpdateCommand(QleverCommand):
                 del_after = result["delta-triples"]["after"]["deleted"]
                 num_ops = int(result["delta-triples"]["operation"]["total"])
                 time_ms = get_time_ms("total")
-                time_ms_per_op = time_ms / num_ops
+                time_us_per_op = int(1000 * time_ms / num_ops)
                 log.info(
                     colored(
                         f"NUM_OPS: {num_ops:6,}, "
                         f"INS: {ins_before:6,} -> {ins_after:6,}, "
                         f"DEL: {del_before:6,} -> {del_after:6,}, "
                         f"TIME: {time_ms:7,} ms, "
-                        f"TIME/OP: {time_ms_per_op:4.1f} ms",
+                        f"TIME/OP: {time_us_per_op:,} µs",
                         attrs=["bold"],
                     )
                 )

@@ -182,9 +182,8 @@ class ExampleQueriesCommand(QleverCommand):
             type=str,
             default=None,
             help=(
-                "Name that would be used for result YML file. "
-                "Make sure it is of the form <dataset>.<engine> "
-                "for e.g.: wikidata.jena or dblp.qlever"
+                "Base name used for the result YML file, should be of the "
+                "form `<dataset>.<engine>`, e.g., `wikidata.qlever`"
             ),
         )
         subparser.add_argument(
@@ -464,15 +463,15 @@ class ExampleQueriesCommand(QleverCommand):
             result_file_parts = args.result_file.split(".")
             if len(result_file_parts) != 2:
                 log.error(
-                    "Make sure --result-file is of the form <dataset>.<engine> "
-                    "for e.g.: wikidata.jena or dblp.qlever"
+                    "The argument of --result-file should be of the form "
+                    "`<dataset>.<engine>`, e.g., `wikidata.qlever`"
                 )
                 return False
             results_dir_path = Path(args.results_dir)
             if results_dir_path.exists():
                 if not results_dir_path.is_dir():
                     log.error(
-                        f"{results_dir_path} exists but is not a directory."
+                        f"{results_dir_path} exists but is not a directory"
                     )
                     return False
             else:

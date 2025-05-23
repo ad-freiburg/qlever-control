@@ -24,15 +24,18 @@ from qlever.util import run_command, run_curl_command
 
 class ExampleQueriesCommand(QleverCommand):
     """
-    Class for running a given sequence of example queries and showing
-    their processing times and result sizes.
+    Class for running a given sequence of benchmark or example queries and
+    showing their processing times and result sizes.
     """
 
     def __init__(self):
         pass
 
     def description(self) -> str:
-        return "Run the given queries and show their processing times and result sizes"
+        return (
+            "Run the given queries and show their processing times "
+            "and result sizes"
+        )
 
     def should_have_qleverfile(self) -> bool:
         return False
@@ -250,7 +253,8 @@ class ExampleQueriesCommand(QleverCommand):
     ) -> list[str]:
         """
         Parse the queries_tsv file (or example queries cmd if file absent)
-        and return a list of tab-separated queries (query_description, full_sparql_query)
+        and return a list of tab-separated queries
+        (query_description, full_sparql_query)
         """
         get_queries_cmd = ExampleQueriesCommand.construct_get_queries_cmd(
             queries_file, query_ids, query_regex, ui_config
@@ -564,7 +568,6 @@ class ExampleQueriesCommand(QleverCommand):
                 args.ui_config,
             )
         )
-        log.debug(tsv_queries)
 
         if len(tsv_queries) == 0 or not tsv_queries[0]:
             log.error("No queries to process!")
@@ -885,7 +888,7 @@ class ExampleQueriesCommand(QleverCommand):
         accept_header: str,
     ) -> dict[str, Any]:
         """
-        Construct a dictionary with query information for yaml file
+        Construct a dictionary with query information for output result yaml file
         """
         record = {
             "query": query,
@@ -925,7 +928,7 @@ class ExampleQueriesCommand(QleverCommand):
         self, result_file: str, result_size: int, accept_header: str
     ) -> tuple[list[str], list[list[str]]]:
         """
-        Return headers and results as a tuple
+        Return headers and query results as a tuple for various accept headers
         """
         if accept_header in ("text/tab-separated-values", "text/csv"):
             separator = "," if accept_header == "text/csv" else "\t"
@@ -936,6 +939,7 @@ class ExampleQueriesCommand(QleverCommand):
             headers = next(reader)
             results = [row for row in reader]
             return headers, results
+
         elif accept_header == "application/qlever-results+json":
             get_result_cmd = (
                 f"jq '{{headers: .selected, results: .res[0:{result_size}]}}' "
@@ -944,6 +948,7 @@ class ExampleQueriesCommand(QleverCommand):
             results_str = run_command(get_result_cmd, return_output=True)
             results_json = json.loads(results_str)
             return results_json["headers"], results_json["results"]
+
         elif accept_header == "application/sparql-results+json":
             get_result_cmd = (
                 f"jq '{{headers: .head.vars, "
@@ -970,6 +975,7 @@ class ExampleQueriesCommand(QleverCommand):
                     result.append(value)
                 results.append(result)
             return results_json["headers"], results
+
         else:  # text/turtle
             graph = rdflib.Graph()
             graph.parse(result_file, format="turtle")

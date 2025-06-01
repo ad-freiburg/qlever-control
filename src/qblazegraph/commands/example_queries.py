@@ -12,7 +12,7 @@ class ExampleQueriesCommand(QleverExampleQueriesCommand):
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
             args.sparql_endpoint = (
-                f"localhost:{args.port}/blazegraph/namespace/"
+                f"{args.host_name}:{args.port}/blazegraph/namespace/"
                 f"{args.name}/sparql"
             )
         return super().execute(args)

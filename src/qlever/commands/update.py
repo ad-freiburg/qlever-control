@@ -110,12 +110,19 @@ class UpdateCommand(QleverCommand):
             if group_count >= args.num_groups and args.num_groups > 0:
                 break
 
-            # Only process non-empty messages.
+            # Process the message.
             if event.type != "message" or not event.data:
                 continue
             try:
+                event_id = json.loads(event.last_event_id)
                 event_data = json.loads(event.data)
-                date = event_data.get("dt")
+                date_ms_since_epoch = event_id[0].get("timestamp")
+                date = time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ",
+                    time.gmtime(date_ms_since_epoch / 1000.0),
+                )
+                # date = event_data.get("meta").get("dt")
+                # date = event_data.get("dt")
                 entity_id = event_data.get("entity_id")
                 operation = event_data.get("operation")
                 rdf_added_data = event_data.get("rdf_added_data")
@@ -192,6 +199,13 @@ class UpdateCommand(QleverCommand):
                     f"date range: {date_list[0]} - {date_list[-1]}"
                     f"  [assembly time: {group_assembly_time_ms:,} ms]"
                 )
+
+            # Add the date of the last message to `insert_triples`.
+            insert_triples.add(
+                f"<http://wikiba.se/ontology#Dump> "
+                f"<http://schema.org/dateModified> "
+                f'"{date_list[-1]}"^^<http://www.w3.org/2001/XMLSchema#dateTime>'
+            )
 
             # Construct update operation.
             delete_insert_operation = (

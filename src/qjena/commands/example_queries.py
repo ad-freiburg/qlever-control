@@ -7,9 +7,11 @@ from qlever.commands.example_queries import (
 
 class ExampleQueriesCommand(QleverExampleQueriesCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"data": ["name"], "server": ["port"], "ui": ["ui_config"]}
+        return {"data": ["name"], "server": ["host_name", "port"], "ui": ["ui_config"]}
 
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
-            args.sparql_endpoint = f"localhost:{args.port}/{args.name}/query"
+            args.sparql_endpoint = (
+                f"{args.host_name}:{args.port}/{args.name}/query"
+            )
         return super().execute(args)

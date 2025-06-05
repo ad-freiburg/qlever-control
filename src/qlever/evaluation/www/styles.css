@@ -1,0 +1,30 @@
+body {
+  background-color: #f9f9f9;
+  font-family: "Helvetica Neue", sans-serif;
+}
+
+.main-title {
+  font-weight: bold;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #262730;
+}
+
+.kg-section {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.kg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.ag-center-cols-viewport {
+    min-height: unset !important;
+}

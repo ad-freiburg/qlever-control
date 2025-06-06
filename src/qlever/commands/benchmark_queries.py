@@ -22,7 +22,7 @@ from qlever.log import log, mute_log
 from qlever.util import run_command, run_curl_command
 
 
-class ExampleQueriesCommand(QleverCommand):
+class BenchmarkQueriesCommand(QleverCommand):
     """
     Class for running a given sequence of benchmark or example queries and
     showing their processing times and result sizes.
@@ -33,8 +33,8 @@ class ExampleQueriesCommand(QleverCommand):
 
     def description(self) -> str:
         return (
-            "Run the given queries and show their processing times "
-            "and result sizes"
+            "Run the given benchmark or example queries and show their "
+            "processing times and result sizes"
         )
 
     def should_have_qleverfile(self) -> bool:
@@ -64,7 +64,7 @@ class ExampleQueriesCommand(QleverCommand):
             type=str,
             default=None,
             help=(
-                "Path to a TSV file containing queries "
+                "Path to a TSV file containing benchmark queries "
                 "(query_description, full_sparql_query)"
             ),
         )
@@ -73,7 +73,7 @@ class ExampleQueriesCommand(QleverCommand):
             type=str,
             default=None,
             help=(
-                "Path to a YAML file containing queries.  "
+                "Path to a YAML file containing benchmark queries.  "
                 "The YAML file should have a top-level "
                 "key called 'queries', which is a list of dictionaries. "
                 "Each dictionary should contain 'query' for the query "
@@ -92,6 +92,15 @@ class ExampleQueriesCommand(QleverCommand):
             type=str,
             help="Only consider example queries matching "
             "this regex (using grep -Pi)",
+        )
+        subparser.add_argument(
+            "--example-queries",
+            action="store_true",
+            default=False,
+            help=(
+                "Run the example-queries for the given --ui-config "
+                "instead of the benchmark queries from a tsv/yml file"
+            ),
         )
         subparser.add_argument(
             "--download-or-count",
@@ -226,41 +235,50 @@ class ExampleQueriesCommand(QleverCommand):
             return "UNKNOWN"
 
     @staticmethod
-    def construct_get_queries_cmd(
-        queries_file: str, query_ids: str, query_regex: str, ui_config: str
-    ) -> str:
+    def filter_tsv_queries(
+        tsv_queries: list[str], query_ids: str, query_regex: str
+    ) -> list[str]:
         """
         Construct get_queries_cmd from queries_tsv file if present or use
         example queries by using ui_config. Use query_ids and query_regex to
         filter the queries
         """
-        get_queries_cmd = (
-            f"cat {queries_file}"
-            if queries_file
-            else f"curl -sv https://qlever.cs.uni-freiburg.de/"
-            f"api/examples/{ui_config}"
-        )
-        sed_arg = query_ids.replace(",", "p;").replace("-", ",") + "p"
-        get_queries_cmd += f" | sed -n '{sed_arg}'"
-        if query_regex:
-            get_queries_cmd += f" | grep -Pi {shlex.quote(query_regex)}"
-        return get_queries_cmd
+        # Get the list of query indices to keep
+        total_queries = len(tsv_queries)
+        query_indices = []
+        for part in query_ids.split(","):
+            if "-" in part:
+                start, end = part.split("-")
+                if end == "$":
+                    end = total_queries
+                query_indices.extend(range(int(start) - 1, int(end)))
+            else:
+                idx = int(part) if part != "$" else total_queries
+                query_indices.append(idx - 1)
+
+        try:
+            filtered_queries = []
+            for query_idx in query_indices:
+                if query_idx >= total_queries:
+                    continue
+                query = tsv_queries[query_idx]
+
+                # Only include queries that match the query_regex if present
+                if query_regex:
+                    pattern = re.compile(query_regex, re.IGNORECASE)
+                    if not pattern.search(query):
+                        continue
+
+                filtered_queries.append(query)
+            return filtered_queries
+        except Exception as exc:
+            log.error(f"Error filtering queries: {exc}")
+            return []
 
     @staticmethod
-    def parse_queries_tsv(
-        queries_file: str, query_ids: str, query_regex: str, ui_config: str
-    ) -> list[str]:
-        """
-        Parse the queries_tsv file (or example queries cmd if file absent)
-        and return a list of tab-separated queries
-        (query_description, full_sparql_query)
-        """
-        get_queries_cmd = ExampleQueriesCommand.construct_get_queries_cmd(
-            queries_file, query_ids, query_regex, ui_config
-        )
-        log.debug(get_queries_cmd)
+    def fetch_tsv_queries_from_cmd(queries_cmd: str) -> list[str]:
         try:
-            tsv_queries_str = run_command(get_queries_cmd, return_output=True)
+            tsv_queries_str = run_command(queries_cmd, return_output=True)
             if len(tsv_queries_str) == 0:
                 log.error("No queries found in the TSV queries file")
                 return []
@@ -268,11 +286,19 @@ class ExampleQueriesCommand(QleverCommand):
         except Exception as exc:
             log.error(f"Failed to read the TSV queries file: {exc}")
             return []
+    
+    @staticmethod
+    def parse_queries_tsv(queries_file: str) -> list[str]:
+        """
+        Parse the queries_tsv file
+        and return a list of tab-separated queries
+        (query_description, full_sparql_query)
+        """
+        get_queries_cmd = f"cat {queries_file}"
+        return BenchmarkQueriesCommand.fetch_tsv_queries_from_cmd(get_queries_cmd)    
 
     @staticmethod
-    def parse_queries_yml(
-        queries_file: str, query_ids: str, query_regex: str
-    ) -> list[str]:
+    def parse_queries_yml(queries_file: str) -> list[str]:
         """
         Parse a YML file, validate its structure and return a list of
         tab-separated queries (query_description, full_sparql_query)
@@ -307,46 +333,9 @@ class ExampleQueriesCommand(QleverCommand):
                 )
                 return []
 
-        # Get the list of query indices to keep
-        total_queries = len(data["queries"])
-        query_indices = []
-        for part in query_ids.split(","):
-            if "-" in part:
-                start, end = part.split("-")
-                if end == "$":
-                    end = total_queries
-                query_indices.extend(range(int(start) - 1, int(end)))
-            else:
-                idx = int(part) if part != "$" else total_queries
-                query_indices.append(idx - 1)
-
-        try:
-            tsv_queries = []
-            for query_idx in query_indices:
-                if query_idx >= total_queries:
-                    log.error(
-                        "Make sure --query-ids don't exceed the total "
-                        "queries in the YML file"
-                    )
-                    return []
-                query = data["queries"][query_idx]
-
-                # Only include queries that match the query_regex if present
-                if query_regex:
-                    pattern = re.compile(query_regex, re.IGNORECASE)
-                    if not any(
-                        [
-                            pattern.search(query["query"]),
-                            pattern.search(query["sparql"]),
-                        ]
-                    ):
-                        continue
-
-                tsv_queries.append(f"{query['query']}\t{query['sparql']}")
-            return tsv_queries
-        except Exception as exc:
-            log.error(f"Error parsing {queries_file} file: {exc}")
-            return []
+        return [
+            f"{query['query']}\t{query['sparql']}" for query in data["queries"]
+        ]
 
     def get_result_size(
         self,
@@ -383,7 +372,7 @@ class ExampleQueriesCommand(QleverCommand):
 
         # CASE 1: Just counting the size of the result (TSV or JSON).
         elif count_only:
-            if accept_header == "text/tab-separated-values":
+            if accept_header in ("text/tab-separated-values", "text/csv"):
                 result_size = run_command(
                     f"sed 1d {result_file}", return_output=True
                 )
@@ -410,10 +399,7 @@ class ExampleQueriesCommand(QleverCommand):
 
                 # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
         else:
-            if (
-                accept_header == "text/tab-separated-values"
-                or accept_header == "text/csv"
-            ):
+            if accept_header in ("text/tab-separated-values", "text/csv"):
                 result_size = run_command(
                     f"sed 1d {result_file} | wc -l", return_output=True
                 )
@@ -500,6 +486,27 @@ class ExampleQueriesCommand(QleverCommand):
                 log.error(f"Please install `jq` for {args.accept} ({e})")
                 return False
 
+        if not any((args.queries_tsv, args.queries_yml, args.example_queries)):
+            log.error(
+                "No benchmark or example queries to read! Either pass benchmark "
+                "queries using --queries-tsv or --queries-yml, or pass the "
+                "argument --example-queries to run example queries for the "
+                f"given ui_config {args.ui_config}"
+            )
+            return False
+
+        if all((args.queries_tsv, args.queries_yml)):
+            log.error("Cannot have both --queries-tsv and --queries-yml")
+            return False
+
+        if any((args.queries_tsv, args.queries_yml)) and args.example_queries:
+            queries_file_arg = "tsv" if args.queries_tsv else "yml"
+            log.error(
+                f"Cannot have both --queries-{queries_file_arg} and "
+                "--example-queries"
+            )
+            return False
+
         # Handle shortcuts for SPARQL endpoint.
         if args.sparql_endpoint_preset:
             args.sparql_endpoint = args.sparql_endpoint_preset
@@ -530,12 +537,9 @@ class ExampleQueriesCommand(QleverCommand):
                 args.clear_cache = "no"
 
         # Show what the command will do.
-        get_queries_cmd = (
-            None
-            if any((args.queries_yml, args.queries_tsv))
-            else self.construct_get_queries_cmd(
-                None, args.query_ids, args.query_regex, args.ui_config
-            )
+        example_queries_cmd = (
+            "curl -sv https://qlever.cs.uni-freiburg.de/"
+            f"api/examples/{args.ui_config}"
         )
         sparql_endpoint = (
             args.sparql_endpoint
@@ -544,7 +548,7 @@ class ExampleQueriesCommand(QleverCommand):
         )
 
         self.show(
-            f"Obtain queries via: {args.queries_yml or args.queries_tsv or get_queries_cmd}\n"
+            f"Obtain queries via: {args.queries_yml or args.queries_tsv or example_queries_cmd}\n"
             f"SPARQL endpoint: {sparql_endpoint}\n"
             f"Accept header: {args.accept}\n"
             f"Download result for each query or just count:"
@@ -555,17 +559,15 @@ class ExampleQueriesCommand(QleverCommand):
         if args.show:
             return True
 
-        tsv_queries = (
-            self.parse_queries_yml(
-                args.queries_yml, args.query_ids, args.query_regex
-            )
-            if args.queries_yml
-            else self.parse_queries_tsv(
-                args.queries_tsv,
-                args.query_ids,
-                args.query_regex,
-                args.ui_config,
-            )
+        if args.queries_yml:
+            tsv_queries_list = self.parse_queries_yml(args.queries_yml)
+        elif args.queries_tsv:
+            tsv_queries_list = self.parse_queries_tsv(args.queries_tsv)
+        else:
+            tsv_queries_list = self.fetch_tsv_queries_from_cmd(example_queries_cmd)
+
+        tsv_queries = self.filter_tsv_queries(
+            tsv_queries_list, args.query_ids, args.query_regex
         )
 
         if len(tsv_queries) == 0 or not tsv_queries[0]:

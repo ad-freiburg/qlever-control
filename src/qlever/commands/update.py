@@ -13,7 +13,6 @@ from termcolor import colored
 
 from qlever.command import QleverCommand
 from qlever.log import log
-from qlever.util import run_command
 
 
 # Monkey patch `rdflib.term._castLexicalToPython` to avoid casting of literals
@@ -71,6 +70,14 @@ class UpdateCommand(QleverCommand):
             help="Number of groups to process before stopping "
             "(default: 0, i.e., process until interrupted)",
         )
+        subparser.add_argument(
+            "--lag-seconds",
+            type=int,
+            default=5,
+            help="When a message is encountered that is within this many "
+            "seconds of the current time, finish the current batch "
+            "(and show a warning that this happened)",
+        )
 
     def execute(self, args) -> bool:
         # Construct the command and show it.
@@ -94,7 +101,8 @@ class UpdateCommand(QleverCommand):
         current_group_size = 0
         group_count = 0
         total_num_ops = 0
-        total_time_ms = 0
+        total_time_s = 0
+        start_time = time.perf_counter()
 
         # Iterating over all messages in the stream.
         for event in source:
@@ -114,15 +122,16 @@ class UpdateCommand(QleverCommand):
             if event.type != "message" or not event.data:
                 continue
             try:
-                event_id = json.loads(event.last_event_id)
+                # event_id = json.loads(event.last_event_id)
                 event_data = json.loads(event.data)
-                date_ms_since_epoch = event_id[0].get("timestamp")
-                date = time.strftime(
-                    "%Y-%m-%dT%H:%M:%SZ",
-                    time.gmtime(date_ms_since_epoch / 1000.0),
-                )
-                # date = event_data.get("meta").get("dt")
+                # date_ms_since_epoch = event_id[0].get("timestamp")
+                # date = time.strftime(
+                #     "%Y-%m-%dT%H:%M:%SZ",
+                #     time.gmtime(date_ms_since_epoch / 1000.0),
+                # )
+                date = event_data.get("meta").get("dt")
                 # date = event_data.get("dt")
+                date = re.sub(r"\.\d*Z$", "Z", date)
                 entity_id = event_data.get("entity_id")
                 operation = event_data.get("operation")
                 rdf_added_data = event_data.get("rdf_added_data")
@@ -170,6 +179,7 @@ class UpdateCommand(QleverCommand):
 
             except Exception as e:
                 log.error(f"Error reading data from message: {e}")
+                log.info(event)
                 continue
 
             # Continue assembling until the group size is reached.
@@ -213,10 +223,6 @@ class UpdateCommand(QleverCommand):
                 f"INSERT {{\n  {' . \n  '.join(insert_triples)} .\n}} "
                 f"WHERE {{ }}\n"
             )
-            # log.warn(delete_insert_operation)
-            # delete_insert_operation = re.sub(
-            #     r"\s+", " ", delete_insert_operation
-            # )
 
             # Construct curl command. For group size 1, send the operation via
             # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
@@ -238,25 +244,20 @@ class UpdateCommand(QleverCommand):
             # Run it (using `curl` for group size up to 1000, otherwise
             # `requests`).
             try:
-                if args.group_size <= 1000:
-                    warning_message = "Error running `curl`: {e}"
-                    result = run_command(curl_cmd, return_output=True)
-                else:
-                    warning_message = "Error running `requests.post`: {e}"
-                    headers = {
-                        "Authorization": f"Bearer {args.access_token}",
-                        "Content-Type": "application/sparql-update",
-                    }
-                    response = requests.post(
-                        url=sparql_endpoint,
-                        headers=headers,
-                        data=delete_insert_operation,
-                    )
-                    result = response.text
-                    with open(f"update.result.{group_count}", "w") as f:
-                        f.write(result)
+                headers = {
+                    "Authorization": f"Bearer {args.access_token}",
+                    "Content-Type": "application/sparql-update",
+                }
+                response = requests.post(
+                    url=sparql_endpoint,
+                    headers=headers,
+                    data=delete_insert_operation,
+                )
+                result = response.text
+                with open(f"update.result.{group_count}", "w") as f:
+                    f.write(result)
             except Exception as e:
-                log.warn(warning_message.format(e=e))
+                log.warn(f"Error running `requests.post`: {e}")
                 if args.group_size == 1:
                     log.warn(curl_cmd)
                 log.info("")
@@ -265,6 +266,8 @@ class UpdateCommand(QleverCommand):
             # Results should be a JSON, parse it.
             try:
                 result = json.loads(result)
+                if isinstance(result, list):
+                    result = result[0]
             except Exception as e:
                 log.error(
                     f"Error parsing JSON result: {e}"
@@ -287,57 +290,76 @@ class UpdateCommand(QleverCommand):
 
             # Helper function for getting the value of `result["time"][...]`
             # without the "ms" suffix.
-            def get_time_ms(key: str) -> int:
-                value = result["time"][key]
-                return int(re.sub(r"ms$", "", value))
+            def get_time_ms(*keys: str) -> int:
+                value = result["time"]
+                for key in keys:
+                    value = value[key]
+                return int(value)
+                # return int(re.sub(r"ms$", "", value))
 
             # Show statistics of the update operation.
             try:
-                ins_before = result["delta-triples"]["before"]["inserted"]
-                del_before = result["delta-triples"]["before"]["deleted"]
                 ins_after = result["delta-triples"]["after"]["inserted"]
                 del_after = result["delta-triples"]["after"]["deleted"]
+                ops_after = result["delta-triples"]["after"]["total"]
+                num_ins = int(result["delta-triples"]["operation"]["inserted"])
+                num_del = int(result["delta-triples"]["operation"]["deleted"])
                 num_ops = int(result["delta-triples"]["operation"]["total"])
                 time_ms = get_time_ms("total")
                 time_us_per_op = int(1000 * time_ms / num_ops)
                 log.info(
                     colored(
-                        f"NUM_OPS: {num_ops:6,}, "
-                        f"INS: {ins_before:6,} -> {ins_after:6,}, "
-                        f"DEL: {del_before:6,} -> {del_after:6,}, "
+                        f"NUM_OPS: {num_ops:+6,} -> {ops_after:6,}, "
+                        f"INS: {num_ins:+6,} -> {ins_after:6,}, "
+                        f"DEL: {num_del:+6,} -> {del_after:6,}, "
                         f"TIME: {time_ms:7,} ms, "
                         f"TIME/OP: {time_us_per_op:,} µs",
                         attrs=["bold"],
                     )
                 )
-                total_num_ops += num_ops
-                total_time_ms += time_ms
 
                 # Also show a detailed breakdown of the total time.
-                time_preparation = get_time_ms("preparation")
-                time_planning = get_time_ms("planning")
-                time_insert = get_time_ms("insert")
-                time_delete = get_time_ms("delete")
-                time_snapshot = get_time_ms("snapshot")
-                time_writeback = get_time_ms("diskWriteback")
-                time_where = get_time_ms("where")
+                time_preparation = get_time_ms(
+                    "execution", "processUpdateImpl", "preparation"
+                )
+                time_insert = get_time_ms(
+                    "execution", "processUpdateImpl", "insertTriples", "total"
+                )
+                time_delete = get_time_ms(
+                    "execution", "processUpdateImpl", "deleteTriples", "total"
+                )
+                time_snapshot = get_time_ms("execution", "snapshotCreation")
+                time_writeback = get_time_ms("execution", "diskWriteback")
                 time_unaccounted = time_ms - (
                     time_delete
                     + time_insert
-                    + time_planning
                     + time_preparation
                     + time_snapshot
-                    + time_where
                     + time_writeback
                 )
                 log.info(
                     f"PREPARATION: {100 * time_preparation / time_ms:2.0f}%, "
-                    f"PLANNING: {100 * time_planning / time_ms:2.0f}%, "
+                    # f"PLANNING: {100 * time_planning / time_ms:2.0f}%, "
                     f"INSERT: {100 * time_insert / time_ms:2.0f}%, "
                     f"DELETE: {100 * time_delete / time_ms:2.0f}%, "
                     f"SNAPSHOT: {100 * time_snapshot / time_ms:2.0f}%, "
                     f"WRITEBACK: {100 * time_writeback / time_ms:2.0f}%, "
                     f"UNACCOUNTED: {100 * time_unaccounted / time_ms:2.0f}%",
+                )
+
+                # Show the totals so far.
+                total_num_ops += num_ops
+                total_time_s += time_ms / 1000.0
+                elapsed_time_s = time.perf_counter() - start_time
+                time_us_per_op = int(1e6 * total_time_s / total_num_ops)
+                log.info(
+                    colored(
+                        f"TOTAL NUM_OPS SO FAR: {total_num_ops:8,}, "
+                        f"TOTAL TIME SO FAR: {total_time_s:4.0f} s, "
+                        f"ELAPSED TIME SO FAR: {elapsed_time_s:4.0f} s, "
+                        f"AVG TIME/OP SO FAR: {time_us_per_op:,} µs",
+                        attrs=["bold"],
+                    )
                 )
 
             except Exception as e:
@@ -359,6 +381,8 @@ class UpdateCommand(QleverCommand):
                     break
 
         # Final statistics after all groups have been processed.
+        elapsed_time_s = time.perf_counter() - start_time
+        time_us_per_op = int(1e6 * total_time_s / total_num_ops)
         log.info(
             f"Processed {group_count} "
             f"group{'s' if group_count > 1 else ''}, "
@@ -366,9 +390,10 @@ class UpdateCommand(QleverCommand):
         )
         log.info(
             colored(
-                f"TOTAL NUM_OPS: {total_num_ops:6,}, "
-                f"TOTAL TIME: {total_time_ms:7,} ms, "
-                f"AVG TIME/OP: {total_time_ms / total_num_ops:4.1f} ms",
+                f"TOTAL NUM_OPS: {total_num_ops:8,}, "
+                f"TOTAL TIME: {total_time_s:4.0f} s, "
+                f"ELAPSED TIME: {elapsed_time_s:4.0f} s, "
+                f"AVG TIME/OP: {time_us_per_op:,} µs",
                 attrs=["bold"],
             )
         )

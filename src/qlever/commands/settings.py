@@ -97,6 +97,8 @@ class SettingsCommand(QleverCommand):
         try:
             settings_json = run_command(curl_cmd, return_output=True)
             settings_dict = json.loads(settings_json)
+            if isinstance(settings_dict, list):
+                settings_dict = settings_dict[0]
         except Exception as e:
             log.error(f"setting command failed: {e}")
             return False

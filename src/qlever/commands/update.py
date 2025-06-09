@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-import shlex
+import signal
 import time
+from datetime import datetime, timezone
 
 import rdflib.term
 import requests
@@ -20,6 +21,26 @@ from qlever.log import log
 # and we can speed up parsing by a factor of about 2.
 def custom_cast_lexical_to_python(lexical, datatype):
     return None  # Your desired behavior
+
+
+# Handle Ctrl+C gracefully by finishing the current batch and then exiting.
+ctrl_c_pressed = False
+
+
+def handle_ctrl_c(signal_received, frame):
+    global ctrl_c_pressed
+    if ctrl_c_pressed:
+        log.warn("\rCtrl+C pressed again, undoing the previous Ctrl+C")
+        ctrl_c_pressed = False
+    else:
+        ctrl_c_pressed = True
+        log.warn(
+            "\rCtrl+C pressed, will finish the current batch and then exit"
+            " [press Ctrl+C again to continue]"
+        )
+
+
+signal.signal(signal.SIGINT, handle_ctrl_c)
 
 
 rdflib.term._castLexicalToPython = custom_cast_lexical_to_python
@@ -54,9 +75,9 @@ class UpdateCommand(QleverCommand):
             help="URL of the SSE stream to update from",
         )
         subparser.add_argument(
-            "--group-size",
+            "--batch-size",
             type=int,
-            default=1,
+            default=100000,
             help="Group this many messages together into one update "
             "(default: one update for each message); NOTE: this simply "
             "concatenates the `rdf_added_data` and `rdf_deleted_data` fields, "
@@ -64,16 +85,9 @@ class UpdateCommand(QleverCommand):
             "this will be fixed",
         )
         subparser.add_argument(
-            "--num-groups",
-            type=int,
-            default=0,
-            help="Number of groups to process before stopping "
-            "(default: 0, i.e., process until interrupted)",
-        )
-        subparser.add_argument(
             "--lag-seconds",
             type=int,
-            default=5,
+            default=1,
             help="When a message is encountered that is within this many "
             "seconds of the current time, finish the current batch "
             "(and show a warning that this happened)",
@@ -81,41 +95,49 @@ class UpdateCommand(QleverCommand):
 
     def execute(self, args) -> bool:
         # Construct the command and show it.
+        lag_seconds_str = (
+            f"{args.lag_seconds} second{'s' if args.lag_seconds > 1 else ''}"
+        )
         cmd_description = (
             f"Process SSE stream from {args.url} "
-            f"in groups of {args.group_size:,} messages"
+            f"in batches of {args.batch_size:,} messages "
+            f"(less if a message is encountered that is within "
+            f"{lag_seconds_str} of the current time)"
         )
-        if args.num_groups > 0:
-            cmd_description += f", for {args.num_groups} groups"
-        else:
-            cmd_description += ", until interrupted or stream ends"
         self.show(cmd_description, only_show=args.show)
         if args.show:
             return True
+
+        log.warn(
+            "Press Ctrl+C to finish the current batch and end gracefully, "
+            "press Ctrl+C again to continue with the next batch"
+        )
+        log.info("")
 
         # Initialize the SSE stream and all the statistics variables.
         source = requests_sse.EventSource(
             args.url, headers={"Accept": "text/event-stream"}
         )
         source.connect()
-        current_group_size = 0
-        group_count = 0
+        current_batch_size = 0
+        batch_count = 0
         total_num_ops = 0
         total_time_s = 0
         start_time = time.perf_counter()
 
         # Iterating over all messages in the stream.
         for event in source:
-            # Beginning of a new group of messages.
-            if current_group_size == 0:
+            # Beginning of a new batch of messages.
+            if current_batch_size == 0:
                 date_list = []
-                group_assembly_start_time = time.perf_counter()
+                delta_to_now_list = []
+                batch_assembly_start_time = time.perf_counter()
                 insert_triples = set()
                 delete_triples = set()
 
-            # Check if the `args.group_size` is reached (note that we come here
+            # Check if the `args.batch_size` is reached (note that we come here
             # after a `continue` due to an error).
-            if group_count >= args.num_groups and args.num_groups > 0:
+            if ctrl_c_pressed:
                 break
 
             # Process the message.
@@ -132,8 +154,8 @@ class UpdateCommand(QleverCommand):
                 date = event_data.get("meta").get("dt")
                 # date = event_data.get("dt")
                 date = re.sub(r"\.\d*Z$", "Z", date)
-                entity_id = event_data.get("entity_id")
-                operation = event_data.get("operation")
+                # entity_id = event_data.get("entity_id")
+                # operation = event_data.get("operation")
                 rdf_added_data = event_data.get("rdf_added_data")
                 rdf_deleted_data = event_data.get("rdf_deleted_data")
 
@@ -182,33 +204,57 @@ class UpdateCommand(QleverCommand):
                 log.info(event)
                 continue
 
-            # Continue assembling until the group size is reached.
-            date_list.append(date)
-            current_group_size += 1
-            if current_group_size < args.group_size:
-                continue
-
-            # Process the current group of messages.
-            group_assembly_end_time = time.perf_counter()
-            group_assembly_time_ms = int(
-                1000 * (group_assembly_end_time - group_assembly_start_time)
+            # Continue assembling until either the batch size is reached, or
+            # we encounter a message that is within `args.lag_seconds` of the
+            # current time.
+            current_batch_size += 1
+            date_as_epoch_s = (
+                datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
             )
-            group_count += 1
+            now_as_epoch_s = time.time()
+            delta_to_now_s = now_as_epoch_s - date_as_epoch_s
+            log.debug(
+                f"DATE: {date_as_epoch_s:.0f} [{date}], "
+                f"NOW: {now_as_epoch_s:.0f}, "
+                f"DELTA: {now_as_epoch_s - date_as_epoch_s:.0f}"
+            )
+            date_list.append(date)
+            delta_to_now_list.append(delta_to_now_s)
+            if current_batch_size < args.batch_size and not ctrl_c_pressed:
+                if delta_to_now_s < args.lag_seconds:
+                    log.warn(
+                        f"Encountered message with date {date}, which is within "
+                        f"{args.lag_seconds} "
+                        f"second{'s' if args.lag_seconds > 1 else ''} "
+                        f"of the current time, finishing the current batch"
+                    )
+                else:
+                    continue
+
+            # Process the current batch of messages.
+            batch_assembly_end_time = time.perf_counter()
+            batch_assembly_time_ms = int(
+                1000 * (batch_assembly_end_time - batch_assembly_start_time)
+            )
+            batch_count += 1
             date_list.sort()
-            current_group_size = 0
-            if args.group_size == 1:
-                log.info(
-                    f"Processing operation {operation} from date {date} "
-                    f"for entity {entity_id}"
-                    f"  [assembly time: {group_assembly_time_ms:,} ms]"
-                )
+            delta_to_now_list.sort()
+            min_delta_to_now_s = delta_to_now_list[0]
+            if min_delta_to_now_s < 10:
+                min_delta_to_now_s = f"{min_delta_to_now_s:.1f}"
             else:
-                log.info(
-                    f"Processing group #{group_count} "
-                    f"with {args.group_size:,} messages, "
-                    f"date range: {date_list[0]} - {date_list[-1]}"
-                    f"  [assembly time: {group_assembly_time_ms:,} ms]"
-                )
+                min_delta_to_now_s = f"{int(min_delta_to_now_s):,}"
+            log.info(
+                f"Processing batch #{batch_count} "
+                f"with {current_batch_size:,} "
+                f"message{'s' if current_batch_size > 1 else ''} "
+                f"date range: {date_list[0]} - {date_list[-1]}  "
+                f"[assembly time: {batch_assembly_time_ms:,} ms, "
+                f"min delta to NOW: {min_delta_to_now_s} s]"
+            )
+            current_batch_size = 0
 
             # Add the date of the last message to `insert_triples`.
             insert_triples.add(
@@ -224,7 +270,7 @@ class UpdateCommand(QleverCommand):
                 f"WHERE {{ }}\n"
             )
 
-            # Construct curl command. For group size 1, send the operation via
+            # Construct curl command. For batch size 1, send the operation via
             # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
             sparql_endpoint = f"http://localhost:{args.port}"
             curl_cmd = (
@@ -232,16 +278,13 @@ class UpdateCommand(QleverCommand):
                 f" -H 'Authorization: Bearer {args.access_token}'"
                 f" -H 'Content-Type: application/sparql-update'"
             )
-            if args.group_size == 1:
-                curl_cmd += f" --data {shlex.quote(delete_insert_operation)}"
-            else:
-                update_arg_file_name = f"update.sparql.{group_count}"
-                with open(update_arg_file_name, "w") as f:
-                    f.write(delete_insert_operation)
-                curl_cmd += f" --data-binary @{update_arg_file_name}"
-            log.warn(curl_cmd)
+            update_arg_file_name = f"update.sparql.{batch_count}"
+            with open(update_arg_file_name, "w") as f:
+                f.write(delete_insert_operation)
+            curl_cmd += f" --data-binary @{update_arg_file_name}"
+            log.info(colored(curl_cmd, "blue"))
 
-            # Run it (using `curl` for group size up to 1000, otherwise
+            # Run it (using `curl` for batch size up to 1000, otherwise
             # `requests`).
             try:
                 headers = {
@@ -254,12 +297,10 @@ class UpdateCommand(QleverCommand):
                     data=delete_insert_operation,
                 )
                 result = response.text
-                with open(f"update.result.{group_count}", "w") as f:
+                with open(f"update.result.{batch_count}", "w") as f:
                     f.write(result)
             except Exception as e:
                 log.warn(f"Error running `requests.post`: {e}")
-                if args.group_size == 1:
-                    log.warn(curl_cmd)
                 log.info("")
                 continue
 
@@ -275,16 +316,12 @@ class UpdateCommand(QleverCommand):
                 )
                 log.info(result[:1000])
                 log.info("")
-                if args.group_size == 1:
-                    log.warn(curl_cmd)
                 continue
 
             # Check if the result contains a QLever exception.
             if "exception" in result:
                 error_msg = result["exception"]
                 log.error(f"QLever exception: {error_msg}")
-                if args.group_size == 1:
-                    log.warn(curl_cmd)
                 log.info("")
                 continue
 
@@ -374,18 +411,15 @@ class UpdateCommand(QleverCommand):
                 log.info("")
                 continue
 
-            # Stop after processing the specified number of groups.
+            # Stop after processing the specified number of batches.
             log.info("")
-            if args.num_groups > 0:
-                if group_count >= args.num_groups:
-                    break
 
-        # Final statistics after all groups have been processed.
+        # Final statistics after all batches have been processed.
         elapsed_time_s = time.perf_counter() - start_time
         time_us_per_op = int(1e6 * total_time_s / total_num_ops)
         log.info(
-            f"Processed {group_count} "
-            f"group{'s' if group_count > 1 else ''}, "
+            f"Processed {batch_count} "
+            f"{'batches' if batch_count > 1 else 'batch'} "
             f"terminating update command"
         )
         log.info(

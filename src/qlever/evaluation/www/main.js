@@ -96,6 +96,78 @@ function mainTableColumnDefs() {
     ];
 }
 
+function updateMainPage() {
+    const container = document.getElementById("main-table-container");
+
+    // Clear container if any existing content
+    container.innerHTML = "";
+
+    // For each knowledge base (kb) key in performanceData
+    for (const kb of Object.keys(performanceData)) {
+        // Create section wrapper
+        const section = document.createElement("div");
+        section.className = "kg-section";
+
+        // Header with KB name and a dummy compare button
+        const header = document.createElement("div");
+        header.className = "kg-header";
+
+        const title = document.createElement("h5");
+        title.textContent = capitalize(kb);
+        title.style.fontWeight = "bold";
+
+        const compareBtn = document.createElement("button");
+        compareBtn.className = "btn btn-outline-dark btn-sm";
+        compareBtn.textContent = "Compare Results";
+        compareBtn.onclick = () => {
+            router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
+        };
+
+        header.appendChild(title);
+        header.appendChild(compareBtn);
+
+        // Grid div with ag-theme-alpine styling
+        const gridDiv = document.createElement("div");
+        gridDiv.className = "ag-theme-balham";
+        gridDiv.style.width = "100%";
+
+        // Append header and grid div to section
+        section.appendChild(header);
+        section.appendChild(gridDiv);
+        container.appendChild(section);
+
+        // Get table data from function you provided
+        const tableData = getAllQueryStatsByKb(performanceData, kb);
+
+        // Prepare row data as array of objects for ag-grid
+        // tableData is {colName: [val, val, ...], ...}
+        // We convert to [{engine_name: ..., ameanTime: ..., ...}, ...]
+        const rowCount = tableData.engine_name.length;
+        const rowData = getGridRowData(rowCount, tableData);
+
+        const onRowClicked = (event) => {
+            const engine = event.data.engine_name.toLowerCase();
+            router.navigate(`/details?kb=${encodeURIComponent(kb)}&engine=${encodeURIComponent(engine)}`);
+        };
+
+        // Initialize ag-Grid instance
+        agGrid.createGrid(gridDiv, {
+            columnDefs: mainTableColumnDefs(),
+            rowData: rowData,
+            defaultColDef: {
+                sortable: true,
+                filter: true,
+                resizable: true,
+                flex: 1,
+                minWidth: 100,
+            },
+            domLayout: "autoHeight",
+            rowStyle: { fontSize: "14px", cursor: "pointer" },
+            onRowClicked: onRowClicked,
+        });
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     router = new Navigo("/", { hash: true });
 
@@ -107,93 +179,81 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Routes
         router
             .on({
-                "/": () => showPage("main"),
+                "/": () => {
+                    showPage("main");
+                    updateMainPage(performanceData);
+                },
                 "/details": (params) => {
                     const kb = params.params.kb;
                     const engine = params.params.engine;
+                    if (
+                        !Object.keys(performanceData).includes(kb) ||
+                        !Object.keys(performanceData[kb]).includes(engine)
+                    ) {
+                        showPage(
+                            "error",
+                            `Query Details Page not found for ${engine} (${kb}) -> Make sure the url is correct!`
+                        );
+                        return;
+                    }
                     updateDetailsPage(performanceData, kb, engine);
                     showPage("details");
                 },
                 "/comparison": (params) => {
                     const kb = params.params.kb;
+                    if (!Object.keys(performanceData).includes(kb)) {
+                        showPage(
+                            "error",
+                            `Performance Comparison Page not found for ${capitalize(
+                                kb
+                            )} -> Make sure the url is correct!`
+                        );
+                        return;
+                    }
                     updateComparisonPage(performanceData, kb);
                     showPage("comparison");
+                },
+                "/compareExecTrees": (params) => {
+                    const kb = params.params.kb;
+                    const queryIdx = params.params.q;
+                    if (!Object.keys(performanceData).includes(kb)) {
+                        showPage(
+                            "error",
+                            `Query Execution Tree Page not found for ${capitalize(kb)} -> Make sure the url is correct!`
+                        );
+                        return;
+                    }
+                    const queryToEngineStats = getQueryToEngineStatsDict(performanceData[kb]);
+                    if (
+                        !parseInt(queryIdx) ||
+                        parseInt(queryIdx) < 0 ||
+                        parseInt(queryIdx) >= Object.keys(queryToEngineStats).length
+                    ) {
+                        showPage(
+                            "error",
+                            `Query Execution Tree Page not found as the requested query is not available for ${capitalize(
+                                kb
+                            )} -> Make sure the parameter q in the url is correct!`
+                        );
+                        return;
+                    }
+                    const execTreeEngines = getEnginesWithExecTrees(performanceData[kb]);
+                    const query = Object.keys(queryToEngineStats)[queryIdx];
+
+                    const engineStatForQuery = Object.fromEntries(
+                        Object.entries(queryToEngineStats[query]).filter(([engine]) => execTreeEngines.includes(engine))
+                    );
+                    updateCompareExecTreesPage(kb, query, engineStatForQuery);
+                    showPage("compareExecTrees");
                 },
             })
             .notFound(() => showPage("main"));
 
         router.resolve();
-        const container = document.getElementById("main-table-container");
-
-        // Clear container if any existing content
-        container.innerHTML = "";
-
-        // For each knowledge base (kb) key in performanceData
-        for (const kb of Object.keys(performanceData)) {
-            // Create section wrapper
-            const section = document.createElement("div");
-            section.className = "kg-section";
-
-            // Header with KB name and a dummy compare button
-            const header = document.createElement("div");
-            header.className = "kg-header";
-
-            const title = document.createElement("h5");
-            title.textContent = capitalize(kb);
-            title.style.fontWeight = "bold";
-
-            const compareBtn = document.createElement("button");
-            compareBtn.className = "btn btn-outline-dark btn-sm";
-            compareBtn.textContent = "Compare Results";
-            compareBtn.onclick = () => {
-                router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
-            };
-
-            header.appendChild(title);
-            header.appendChild(compareBtn);
-
-            // Grid div with ag-theme-alpine styling
-            const gridDiv = document.createElement("div");
-            gridDiv.className = "ag-theme-balham";
-            gridDiv.style.width = "100%";
-
-            // Append header and grid div to section
-            section.appendChild(header);
-            section.appendChild(gridDiv);
-            container.appendChild(section);
-
-            // Get table data from function you provided
-            const tableData = getAllQueryStatsByKb(performanceData, kb);
-
-            // Prepare row data as array of objects for ag-grid
-            // tableData is {colName: [val, val, ...], ...}
-            // We convert to [{engine_name: ..., ameanTime: ..., ...}, ...]
-            const rowCount = tableData.engine_name.length;
-            const rowData = getGridRowData(rowCount, tableData);
-
-            const onRowClicked = (event) => {
-                const engine = event.data.engine_name.toLowerCase();
-                router.navigate(`/details?kb=${encodeURIComponent(kb)}&engine=${encodeURIComponent(engine)}`);
-            };
-
-            // Initialize ag-Grid instance
-            agGrid.createGrid(gridDiv, {
-                columnDefs: mainTableColumnDefs(),
-                rowData: rowData,
-                defaultColDef: {
-                    sortable: true,
-                    filter: true,
-                    resizable: true,
-                    flex: 1,
-                    minWidth: 100,
-                },
-                domLayout: "autoHeight",
-                rowStyle: { fontSize: "14px", cursor: "pointer" },
-                onRowClicked: onRowClicked,
-            });
-        }
+        setDetailsPageEvents();
+        setCompareExecTreesEvents();
     } catch (err) {
         console.error("Error loading /yaml_data:", err);
-        container.innerHTML = `<div class="alert alert-danger">Failed to load data.</div>`;
+        showPage("error");
     }
 });

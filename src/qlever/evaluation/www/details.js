@@ -1,3 +1,27 @@
+let detailsGridApi = null;
+
+function setDetailsPageEvents() {
+    // Adds functionality to buttons in the modal footer for zooming in/out the execution tree
+    document.querySelector('[aria-label="Details zoom controls"]').addEventListener("click", function (event) {
+        if (event.target.tagName === "BUTTON") {
+            const purpose = event.target.id;
+            const treeId = "#result-tree";
+            const tree = document.querySelector(treeId);
+            const currentFontSize = tree
+                .querySelector(".node[class*=font-size-]")
+                .className.match(/font-size-(\d+)/)[1];
+            const kb = new URLSearchParams(window.location.hash.split("?")[1]).get("kb");
+            const engine = new URLSearchParams(window.location.hash.split("?")[1]).get("engine");
+            const selectedNodes = detailsGridApi.getSelectedNodes();
+            if (selectedNodes.length === 1) {
+                const queryIdx = detailsGridApi.getSelectedNodes()[0].rowIndex;
+                const runtime_info = performanceData[kb][engine].queries[queryIdx].runtime_info;
+                renderExecTree(runtime_info, "#result-tree", "#meta-info", purpose, Number.parseInt(currentFontSize));
+            }
+        }
+    });
+}
+
 /**
  * Extracts runtime and related query info for a given knowledge base and engine.
  *
@@ -60,7 +84,7 @@ function getQueryResultsDict(headers, queryResults) {
     return queryResultsDict;
 }
 
-class CustomDetailsTooltip  {
+class CustomDetailsTooltip {
     eGui;
     init(params) {
         const tooltipText = params.value || "";
@@ -93,7 +117,7 @@ function getQueryRuntimesColumnDefs() {
             field: "query",
             filter: "agTextColumnFilter",
             flex: 3,
-            tooltipValueGetter: params => {
+            tooltipValueGetter: (params) => {
                 return params.data.sparql;
             },
             tooltipComponent: CustomDetailsTooltip,
@@ -126,9 +150,7 @@ function setTabsToDefault() {
     });
 }
 
-let currentTree = null;
-
-function renderExecTree(runtime_info) {
+function renderExecTree(runtime_info, treeNodeId, metaNodeId, purpose = "showTree", currentFontSize) {
     // Show meta information (if it exists).
     const meta_info = runtime_info["meta"];
 
@@ -145,10 +167,10 @@ function renderExecTree(runtime_info) {
     const total_time_computing =
         "total_time_computing" in meta_info ? formatInteger(meta_info["total_time_computing"]) + " ms" : "N/A";
 
-    // Inject meta info into the DOM
-    document.getElementById("meta-info").innerHTML = `<p>Time for query planning: ${time_query_planning}<br/>
-     Time for index scans during query planning: ${time_index_scans_query_planning}<br/>
-     Total time for computing the result: ${total_time_computing}</p>`;
+        // Inject meta info into the DOM
+    document.querySelector(metaNodeId).innerHTML = `<p>Time for query planning: ${time_query_planning}<br/>
+    Time for index scans during query planning: ${time_index_scans_query_planning}<br/>
+    Total time for computing the result: ${total_time_computing}</p>`;
 
     // Show the query execution tree (using Treant.js)
     addTextElementsToExecTreeForTreant(runtime_info["query_execution_tree"]);
@@ -156,21 +178,18 @@ function renderExecTree(runtime_info) {
 
     const treant_tree = {
         chart: {
-            container: "#result-tree",
+            container: treeNodeId,
             rootOrientation: "NORTH",
             connectors: { type: "step" },
+            node: { HTMLclass: "font-size-" + maximumZoomPercent },
         },
         nodeStructure: runtime_info["query_execution_tree"],
     };
-
-
-    // Destroy previous tree if it exists
-    if (typeof currentTree !== "undefined" && currentTree !== null) {
-        currentTree.destroy();
-    }
+    const newFontSize = getNewFontSizeForTree(treant_tree, purpose, currentFontSize);
+    treant_tree.chart.node.HTMLclass = "font-size-" + newFontSize.toString();
 
     // Create new Treant tree
-    currentTree = new Treant(treant_tree);
+    new Treant(treant_tree);
 
     // Add tooltips with parsed .node-details info
     document.querySelectorAll("div.node").forEach(function (node) {
@@ -260,6 +279,8 @@ function renderExecTree(runtime_info) {
     });
 }
 
+let exec_tree_listener = null;
+
 function updateTabsWithSelectedRow(rowData) {
     console.log(rowData);
     const sparqlQuery = rowData?.sparql;
@@ -279,17 +300,16 @@ function updateTabsWithSelectedRow(rowData) {
         }
         document.querySelector("#result-tree").innerHTML = "";
         const exec_tree_tab = document.querySelector("#exec-tree-tab");
-        exec_tree_tab.addEventListener(
-            "shown.bs.tab",
-            function () {
-                renderExecTree(runtime_info);
-            },
-            { once: true }
-        );
+        if (exec_tree_listener) exec_tree_tab.removeEventListener("shown.bs.tab", exec_tree_listener);
+        exec_tree_listener = () => {
+            renderExecTree(runtime_info, "#result-tree", "#meta-info");
+            exec_tree_listener = null;
+        };
+        exec_tree_tab.addEventListener("shown.bs.tab", exec_tree_listener, { once: true });
     } else {
-        document.querySelector("#exec-tree-tab-pane div.alert-info").classList.add("d-none")
+        document.querySelector("#exec-tree-tab-pane div.alert-info").classList.add("d-none");
         document.querySelector("#result-tree-div").classList.remove("d-none");
-        document.querySelector("#result-tree-div div.alert-info").classList.remove("d-none")
+        document.querySelector("#result-tree-div div.alert-info").classList.remove("d-none");
     }
 
     const headers = rowData?.headers;
@@ -393,6 +413,9 @@ function updateDetailsPage(performanceData, kb, engine) {
             resizable: true,
         },
         domLayout: domLayout,
+        onGridReady: (params) => {
+            detailsGridApi = params.api;
+        },
         getRowStyle: (params) => {
             let rowStyle = { fontSize: "14px", cursor: "pointer" };
             if (params.data.failed === true) {
@@ -402,7 +425,9 @@ function updateDetailsPage(performanceData, kb, engine) {
         },
         rowSelection: { mode: "singleRow", headerCheckbox: false, enableClickSelection: true },
         onRowSelected: (event) => {
-            if (event.api.getSelectedRows() === selectedRow) return;
+            const query = Array.isArray(selectedRow) ? selectedRow[0].query : null;
+            if (event.api.getSelectedRows()[0].query === query) return;
+            selectedRow = event.api.getSelectedRows();
             onRuntimeRowSelected(event, performanceData, kb, engine);
         },
         tooltipShowDelay: 500,

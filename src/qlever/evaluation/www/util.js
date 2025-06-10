@@ -40,7 +40,7 @@ function extractCoreValue(sparqlValue) {
     return sparqlValue;
 }
 
-function showPage(pageId) {
+function showPage(pageId, siteErrorMsg = null) {
     // Hide all pages
     document.querySelectorAll(".page").forEach((p) => {
         p.classList.remove("visible");
@@ -54,6 +54,9 @@ function showPage(pageId) {
         // Force reflow for transition to trigger
         void page.offsetWidth;
         page.classList.add("visible");
+        if (pageId === "error" && siteErrorMsg !== null) {
+            document.querySelector("#siteErrorMsg").innerText = siteErrorMsg;
+        }
     }
 }
 
@@ -170,14 +173,48 @@ function addTextElementsToExecTreeForTreant(tree_node, is_ancestor_cached = fals
 
         // Recurse over all children. Propagate "cached" status.
         tree_node["children"].map((child) =>
-            addTextElementsToExecTreeForTreant(
-                child,
-                is_ancestor_cached || text["cache-status"] != "computed"
-            )
+            addTextElementsToExecTreeForTreant(child, is_ancestor_cached || text["cache-status"] != "computed")
         );
     }
 }
 
 function formatInteger(number) {
     return number.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
+}
+
+/**
+ * Calculates the depth of a tree structure, where depth is the longest path from the root to any leaf node.
+ * @param {Object} obj - The tree node or root object.
+ * @returns {number} - The depth of the tree.
+ */
+function calculateTreeDepth(obj) {
+    // Base case: if the object has no children, return 1
+    if (!obj.children || obj.children.length === 0) {
+        return 1;
+    }
+    // Initialize maxDepth to track the maximum depth
+    let maxDepth = 0;
+    // Calculate depth for each child and find the maximum depth
+    obj.children.forEach((child) => {
+        const depth = calculateTreeDepth(child);
+        maxDepth = Math.max(maxDepth, depth);
+    });
+    // Return maximum depth + 1 (to account for the current node)
+    return maxDepth + 1;
+}
+
+/**
+ * Determines the font size for a tree visualization based on its depth, ensuring text is appropriately sized.
+ * @param {number} fontSize - The base font size.
+ * @param {number} depth - The depth of the tree.
+ * @returns {number} - The adjusted font size.
+ */
+function getFontSizeForDepth(fontSize, depth) {
+  // If depth is greater than 4, reduce font size by 10 for each increment beyond 4
+  if (depth > 4) {
+    fontSize -= (depth - 4) * zoomChange;
+  }
+  // Ensure font size doesn't go below 30
+  fontSize = Math.max(fontSize, minimumZoomPercent);
+  return fontSize;
 }

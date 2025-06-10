@@ -96,7 +96,9 @@ body {
     padding: 2px;
 }
 
-#meta-info p {
+#meta-info,
+#meta-info-1,
+#meta-info-2 p {
     font-size: 80%;
 }
 
@@ -139,7 +141,7 @@ body {
     float: left;
 }
 
-#result-tree .node {
+.node {
     padding: 3px;
     border-radius: 3px;
     background-color: #fefefe;
@@ -149,124 +151,143 @@ body {
     color: black;
 }
 
-#result-tree .node > p {
+.node > p {
     margin: 0;
     white-space: nowrap;
 }
-#result-tree .node-name {
+.node-name {
     font-weight: bold;
 }
-#result-tree p.node-name {
+p.node-name {
     width: 30em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-#result-tree .node-status {
+.node-status {
     font-size: 90%;
     color: #000099;
 }
-#result-tree .node.not-started {
+.node.not-started {
     color: #999;
 }
-#result-tree p.fully-materialized {
+p.fully-materialized {
     display: none;
 }
-#result-tree p.lazily-materialized {
+p.lazily-materialized {
     display: none;
 }
-#result-tree .node-status.failed {
+.node-status.failed {
     font-weight: bold;
     color: red;
 }
-#result-tree .node-status.child-failed {
+.node-status.child-failed {
     color: red;
 }
-#result-tree .node-status.not-started {
+.node-status.not-started {
     color: blue;
 }
-#result-tree .node-status.optimized-out {
+.node-status.optimized-out {
     color: blue;
 }
-#result-tree .node-status.lazily-materialized {
+.node-status.lazily-materialized {
     color: blue;
 }
-#result-tree .node-cols:before {
+.node-cols:before {
     content: "Cols: ";
 }
-#result-tree p.node-cols {
+p.node-cols {
     width: 30em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-#result-tree .node-size:before {
+.node-size:before {
     content: "Size: ";
 }
-#result-tree .node-size {
+.node-size {
     display: inline;
 }
-#result-tree .node-size-estimate {
+.node-size-estimate {
     display: inline;
     padding-left: 1em;
 }
-#result-tree .node-time:before {
+.node-time:before {
     content: "\ATime: ";
     white-space: pre;
 }
-#result-tree .node-time {
+.node-time {
     display: inline;
 }
-#result-tree .node-cost-estimate {
-    display: inline;
-    padding-left: 1em;
-}
-#result-tree .node-status {
+.node-cost-estimate {
     display: inline;
     padding-left: 1em;
 }
-#result-tree .node-time:after {
+.node-status {
+    display: inline;
+    padding-left: 1em;
+}
+.node-time:after {
     content: "ms";
 }
-#result-tree .node-details {
+.node-details {
     display: none;
     color: blue;
 }
-#result-tree .node-details:before {
+.node-details:before {
     content: "Details: ";
 }
-#result-tree div.cached-not-pinned .node-time:after {
+div.cached-not-pinned .node-time:after {
     content: "ms [cached]";
 }
-#result-tree div.cached-pinned .node-time:after {
+div.cached-pinned .node-time:after {
     content: "ms [cached, pinned]";
 }
-#result-tree div.ancestor-cached .node-time:after {
+div.ancestor-cached .node-time:after {
     content: "ms [ancestor cached]";
 }
-#result-tree p.node-cache-status {
+p.node-cache-status {
     display: none;
 }
-#result-tree .node.cached-pinned {
+.node.cached-pinned {
     color: grey;
     border: 1px solid grey;
 }
-#result-tree .node.cached-not-pinned {
+.node.cached-not-pinned {
     color: grey;
     border: 1px solid grey;
 }
-#result-tree .node-total {
+.node-total {
     display: none;
 }
-#result-tree .node.high {
+.node.high {
     background-color: #ffeeee;
 }
-#result-tree .node.veryhigh {
+.node.veryhigh {
     background-color: #ffcccc;
 }
-#result-tree .node.high.cached {
+.node.high.cached {
     background-color: #ffffee;
 }
-#result-tree .node.veryhigh.cached {
+.node.veryhigh.cached {
     background-color: #ffffcc;
+}
+
+.font-size-30 {
+    font-size: 30%;
+}
+.font-size-40 {
+    font-size: 40%;
+}
+.font-size-50 {
+    font-size: 50%;
+}
+.font-size-60 {
+    font-size: 60%;
+}
+.font-size-70 {
+    font-size: 70%;
+}
+.font-size-80 {
+    font-size: 80%;
 }

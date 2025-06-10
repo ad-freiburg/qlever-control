@@ -19,10 +19,13 @@
         <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
         <script src=" https://cdn.jsdelivr.net/npm/raphael@2.3.0/raphael.min.js "></script>
         <!-- <script src=" https://cdn.jsdelivr.net/npm/treantjs@1.0.0/Treant.min.js "></script> -->
+        <!-- <script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script> -->
+        <script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
         <script src="treant.js"></script>
         <script src="util.js"></script>
         <script src="details.js"></script>
         <script src="comparison.js"></script>
+        <script src="compareExecTrees.js"></script>
         <script src="main.js"></script>
     </head>
     <body>
@@ -146,12 +149,18 @@
                     <!-- Tab 2 content -->
                     <div id="result-tree-div" class="mt-4">
                         <div class="alert alert-info mt-4">
-                            Execution Tree is only available for QLever with accept header application/qlever-results+json!
+                            Execution Tree is only available for QLever with accept header
+                            application/qlever-results+json!
                         </div>
-                        <div id="meta-info"></div>
-                        <div id="result-tree" style="height: calc(100vh - 280px);">
-                            <br><strong style="color: red;">Please execute your query first.</strong><br><br>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="Details zoom controls">
+                                <button id="zoomIn" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
                         </div>
+                        <div id="result-tree" class="overflow-auto" style="height: calc(100vh - 280px)"></div>
                     </div>
                 </div>
                 <div
@@ -188,13 +197,72 @@
                 </div>
 
                 <!-- Right-aligned checkbox -->
-                <div class="form-check ms-3 mt-3">
-                    <input class="form-check-input" type="checkbox" style="cursor: pointer;" id="showResultSize" />
-                    <label class="form-check-label" style="cursor: pointer;" for="showResultSize"> Show result size </label>
+                <div class="form-check form-switch ms-3 mt-3">
+                    <input class="form-check-input" type="checkbox" style="cursor: pointer" id="showResultSize" />
+                    <label class="form-check-label" style="cursor: pointer" for="showResultSize">
+                        Show result size
+                    </label>
                 </div>
             </div>
 
             <div id="comparison-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+        </div>
+
+        <div id="page-compareExecTrees" class="page hidden container mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="compareExecTrees-title" class="main-title">Execution Tree Comparison</div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="syncScrollCheck" />
+                    <label class="form-check-label" for="syncScrollCheck">Sync Zoom & Scroll</label>
+                </div>
+            </div>
+
+            <div id="compareExecQuery" class="alert alert-secondary p-2 text-center"></div>
+
+            <!-- Second row: Two selects + Compare button -->
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <!-- <label for="select1" class="form-label">Select QLever tree 1</label> -->
+                    <select class="form-select" id="select1"></select>
+                </div>
+                <div class="col-md-5">
+                    <!-- <label for="select2" class="form-label">Select QLever tree 2</label> -->
+                    <select class="form-select" id="select2"></select>
+                </div>
+                <div class="col-md-2">
+                    <button id="compareExecTreesBtn" class="btn btn-outline-dark w-100">Compare</button>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="row g-3 overflow-hidden">
+                    <div class="col-6">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info-1" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="CompareExecTrees zoom">
+                                <button id="zoomIn1" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut1" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
+                        </div>
+                        <div id="tree1" class="overflow-auto" style="height: calc(100vh - 250px)"></div>
+                    </div>
+                    <div class="col-6 border-start border-dark border-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info-2" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="CompareExecTrees zoom">
+                                <button id="zoomIn2" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut2" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
+                        </div>
+                        <div id="tree2" class="overflow-auto" style="height: calc(100vh - 250px)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="page-error" class="page hidden container mt-3">
+            <div id="siteErrorMsg" class="alert alert-danger">404: Page Not Found!</div>
         </div>
     </body>
 </html>

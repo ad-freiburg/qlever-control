@@ -30,12 +30,8 @@ function populateColumnCheckboxes(columnNames) {
     });
 }
 
-/**
- * Attach a single change event listener to the container.
- * Whenever any checkbox changes, it logs the currently checked values.
- */
-function addEventListenerToCheckBoxContainer() {
-    document.getElementById("columnCheckboxContainer").addEventListener("change", (event) => {
+function setComparisonPageEvents() {
+    document.querySelector("#columnCheckboxContainer").addEventListener("change", (event) => {
         if (event.target && event.target.matches('input[type="checkbox"]')) {
             const enginesToDisplay = Array.from(
                 document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:not(:checked)')
@@ -45,9 +41,7 @@ function addEventListenerToCheckBoxContainer() {
             // You can now use selectedValues to hide/show columns, etc.
         }
     });
-}
 
-function addEventListenerToResultSizeCheckbox() {
     document.querySelector("#showResultSize").addEventListener("change", (event) => {
         if (!gridApi) return;
         const showResultSize = event.target.checked;
@@ -61,6 +55,18 @@ function addEventListenerToResultSizeCheckbox() {
             });
         const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
         gridApi.setGridOption("columnDefs", visibleColumnDefs);
+    });
+
+    document.querySelector("#goToCompareExecTreesBtn").addEventListener("click", () => {
+        if (!gridApi) return;
+        const selectedNode = gridApi.getSelectedNodes();
+        if (selectedNode.length === 1) {
+            const selectedRowIdx = selectedNode[0].rowIndex;
+            const kb = new URLSearchParams(window.location.hash.split("?")[1]).get("kb");
+            router.navigate(`/compareExecTrees?kb=${encodeURIComponent(kb)}&q=${selectedRowIdx}`);
+        } else {
+            alert("Please select a query from the Performance Comparison Table below!");
+        }
     });
 }
 
@@ -367,8 +373,14 @@ function updateComparisonPage(performanceData, kb) {
 
     populateColumnCheckboxes(Object.keys(performanceData[kb]));
     document.querySelector("#showResultSize").checked = false;
-    addEventListenerToCheckBoxContainer();
-    addEventListenerToResultSizeCheckbox();
+    let rowSelection = undefined;
+    const execTreeEngines = getEnginesWithExecTrees(performanceData[kb]);
+    if (execTreeEngines.length < 2) {
+        document.querySelector("#goToCompareExecTreesBtn").classList.add("d-none");
+    } else {
+        document.querySelector("#goToCompareExecTreesBtn").classList.remove("d-none");
+        rowSelection = { mode: "singleRow", headerCheckbox: false };
+    }
 
     const tableData = getPerformanceComparisonPerKbDict(performanceData[kb]);
     const gridDiv = document.querySelector("#comparison-grid");
@@ -394,10 +406,13 @@ function updateComparisonPage(performanceData, kb) {
         },
         domLayout: domLayout,
         rowStyle: { fontSize: "14px", cursor: "pointer" },
-        onGridReady: params => {gridApi = params.api},
+        onGridReady: (params) => {
+            gridApi = params.api;
+        },
         tooltipShowDelay: 0,
         tooltipTrigger: "focus",
         tooltipInteraction: true,
+        rowSelection: rowSelection,
     };
     // Initialize ag-Grid instance
     agGrid.createGrid(gridDiv, detailsGridOptions);

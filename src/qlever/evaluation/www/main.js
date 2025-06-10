@@ -96,7 +96,7 @@ function mainTableColumnDefs() {
     ];
 }
 
-function updateMainPage() {
+function updateMainPage(performanceData) {
     const container = document.getElementById("main-table-container");
 
     // Clear container if any existing content
@@ -172,7 +172,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     router = new Navigo("/", { hash: true });
 
     try {
-        const response = await fetch("/yaml_data");
+        const yaml_path = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
+        const response = await fetch(`${yaml_path}yaml_data`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         performanceData = await response.json();
 
@@ -247,10 +248,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                     showPage("compareExecTrees");
                 },
             })
-            .notFound(() => showPage("main"));
+            .notFound(() => {
+                showPage("main");
+                updateMainPage(performanceData);
+            });
 
         router.resolve();
+
         setDetailsPageEvents();
+        setComparisonPageEvents();
         setCompareExecTreesEvents();
     } catch (err) {
         console.error("Error loading /yaml_data:", err);

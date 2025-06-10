@@ -167,14 +167,13 @@ function renderExecTree(runtime_info, treeNodeId, metaNodeId, purpose = "showTre
     const total_time_computing =
         "total_time_computing" in meta_info ? formatInteger(meta_info["total_time_computing"]) + " ms" : "N/A";
 
-        // Inject meta info into the DOM
+    // Inject meta info into the DOM
     document.querySelector(metaNodeId).innerHTML = `<p>Time for query planning: ${time_query_planning}<br/>
     Time for index scans during query planning: ${time_index_scans_query_planning}<br/>
     Total time for computing the result: ${total_time_computing}</p>`;
 
     // Show the query execution tree (using Treant.js)
     addTextElementsToExecTreeForTreant(runtime_info["query_execution_tree"]);
-    console.log(runtime_info.query_execution_tree);
 
     const treant_tree = {
         chart: {
@@ -359,9 +358,9 @@ function updateTabsWithSelectedRow(rowData) {
         const textDiv = document.querySelector("#results-container div.alert");
         textDiv.classList.add("alert-danger");
         textDiv.classList.remove("alert-secondary");
-        textDiv.innerHTML = `Query failed in ${rowData.runtime_info.client_time.toFixed(2)} s with error: <br><br>${
-            rowData.results
-        }`;
+        textDiv.innerHTML = `<strong>Query failed in ${rowData.runtime_info.client_time.toFixed(
+            2
+        )} s with error:</strong> <br><br>${rowData.results}`;
     }
 }
 

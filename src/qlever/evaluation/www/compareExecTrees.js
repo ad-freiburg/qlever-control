@@ -3,6 +3,7 @@ const baseTreeTextFontSize = 80;
 const minimumZoomPercent = 30;
 const maximumZoomPercent = 80;
 const zoomChange = 10;
+let engineStatForQuery = null;
 
 function setCompareExecTreesEvents() {
     // Events to handle drag and scroll horizontally on compareExecTrees page
@@ -93,6 +94,40 @@ function setCompareExecTreesEvents() {
             }
         });
     });
+
+    document.querySelector("#compareExecTreesBtn").addEventListener("click", () => {
+        const select1Value = document.querySelector("#select1").value;
+        const select2Value = document.querySelector("#select2").value;
+
+        if (!select1Value || !select2Value) {
+            alert("Please select both QLever instances before comparing.");
+            return;
+        }
+        if (!engineStatForQuery) {
+            showPage("error", "No Query Execution Tree Information found!");
+            return;
+        }
+
+        // Continue with comparison logic
+        let s1RuntimeTree = null;
+        let s2RuntimeTree = null;
+        for (const [engine, stats] of Object.entries(engineStatForQuery)) {
+            const runtimeInfo = stats.runtime_info;
+            if (engine === select1Value) {
+                s1RuntimeTree = runtimeInfo;
+            }
+            if (engine === select2Value) {
+                s2RuntimeTree = runtimeInfo;
+            }
+        }
+
+        for (let [runtime_info, tree_idx] of [
+            [s1RuntimeTree, "1"],
+            [s2RuntimeTree, "2"],
+        ]) {
+            renderExecTree(runtime_info, `#tree${tree_idx}`, `#meta-info-${tree_idx}`);
+        }
+    });
 }
 
 /**
@@ -134,55 +169,18 @@ function getNewFontSizeForTree(tree, purpose, currentFontSize) {
     return newFontSize;
 }
 
-function addEventListenerToCompareExecTreesBtn(engineStatForQuery) {
-    document.querySelector("#compareExecTreesBtn").addEventListener("click", () => {
-        const select1Value = document.querySelector("#select1").value;
-        const select2Value = document.querySelector("#select2").value;
-
-        if (!select1Value || !select2Value) {
-            alert("Please select both QLever instances before comparing.");
-            return;
-        }
-
-        // Continue with comparison logic
-        let s1RuntimeTree = null;
-        let s2RuntimeTree = null;
-        for (const [ engine, stats ] of Object.entries(engineStatForQuery)) {
-            const runtimeInfo = stats.runtime_info;
-            if (engine === select1Value) {
-                s1RuntimeTree = runtimeInfo;
-            }
-            if (engine === select2Value) {
-                s2RuntimeTree = runtimeInfo;
-            }
-        }
-
-        for (let [runtime_info, tree_idx] of [
-            [s1RuntimeTree, "1"],
-            [s2RuntimeTree, "2"],
-        ]) {
-            renderExecTree(runtime_info, `#tree${tree_idx}`, `#meta-info-${tree_idx}`);
-        }
-    });
-}
-
-function populateSelect(selectEl, engines) {
+function populateSelect(selectEl, engines, selectIndex) {
     // Clear existing options
     selectEl.innerHTML = "";
 
-    // Add placeholder as the first option
-    const placeholderOption = document.createElement("option");
-    placeholderOption.value = "";
-    placeholderOption.disabled = true;
-    placeholderOption.selected = true;
-    placeholderOption.textContent = "Select a QLever instance";
-    selectEl.appendChild(placeholderOption);
-
-    // Add other options
-    engines.forEach((engine) => {
+    // Add engine options
+    engines.forEach((engine, index) => {
         const optionEl = document.createElement("option");
         optionEl.value = engine;
         optionEl.textContent = capitalize(engine);
+        if (index === selectIndex) {
+            optionEl.selected = true;
+        }
         selectEl.appendChild(optionEl);
     });
 }
@@ -206,14 +204,14 @@ function getEnginesWithExecTrees(performanceDataForKb) {
     return execTreeEngines;
 }
 
-function updateCompareExecTreesPage(kb, query, engineStatForQuery) {
+function updateCompareExecTreesPage(kb, query, queryEngineStat) {
     const titleNode = document.querySelector("#compareExecTrees-title");
     const queryNode = document.querySelector("#compareExecQuery");
     const title = `Query Execution Tree comparison - ${capitalize(kb)}`;
 
     const queryTitle = `<strong>QUERY:</strong>   ${query}`;
     let sparql = null;
-    for (const engineStat of Object.values(engineStatForQuery)) {
+    for (const engineStat of Object.values(queryEngineStat)) {
         if (engineStat.sparql) {
             sparql = engineStat.sparql;
             break;
@@ -225,10 +223,14 @@ function updateCompareExecTreesPage(kb, query, engineStatForQuery) {
     queryNode.innerHTML = queryTitle;
     queryNode.title = sparql;
 
-    const engines = Object.keys(engineStatForQuery);
-
-    for (const selectEl of document.querySelectorAll("#page-compareExecTrees select")) {
-        populateSelect(selectEl, engines);
+    for (let i = 1; i <= 2; i++) {
+        document.querySelector(`#meta-info-${i}`).innerHTML = "";
+        document.querySelector(`#tree${i}`).innerHTML = "";
     }
-    addEventListenerToCompareExecTreesBtn(engineStatForQuery);
+
+    engineStatForQuery = queryEngineStat;
+    const engines = Object.keys(queryEngineStat);
+
+    populateSelect(document.querySelector("#select1"), engines, 0);
+    populateSelect(document.querySelector("#select2"), engines, 1);
 }

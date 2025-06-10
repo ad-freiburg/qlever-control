@@ -64,6 +64,14 @@ body {
     color: #6c757d;
 }
 
+#comparison-grid .ag-row-focus {
+  background-color: unset !important;
+}
+
+/* .ag-row-focus {
+  background-color: unset !important;
+} */
+
 .nav-link.active {
     background-color: #212529 !important;
     color: white !important;

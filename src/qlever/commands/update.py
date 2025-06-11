@@ -14,6 +14,7 @@ from termcolor import colored
 
 from qlever.command import QleverCommand
 from qlever.log import log
+from qlever.util import run_command
 
 
 # Monkey patch `rdflib.term._castLexicalToPython` to avoid casting of literals
@@ -21,26 +22,6 @@ from qlever.log import log
 # and we can speed up parsing by a factor of about 2.
 def custom_cast_lexical_to_python(lexical, datatype):
     return None  # Your desired behavior
-
-
-# Handle Ctrl+C gracefully by finishing the current batch and then exiting.
-ctrl_c_pressed = False
-
-
-def handle_ctrl_c(signal_received, frame):
-    global ctrl_c_pressed
-    if ctrl_c_pressed:
-        log.warn("\rCtrl+C pressed again, undoing the previous Ctrl+C")
-        ctrl_c_pressed = False
-    else:
-        ctrl_c_pressed = True
-        log.warn(
-            "\rCtrl+C pressed, will finish the current batch and then exit"
-            " [press Ctrl+C again to continue]"
-        )
-
-
-signal.signal(signal.SIGINT, handle_ctrl_c)
 
 
 rdflib.term._castLexicalToPython = custom_cast_lexical_to_python
@@ -52,10 +33,24 @@ class UpdateCommand(QleverCommand):
     """
 
     def __init__(self):
+        # SPARQL query to get the date until which the updates of the
+        # SPARQL endpoint are complete.
+        self.sparql_updates_complete_until_query = (
+            "PREFIX wikibase: <http://wikiba.se/ontology#> "
+            "PREFIX schema: <http://schema.org/> "
+            "SELECT * WHERE { "
+            "{ SELECT (MIN(?date_modified) AS ?updates_complete_until) { "
+            "wikibase:Dump schema:dateModified ?date_modified } } "
+            "UNION { wikibase:Dump wikibase:updatesCompleteUntil ?updates_complete_until } "
+            "} ORDER BY DESC(?updates_complete_until) LIMIT 1"
+        )
+        # URL of the Wikidata SSE stream.
         self.wikidata_update_stream_url = (
             "https://stream.wikimedia.org/v2/"
             "stream/rdf-streaming-updater.mutation.v2"
         )
+        # Remember if Ctrl+C was pressed, so we can handle it gracefully.
+        self.ctrl_c_pressed = False
 
     def description(self) -> str:
         return "Update from given SSE stream"
@@ -64,11 +59,11 @@ class UpdateCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["port", "access_token"]}
+        return {"server": ["host_name", "port", "access_token"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
-            "url",
+            "sse_stream_url",
             nargs="?",
             type=str,
             default=self.wikidata_update_stream_url,
@@ -92,31 +87,91 @@ class UpdateCommand(QleverCommand):
             "seconds of the current time, finish the current batch "
             "(and show a warning that this happened)",
         )
+        subparser.add_argument(
+            "--since",
+            type=str,
+            help="Consume stream messages since this date "
+            "(default: determine automatically from the SPARQL endpoint)",
+        )
+        subparser.add_argument(
+            "--topics",
+            type=str,
+            default="eqiad.rdf-streaming-updater.mutation",
+            help="Comma-separated list of topics to consume from the SSE stream"
+            " (default: only eqiad.rdf-streaming-updater.mutation)",
+        )
+
+    # Handle Ctrl+C gracefully by finishing the current batch and then exiting.
+    def handle_ctrl_c(self, signal_received, frame):
+        if self.ctrl_c_pressed:
+            log.warn("\rCtrl+C pressed again, undoing the previous Ctrl+C")
+            self.ctrl_c_pressed = False
+        else:
+            self.ctrl_c_pressed = True
+            log.warn(
+                "\rCtrl+C pressed, will finish the current batch and then exit"
+                " [press Ctrl+C again to continue]"
+            )
 
     def execute(self, args) -> bool:
+        # cURL command to get the date until which the updates of the
+        # SPARQL endpoint are complete.
+        sparql_endpoint = f"http://{args.host_name}:{args.port}"
+        curl_cmd_updates_complete_until = (
+            f"curl -s {sparql_endpoint}"
+            f' -H "Accept: text/csv"'
+            f' -H "Content-type: application/sparql-query"'
+            f' --data "{self.sparql_updates_complete_until_query}"'
+        )
+
         # Construct the command and show it.
         lag_seconds_str = (
             f"{args.lag_seconds} second{'s' if args.lag_seconds > 1 else ''}"
         )
-        cmd_description = (
-            f"Process SSE stream from {args.url} "
+        cmd_description = []
+        if args.since:
+            cmd_description.append(f"SINCE={args.since}")
+        else:
+            cmd_description.append(
+                f"SINCE=$({curl_cmd_updates_complete_until} | sed 1d)"
+            )
+        cmd_description.append(
+            f"Process SSE stream from {args.sse_stream_url}?since=$SINCE "
             f"in batches of {args.batch_size:,} messages "
             f"(less if a message is encountered that is within "
             f"{lag_seconds_str} of the current time)"
         )
-        self.show(cmd_description, only_show=args.show)
+        self.show("\n".join(cmd_description), only_show=args.show)
         if args.show:
             return True
 
+        # Compute the `since` date if not given.
+        if not args.since:
+            try:
+                args.since = run_command(
+                    f"{curl_cmd_updates_complete_until} | sed 1d",
+                    return_output=True,
+                ).strip()
+            except Exception as e:
+                log.error(
+                    f"Error running `{curl_cmd_updates_complete_until}`: {e}"
+                )
+                return False
+
+        # Special handling of Ctrl+C, see `handle_ctrl_c` above.
+        signal.signal(signal.SIGINT, self.handle_ctrl_c)
         log.warn(
             "Press Ctrl+C to finish the current batch and end gracefully, "
             "press Ctrl+C again to continue with the next batch"
         )
         log.info("")
+        log.info(f"SINCE={args.since}")
+        log.info("")
+        args.sse_stream_url = f"{args.sse_stream_url}?since={args.since}"
 
         # Initialize the SSE stream and all the statistics variables.
         source = requests_sse.EventSource(
-            args.url, headers={"Accept": "text/event-stream"}
+            args.sse_stream_url, headers={"Accept": "text/event-stream"}
         )
         source.connect()
         current_batch_size = 0
@@ -124,6 +179,7 @@ class UpdateCommand(QleverCommand):
         total_num_ops = 0
         total_time_s = 0
         start_time = time.perf_counter()
+        topics_to_consider = set(args.topics.split(","))
 
         # Iterating over all messages in the stream.
         for event in source:
@@ -137,15 +193,21 @@ class UpdateCommand(QleverCommand):
 
             # Check if the `args.batch_size` is reached (note that we come here
             # after a `continue` due to an error).
-            if ctrl_c_pressed:
+            if self.ctrl_c_pressed:
                 break
 
-            # Process the message.
+            # Process the message. Skip messages that are not of type `message`
+            # (should not happen), have no field `data` (should not happen
+            # either), or where the topic is not in `args.topics`.
             if event.type != "message" or not event.data:
                 continue
+            event_data = json.loads(event.data)
+            topic = event_data.get("meta").get("topic")
+            if topic not in topics_to_consider:
+                continue
+
             try:
                 # event_id = json.loads(event.last_event_id)
-                event_data = json.loads(event.data)
                 # date_ms_since_epoch = event_id[0].get("timestamp")
                 # date = time.strftime(
                 #     "%Y-%m-%dT%H:%M:%SZ",
@@ -222,7 +284,10 @@ class UpdateCommand(QleverCommand):
             )
             date_list.append(date)
             delta_to_now_list.append(delta_to_now_s)
-            if current_batch_size < args.batch_size and not ctrl_c_pressed:
+            if (
+                current_batch_size < args.batch_size
+                and not self.ctrl_c_pressed
+            ):
                 if delta_to_now_s < args.lag_seconds:
                     log.warn(
                         f"Encountered message with date {date}, which is within "
@@ -249,18 +314,30 @@ class UpdateCommand(QleverCommand):
             log.info(
                 f"Processing batch #{batch_count} "
                 f"with {current_batch_size:,} "
-                f"message{'s' if current_batch_size > 1 else ''} "
+                f"message{'s' if current_batch_size > 1 else ''}, "
                 f"date range: {date_list[0]} - {date_list[-1]}  "
                 f"[assembly time: {batch_assembly_time_ms:,} ms, "
                 f"min delta to NOW: {min_delta_to_now_s} s]"
             )
             current_batch_size = 0
 
-            # Add the date of the last message to `insert_triples`.
+            # Add the min and max date of the batch to `insert_triples`.
+            #
+            # NOTE: The min date means that we have *all* updates until that
+            # date. The max date is the date of the latest update we have seen.
+            # However, there may still be earlier updates that we have not seen
+            # yet. Wikidata uses `schema:dateModified` for the latter semantics,
+            # so we use it here as well. For the other semantics, we invent
+            # a new property `wikibase:updatesCompleteUntil`.
             insert_triples.add(
                 f"<http://wikiba.se/ontology#Dump> "
                 f"<http://schema.org/dateModified> "
                 f'"{date_list[-1]}"^^<http://www.w3.org/2001/XMLSchema#dateTime>'
+            )
+            insert_triples.add(
+                f"<http://wikiba.se/ontology#Dump> "
+                f"<http://wikiba.se/ontology#updatesCompleteUntil> "
+                f'"{date_list[0]}"^^<http://www.w3.org/2001/XMLSchema#dateTime>'
             )
 
             # Construct update operation.
@@ -272,7 +349,6 @@ class UpdateCommand(QleverCommand):
 
             # Construct curl command. For batch size 1, send the operation via
             # `--data-urlencode`, otherwise write to file and send via `--data-binary`.
-            sparql_endpoint = f"http://localhost:{args.port}"
             curl_cmd = (
                 f"curl -s -X POST {sparql_endpoint}"
                 f" -H 'Authorization: Bearer {args.access_token}'"
@@ -392,7 +468,7 @@ class UpdateCommand(QleverCommand):
                 log.info(
                     colored(
                         f"TOTAL NUM_OPS SO FAR: {total_num_ops:8,}, "
-                        f"TOTAL TIME SO FAR: {total_time_s:4.0f} s, "
+                        f"TOTAL UPDATE TIME SO FAR: {total_time_s:4.0f} s, "
                         f"ELAPSED TIME SO FAR: {elapsed_time_s:4.0f} s, "
                         f"AVG TIME/OP SO FAR: {time_us_per_op:,} µs",
                         attrs=["bold"],

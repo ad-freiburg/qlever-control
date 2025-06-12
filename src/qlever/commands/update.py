@@ -100,6 +100,13 @@ class UpdateCommand(QleverCommand):
             help="Comma-separated list of topics to consume from the SSE stream"
             " (default: only eqiad.rdf-streaming-updater.mutation)",
         )
+        subparser.add_argument(
+            "--min-or-max-date",
+            choices=["min", "max"],
+            default="max",
+            help="Use the minimum or maximum date of the batch for the "
+            "`updatesCompleteUntil` property (default: maximum)",
+        )
 
     # Handle Ctrl+C gracefully by finishing the current batch and then exiting.
     def handle_ctrl_c(self, signal_received, frame):
@@ -334,10 +341,16 @@ class UpdateCommand(QleverCommand):
                 f"<http://schema.org/dateModified> "
                 f'"{date_list[-1]}"^^<http://www.w3.org/2001/XMLSchema#dateTime>'
             )
+            updates_complete_until = (
+                date_list[-1]
+                if args.min_or_max_date == "max"
+                else date_list[0]
+            )
             insert_triples.add(
                 f"<http://wikiba.se/ontology#Dump> "
                 f"<http://wikiba.se/ontology#updatesCompleteUntil> "
-                f'"{date_list[0]}"^^<http://www.w3.org/2001/XMLSchema#dateTime>'
+                f'"{updates_complete_until}"'
+                f"^^<http://www.w3.org/2001/XMLSchema#dateTime>"
             )
 
             # Construct update operation.

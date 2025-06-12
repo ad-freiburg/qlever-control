@@ -58,15 +58,7 @@ function setComparisonPageEvents() {
     });
 
     document.querySelector("#goToCompareExecTreesBtn").addEventListener("click", () => {
-        if (!gridApi) return;
-        const selectedNode = gridApi.getSelectedNodes();
-        if (selectedNode.length === 1) {
-            const selectedRowIdx = selectedNode[0].rowIndex;
-            const kb = new URLSearchParams(window.location.hash.split("?")[1]).get("kb");
-            router.navigate(`/compareExecTrees?kb=${encodeURIComponent(kb)}&q=${selectedRowIdx}`);
-        } else {
-            alert("Please select a query from the Performance Comparison Table below!");
-        }
+        goToCompareExecTreesPage(gridApi, "Performance Comparison");
     });
 }
 

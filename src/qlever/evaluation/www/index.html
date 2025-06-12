@@ -59,7 +59,12 @@
         </div>
 
         <div id="page-details" class="page hidden container mt-3">
-            <div id="details-title" class="main-title">Query Details</div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="details-title" class="main-title flex-grow-1">Query Details</div>
+                <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark ms-3">
+                    Compare Execution Trees
+                </button>
+            </div>
             <!-- Tabs here -->
             <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -188,10 +193,7 @@
             <div class="d-flex align-items-start">
                 <!-- Accordion takes most of the space -->
                 <div class="flex-grow-1">
-                    <div
-                        class="position-relative border rounded py-2 px-3 mt-1 bg-light"
-                        id="columns-checkbox-container"
-                    >
+                    <div class="py-2 pe-3 mt-1" id="columns-checkbox-container">
                         <div class="d-flex align-items-center flex-wrap gap-3">
                             <label class="mb-0 me-3 fw-bold">Engines to hide:</label>
                             <div class="d-flex flex-wrap gap-3" id="columnCheckboxContainer">

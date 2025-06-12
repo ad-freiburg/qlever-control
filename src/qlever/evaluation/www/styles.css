@@ -104,6 +104,11 @@ body {
     padding: 2px;
 }
 
+.form-check-input:checked {
+  background-color: #212529;
+  border-color: #212529;
+}
+
 #meta-info,
 #meta-info-1,
 #meta-info-2 p {

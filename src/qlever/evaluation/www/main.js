@@ -226,7 +226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }
                     const queryToEngineStats = getQueryToEngineStatsDict(performanceData[kb]);
                     if (
-                        !parseInt(queryIdx) ||
+                        isNaN(parseInt(queryIdx)) ||
                         parseInt(queryIdx) < 0 ||
                         parseInt(queryIdx) >= Object.keys(queryToEngineStats).length
                     ) {

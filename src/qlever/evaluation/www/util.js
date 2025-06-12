@@ -87,9 +87,9 @@ function getSingleResult(queryData) {
         Array.isArray(queryData.results) &&
         queryData.results.length === 1
     ) {
-        singleResult = extractCoreValue(queryData.results[0]);
+        const resultValue = extractCoreValue(queryData.results[0]);
         // Try formatting as int with commas
-        const intVal = parseInt(singleResult, 10);
+        const intVal = parseInt(resultValue, 10);
         if (!isNaN(intVal)) {
             singleResult = intVal.toLocaleString();
         }
@@ -182,6 +182,137 @@ function formatInteger(number) {
     return number.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1,");
 }
 
+function renderExecTree(runtime_info, treeNodeId, metaNodeId, purpose = "showTree", currentFontSize) {
+    // Show meta information (if it exists).
+    const meta_info = runtime_info["meta"];
+
+    const time_query_planning =
+        "time_query_planning" in meta_info
+            ? formatInteger(meta_info["time_query_planning"]) + " ms"
+            : "[not available]";
+
+    const time_index_scans_query_planning =
+        "time_index_scans_query_planning" in meta_info
+            ? formatInteger(meta_info["time_index_scans_query_planning"]) + " ms"
+            : "[not available]";
+
+    const total_time_computing =
+        "total_time_computing" in meta_info ? formatInteger(meta_info["total_time_computing"]) + " ms" : "N/A";
+
+    // Inject meta info into the DOM
+    document.querySelector(metaNodeId).innerHTML = `<p>Time for query planning: ${time_query_planning}<br/>
+    Time for index scans during query planning: ${time_index_scans_query_planning}<br/>
+    Total time for computing the result: ${total_time_computing}</p>`;
+
+    // Show the query execution tree (using Treant.js)
+    addTextElementsToExecTreeForTreant(runtime_info["query_execution_tree"]);
+
+    const treant_tree = {
+        chart: {
+            container: treeNodeId,
+            rootOrientation: "NORTH",
+            connectors: { type: "step" },
+            node: { HTMLclass: "font-size-" + maximumZoomPercent },
+        },
+        nodeStructure: runtime_info["query_execution_tree"],
+    };
+    const newFontSize = getNewFontSizeForTree(treant_tree, purpose, currentFontSize);
+    treant_tree.chart.node.HTMLclass = "font-size-" + newFontSize.toString();
+
+    // Create new Treant tree
+    new Treant(treant_tree);
+
+    // Add tooltips with parsed .node-details info
+    document.querySelectorAll("div.node").forEach(function (node) {
+        const detailsChild = node.querySelector(".node-details");
+        if (detailsChild) {
+            const topPos = parseFloat(window.getComputedStyle(node).top);
+            node.setAttribute("data-bs-toggle", "tooltip");
+            node.setAttribute("data-bs-html", "true");
+            node.setAttribute("data-bs-placement", topPos > 100 ? "top" : "bottom");
+
+            let detailHTML = "";
+            const details = JSON.parse(detailsChild.textContent);
+            for (const key in details) {
+                detailHTML += `<span>${key}: <strong>${details[key]}</strong></span><br>`;
+            }
+
+            node.setAttribute(
+                "data-bs-title",
+                `<div style="width: 250px">
+                    <h6> Details </h6>
+                    <div style="margin-top: 10px; margin-bottom: 10px;">
+                    ${detailHTML}
+                    </div>
+                </div>`
+            );
+
+            // Manually initialize Bootstrap tooltip
+            new bootstrap.Tooltip(node);
+        }
+    });
+
+    const high_query_time_ms = 100;
+    const very_high_query_time_ms = 1000;
+
+    // Highlight high/very high node-time values
+    document.querySelectorAll("p.node-time").forEach(function (p) {
+        const time = parseInt(p.textContent.replace(/,/g, ""));
+        if (time >= high_query_time_ms) {
+            p.parentElement.classList.add("high");
+        }
+        if (time >= very_high_query_time_ms) {
+            p.parentElement.classList.add("veryhigh");
+        }
+    });
+
+    // Add cache status classes
+    document.querySelectorAll("p.node-cache-status").forEach(function (p) {
+        const status = p.textContent;
+        const parent = p.parentElement;
+
+        if (status === "cached_not_pinned") {
+            parent.classList.add("cached-not-pinned", "cached");
+        } else if (status === "cached_pinned") {
+            parent.classList.add("cached-pinned", "cached");
+        } else if (status === "ancestor_cached") {
+            parent.classList.add("ancestor-cached", "cached");
+        }
+    });
+
+    // Add status classes
+    document.querySelectorAll("p.node-status").forEach(function (p) {
+        const status = p.textContent;
+        const parent = p.parentElement;
+
+        switch (status) {
+            case "fully materialized":
+                p.classList.add("fully-materialized");
+                break;
+            case "lazily materialized":
+                p.classList.add("lazily-materialized");
+                break;
+            case "failed":
+                p.classList.add("failed");
+                break;
+            case "failed because child failed":
+                p.classList.add("child-failed");
+                break;
+            case "not yet started":
+                parent.classList.add("not-started");
+                break;
+            case "optimized out":
+                p.classList.add("optimized-out");
+                break;
+        }
+    });
+
+    // Add title for truncated node names and cols
+    document.querySelectorAll("#result-tree p.node-name, #result-tree p.node-cols").forEach(function (p) {
+        p.setAttribute("title", p.textContent);
+    });
+}
+
 /**
  * Calculates the depth of a tree structure, where depth is the longest path from the root to any leaf node.
  * @param {Object} obj - The tree node or root object.
@@ -210,11 +341,23 @@ function calculateTreeDepth(obj) {
  * @returns {number} - The adjusted font size.
  */
 function getFontSizeForDepth(fontSize, depth) {
-  // If depth is greater than 4, reduce font size by 10 for each increment beyond 4
-  if (depth > 4) {
-    fontSize -= (depth - 4) * zoomChange;
-  }
-  // Ensure font size doesn't go below 30
-  fontSize = Math.max(fontSize, minimumZoomPercent);
-  return fontSize;
+    // If depth is greater than 4, reduce font size by 10 for each increment beyond 4
+    if (depth > 4) {
+        fontSize -= (depth - 4) * zoomChange;
+    }
+    // Ensure font size doesn't go below 30
+    fontSize = Math.max(fontSize, minimumZoomPercent);
+    return fontSize;
+}
+
+function goToCompareExecTreesPage(agGridApi, tableName) {
+    if (!agGridApi) return;
+    const selectedNode = agGridApi.getSelectedNodes();
+    if (selectedNode.length === 1) {
+        const selectedRowIdx = selectedNode[0].rowIndex;
+        const kb = new URLSearchParams(window.location.hash.split("?")[1]).get("kb");
+        router.navigate(`/compareExecTrees?kb=${encodeURIComponent(kb)}&q=${selectedRowIdx}`);
+    } else {
+        alert(`Please select a query from the ${tableName} Table!`);
+    }
 }

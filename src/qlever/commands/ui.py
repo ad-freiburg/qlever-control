@@ -13,13 +13,16 @@ from qlever.util import is_port_used, run_command
 
 # Return a YAML string for the given dictionary. Format values with
 # newlines using the "|" style.
-def dict_to_yaml(dictionary):
-    # Custom representer for yaml, which uses the "|" style only for
-    # multiline strings.
-    #
-    # NOTE: We replace all `\r\n` with `\n` because otherwise the `|` style
-    # does not work as expected.
-    class MultiLineDumper(yaml.Dumper):
+def dict_to_yaml(dictionary: dict) -> str:
+    """
+    Custom representer for yaml, which uses the "|" style only for
+    multiline strings.
+
+    NOTE: We replace all `\r\n` with `\n` because otherwise the `|` style
+    does not work as expected.
+    """
+
+    class MultiLineDumper(yaml.SafeDumper):
         def represent_scalar(self, tag, value, style=None):
             value = value.replace("\r\n", "\n")
             if isinstance(value, str) and "\n" in value:
@@ -30,6 +33,7 @@ def dict_to_yaml(dictionary):
     return yaml.dump(
         dictionary,
         sort_keys=False,
+        allow_unicode=True,
         Dumper=MultiLineDumper,
     )
 

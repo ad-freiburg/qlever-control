@@ -239,9 +239,8 @@ class BenchmarkQueriesCommand(QleverCommand):
         tsv_queries: list[str], query_ids: str, query_regex: str
     ) -> list[str]:
         """
-        Construct get_queries_cmd from queries_tsv file if present or use
-        example queries by using ui_config. Use query_ids and query_regex to
-        filter the queries
+        Given a tab-separated list of queries, filter them and keep the
+        ones which are a part of query_ids or match with query_regex
         """
         # Get the list of query indices to keep
         total_queries = len(tsv_queries)
@@ -277,6 +276,10 @@ class BenchmarkQueriesCommand(QleverCommand):
 
     @staticmethod
     def fetch_tsv_queries_from_cmd(queries_cmd: str) -> list[str]:
+        """
+        Execute the given bash command to fetch tsv queries and return a
+        list of tab-separated queries (query_description, full_sparql_query)
+        """
         try:
             tsv_queries_str = run_command(queries_cmd, return_output=True)
             if len(tsv_queries_str) == 0:
@@ -286,16 +289,17 @@ class BenchmarkQueriesCommand(QleverCommand):
         except Exception as exc:
             log.error(f"Failed to read the TSV queries file: {exc}")
             return []
-    
+
     @staticmethod
     def parse_queries_tsv(queries_file: str) -> list[str]:
         """
-        Parse the queries_tsv file
-        and return a list of tab-separated queries
+        Parse the queries_tsv file and return a list of tab-separated queries
         (query_description, full_sparql_query)
         """
         get_queries_cmd = f"cat {queries_file}"
-        return BenchmarkQueriesCommand.fetch_tsv_queries_from_cmd(get_queries_cmd)    
+        return BenchmarkQueriesCommand.fetch_tsv_queries_from_cmd(
+            get_queries_cmd
+        )
 
     @staticmethod
     def parse_queries_yml(queries_file: str) -> list[str]:
@@ -343,10 +347,10 @@ class BenchmarkQueriesCommand(QleverCommand):
         query_type: str,
         accept_header: str,
         result_file: str,
-    ) -> tuple[int, int | None, dict[str, str] | None]:
+    ) -> tuple[int, dict[str, str] | None]:
         """
-        Get the result size, single_int_result value (if single result) and
-        error_msg dict (if query failed) for different accept headers
+        Get the result size and error_msg dict (if query failed) for
+        different accept headers
         """
 
         def get_json_error_msg(e: Exception) -> dict[str, str]:
@@ -358,7 +362,7 @@ class BenchmarkQueriesCommand(QleverCommand):
             return error_msg
 
         result_size = 0
-        single_int_result = error_msg = None
+        error_msg = None
         # CASE 0: The result is empty despite a 200 HTTP code (not a
         # problem for CONSTRUCT and DESCRIBE queries).
         if Path(result_file).stat().st_size == 0 and (
@@ -397,7 +401,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 except Exception as e:
                     error_msg = get_json_error_msg(e)
 
-                # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
+        # CASE 2: Downloading the full result (TSV, CSV, Turtle, JSON).
         else:
             if accept_header in ("text/tab-separated-values", "text/csv"):
                 result_size = run_command(
@@ -424,18 +428,27 @@ class BenchmarkQueriesCommand(QleverCommand):
                     )
                 except Exception as e:
                     error_msg = get_json_error_msg(e)
-                if result_size == 1:
-                    try:
-                        single_int_result = int(
-                            run_command(
-                                f'jq -e -r ".results.bindings[0][] | .value"'
-                                f" {result_file}",
-                                return_output=True,
-                            ).rstrip()
-                        )
-                    except Exception:
-                        pass
-        return int(result_size), single_int_result, error_msg
+        return int(result_size), error_msg
+
+    @staticmethod
+    def get_single_int_result(result_file: str) -> int | None:
+        """
+        When downloading the full result of a query with accept header as
+        application/sparql-results+json and result_size == 1, get the single
+        integer result value (if any)
+        """
+        single_int_result = None
+        try:
+            single_int_result = int(
+                run_command(
+                    f'jq -e -r ".results.bindings[0][] | .value"'
+                    f" {result_file}",
+                    return_output=True,
+                ).rstrip()
+            )
+        except Exception:
+            pass
+        return single_int_result
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -564,7 +577,9 @@ class BenchmarkQueriesCommand(QleverCommand):
         elif args.queries_tsv:
             tsv_queries_list = self.parse_queries_tsv(args.queries_tsv)
         else:
-            tsv_queries_list = self.fetch_tsv_queries_from_cmd(example_queries_cmd)
+            tsv_queries_list = self.fetch_tsv_queries_from_cmd(
+                example_queries_cmd
+            )
 
         tsv_queries = self.filter_tsv_queries(
             tsv_queries_list, args.query_ids, args.query_regex
@@ -720,14 +735,19 @@ class BenchmarkQueriesCommand(QleverCommand):
             # Get result size (via the command line, in order to avoid loading
             # a potentially large JSON file into Python, which is slow).
             if error_msg is None:
-                result_size, single_int_result, error_msg = (
-                    self.get_result_size(
-                        args.download_or_count == "count",
-                        query_type,
-                        accept_header,
-                        result_file,
-                    )
+                result_size, error_msg = self.get_result_size(
+                    args.download_or_count == "count",
+                    query_type,
+                    accept_header,
+                    result_file,
                 )
+                single_int_result = None
+                if (
+                    result_size == 1
+                    and accept_header == "application/sparql-results+json"
+                    and args.download_or_count == "download"
+                ):
+                    single_int_result = self.get_single_int_result(result_file)
 
             # Get the result yaml record if output file needs to be generated
             if args.result_file is not None:

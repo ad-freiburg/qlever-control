@@ -413,10 +413,13 @@ class BenchmarkQueriesCommand(QleverCommand):
                     return_output=True,
                 )
             elif accept_header == "application/qlever-results+json":
-                result_size = run_command(
-                    f'jq -r ".resultsize" {result_file}',
-                    return_output=True,
-                )
+                try:
+                    result_size = run_command(
+                        f'jq -r ".resultsize" {result_file}',
+                        return_output=True,
+                    )
+                except Exception as e:
+                    error_msg = get_json_error_msg(e)
             else:
                 try:
                     result_size = int(

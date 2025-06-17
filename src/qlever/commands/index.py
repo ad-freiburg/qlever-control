@@ -39,6 +39,7 @@ class IndexCommand(QleverCommand):
                 "multi_input_json",
                 "parallel_parsing",
                 "settings_json",
+                "vocabulary_type",
                 "index_binary",
                 "only_pso_and_pos_permutations",
                 "ulimit",
@@ -184,6 +185,7 @@ class IndexCommand(QleverCommand):
             index_cmd = (
                 f"{args.cat_input_files} | {args.index_binary}"
                 f" -i {args.name} -s {args.name}.settings.json"
+                f" --vocabulary-type {args.vocabulary_type}"
                 f" -F {args.format} -f -"
             )
             if args.parallel_parsing:
@@ -199,6 +201,7 @@ class IndexCommand(QleverCommand):
             index_cmd = (
                 f"{args.index_binary}"
                 f" -i {args.name} -s {args.name}.settings.json"
+                f" --vocabulary-type {args.vocabulary_type}"
                 f" {input_options}"
             )
         else:

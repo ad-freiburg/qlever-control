@@ -44,6 +44,7 @@ class SettingsCommand(QleverCommand):
             "request-body-limit",
             "service-max-value-rows",
             "sort-estimate-cancellation-factor",
+            "syntax-test-mode",
             "throw-on-unbound-variables",
             "use-binsearch-transitive-path",
         ]

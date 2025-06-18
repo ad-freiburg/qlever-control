@@ -36,6 +36,7 @@ class TestIndexCommand(unittest.TestCase):
                     "multi_input_json",
                     "parallel_parsing",
                     "settings_json",
+                    "vocabulary_type",
                     "index_binary",
                     "only_pso_and_pos_permutations",
                     "ulimit",

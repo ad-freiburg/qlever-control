@@ -88,6 +88,7 @@ def run_curl_command(
     headers: dict[str, str] = {},
     params: dict[str, str] = {},
     result_file: Optional[str] = None,
+    log_debug_curl_cmd: bool = True,
 ) -> str:
     """
     Run `curl` with the given `url`, `headers`, and `params`. If `result_file`
@@ -109,6 +110,7 @@ def run_curl_command(
             ]
         )
     )
+    log.debug(curl_cmd)
     result = subprocess.run(
         curl_cmd,
         shell=True,

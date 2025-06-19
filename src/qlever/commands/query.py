@@ -72,6 +72,7 @@ class QueryCommand(QleverCommand):
                 "application/sparql-results+json",
                 "application/sparql-results+xml",
                 "application/qlever-results+json",
+                "application/octet-stream",
             ],
             default="text/tab-separated-values",
             help="Accept header for the SPARQL query",

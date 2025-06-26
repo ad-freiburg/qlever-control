@@ -33,12 +33,12 @@ activate autocompletion for all its commands and options (it's very easy, but
 `pip` cannot do that automatically).
 
 ```
-qlever setup-config olympics   # Get Qleverfile (config file) for this dataset
-qlever get-data                # Download the dataset
-qlever index                   # Build index data structures for this dataset
-qlever start                   # Start a QLever server using that index
-qlever example-queries         # Launch some example queries
-qlever ui                      # Launch the QLever UI
+qlever setup-config olympics                       # Get Qleverfile (config file) for this dataset
+qlever get-data                                    # Download the dataset
+qlever index                                       # Build index data structures for this dataset
+qlever start                                       # Start a QLever server using that index
+qlever benchmark-queries --example-queries         # Launch some example queries
+qlever ui                                          # Launch the QLever UI
 ```
 
 This will create a SPARQL endpoint for the [120 Years of

@@ -1,6 +1,5 @@
 __pycache__
 build/
 dist/
-src/qlever/evaluation/output/
 *.egg-info
 *.swp

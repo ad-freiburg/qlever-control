@@ -126,6 +126,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 "text/csv",
                 "application/sparql-results+json",
                 "application/qlever-results+json",
+                "application/octet-stream",
                 "text/turtle",
                 "AUTO",
             ],

@@ -24,6 +24,12 @@ Simply do `pip install qlever` and make sure that the directory where pip
 installs the package is in your `PATH`. Typically, `pip` will warn you when
 that is not the case and tell you what to do.
 
+## NOTE: "error: externally-managed-environment"
+
+You may get this error when trying to install on some newer versions of Linux.
+When this happens make sure you have pipx installed with `python3 -m pip
+install pipx --user`, then do `pipx install qlever`.
+
 # Usage
 
 Create an empty directory, with a name corresponding to the dataset you want to

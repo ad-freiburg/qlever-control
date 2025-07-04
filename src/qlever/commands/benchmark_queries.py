@@ -98,8 +98,8 @@ class BenchmarkQueriesCommand(QleverCommand):
             action="store_true",
             default=False,
             help=(
-                "Run the example-queries for the given --ui-config "
-                "instead of the benchmark queries from a tsv/yml file"
+                "Run the example queries for the given --ui-config "
+                "instead of the benchmark queries from a TSV or YML file"
             ),
         )
         subparser.add_argument(
@@ -236,15 +236,16 @@ class BenchmarkQueriesCommand(QleverCommand):
             return "UNKNOWN"
 
     @staticmethod
-    def filter_tsv_queries(
-        tsv_queries: list[str], query_ids: str, query_regex: str
-    ) -> list[str]:
+    def filter_queries(
+        queries: list[tuple[str, str]], query_ids: str, query_regex: str
+    ) -> list[tuple[str, str]]:
         """
-        Given a tab-separated list of queries, filter them and keep the
-        ones which are a part of query_ids or match with query_regex
+        Given a list of queries (tuple of query desc and full sparql query),
+        filter them and keep the ones which are a part of query_ids
+        or match with query_regex
         """
         # Get the list of query indices to keep
-        total_queries = len(tsv_queries)
+        total_queries = len(queries)
         query_indices = []
         for part in query_ids.split(","):
             if "-" in part:
@@ -258,55 +259,51 @@ class BenchmarkQueriesCommand(QleverCommand):
 
         try:
             filtered_queries = []
+            pattern = (
+                re.compile(query_regex, re.IGNORECASE) if query_regex else None
+            )
             for query_idx in query_indices:
                 if query_idx >= total_queries:
                     continue
-                query = tsv_queries[query_idx]
+
+                query_desc, sparql = queries[query_idx]
 
                 # Only include queries that match the query_regex if present
-                if query_regex:
-                    pattern = re.compile(query_regex, re.IGNORECASE)
-                    if not pattern.search(query):
-                        continue
+                if pattern and not (
+                    pattern.search(query_desc) or pattern.search(sparql)
+                ):
+                    continue
 
-                filtered_queries.append(query)
+                filtered_queries.append((query_desc, sparql))
             return filtered_queries
         except Exception as exc:
             log.error(f"Error filtering queries: {exc}")
             return []
 
     @staticmethod
-    def fetch_tsv_queries_from_cmd(queries_cmd: str) -> list[str]:
+    def parse_queries_tsv(queries_cmd: str) -> list[tuple[str, str]]:
         """
         Execute the given bash command to fetch tsv queries and return a
-        list of tab-separated queries (query_description, full_sparql_query)
+        list of queries i.e. tuple(query_description, full_sparql_query)
         """
         try:
             tsv_queries_str = run_command(queries_cmd, return_output=True)
             if len(tsv_queries_str) == 0:
                 log.error("No queries found in the TSV queries file")
                 return []
-            return tsv_queries_str.splitlines()
+            return [
+                tuple(line.split("\t"))
+                for line in tsv_queries_str.strip().splitlines()
+            ]
         except Exception as exc:
             log.error(f"Failed to read the TSV queries file: {exc}")
             return []
 
     @staticmethod
-    def parse_queries_tsv(queries_file: str) -> list[str]:
-        """
-        Parse the queries_tsv file and return a list of tab-separated queries
-        (query_description, full_sparql_query)
-        """
-        get_queries_cmd = f"cat {queries_file}"
-        return BenchmarkQueriesCommand.fetch_tsv_queries_from_cmd(
-            get_queries_cmd
-        )
-
-    @staticmethod
-    def parse_queries_yml(queries_file: str) -> list[str]:
+    def parse_queries_yml(queries_file: str) -> list[tuple[str, str]]:
         """
         Parse a YML file, validate its structure and return a list of
-        tab-separated queries (query_description, full_sparql_query)
+        queries i.e. tuple(query_description, full_sparql_query)
         """
         with open(queries_file, "r", encoding="utf-8") as q_file:
             try:
@@ -339,7 +336,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 return []
 
         return [
-            f"{query['query']}\t{query['sparql']}" for query in data["queries"]
+            (query['query'], query['sparql']) for query in data["queries"]
         ]
 
     def get_result_size(
@@ -439,7 +436,7 @@ class BenchmarkQueriesCommand(QleverCommand):
         """
         When downloading the full result of a query with accept header as
         application/sparql-results+json and result_size == 1, get the single
-        integer result value (if any)
+        integer result value (if any).
         """
         single_int_result = None
         try:
@@ -577,19 +574,17 @@ class BenchmarkQueriesCommand(QleverCommand):
             return True
 
         if args.queries_yml:
-            tsv_queries_list = self.parse_queries_yml(args.queries_yml)
+            queries = self.parse_queries_yml(args.queries_yml)
         elif args.queries_tsv:
-            tsv_queries_list = self.parse_queries_tsv(args.queries_tsv)
+            queries = self.parse_queries_tsv(f"cat {args.queries_tsv}")
         else:
-            tsv_queries_list = self.fetch_tsv_queries_from_cmd(
-                example_queries_cmd
-            )
+            queries = self.parse_queries_tsv(example_queries_cmd)
 
-        tsv_queries = self.filter_tsv_queries(
-            tsv_queries_list, args.query_ids, args.query_regex
+        filtered_queries = self.filter_queries(
+            queries, args.query_ids, args.query_regex
         )
 
-        if len(tsv_queries) == 0 or not tsv_queries[0]:
+        if len(filtered_queries) == 0 or not filtered_queries[0]:
             log.error("No queries to process!")
             return False
 
@@ -606,13 +601,11 @@ class BenchmarkQueriesCommand(QleverCommand):
         result_sizes = []
         result_yml_query_records = {"queries": []}
         num_failed = 0
-        for query_line in tsv_queries:
-            # Parse description and query, and determine query type.
-            description, query = query_line.split("\t")
+        for description, query in filtered_queries:
             if len(query) == 0:
                 log.error("Could not parse description and query, line is:")
                 log.info("")
-                log.info(query_line)
+                log.info(f"{description}\t{query}")
                 return False
             query_type = self.sparql_query_type(query)
             if args.add_query_type_to_description or args.accept == "AUTO":
@@ -839,7 +832,7 @@ class BenchmarkQueriesCommand(QleverCommand):
 
         # Check that each query has a time and a result size, or it failed.
         assert len(result_sizes) == len(query_times)
-        assert len(query_times) + num_failed == len(tsv_queries)
+        assert len(query_times) + num_failed == len(filtered_queries)
 
         if args.result_file:
             if len(result_yml_query_records["queries"]) != 0:
@@ -889,7 +882,7 @@ class BenchmarkQueriesCommand(QleverCommand):
             log.info("")
             description = "Number of FAILED queries"
             num_failed_string = f"{num_failed:>6}"
-            if num_failed == len(tsv_queries):
+            if num_failed == len(filtered_queries):
                 num_failed_string += "  [all]"
             log.info(
                 colored(

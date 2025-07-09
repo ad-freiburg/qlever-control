@@ -164,6 +164,7 @@ function updateMainPage(performanceData) {
             domLayout: "autoHeight",
             rowStyle: { fontSize: "14px", cursor: "pointer" },
             onRowClicked: onRowClicked,
+            suppressDragLeaveHidesColumns: true,
         });
     }
 }

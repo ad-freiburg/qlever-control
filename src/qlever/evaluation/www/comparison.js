@@ -54,7 +54,10 @@ function setComparisonPageEvents() {
                 return col.colId;
             });
         const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
-        gridApi.setGridOption("columnDefs", visibleColumnDefs);
+        gridApi.updateGridOptions({
+            columnDefs: visibleColumnDefs,
+            maintainColumnOrder: true
+        });
     });
 
     document.querySelector("#goToCompareExecTreesBtn").addEventListener("click", () => {
@@ -205,7 +208,10 @@ function updateHiddenColumns(enginesToDisplay) {
     gridApi.setGridOption("rowData", visibleRowData);
     const showResultSize = document.querySelector("#showResultSize").checked;
     const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
-    gridApi.setGridOption("columnDefs", visibleColumnDefs);
+    gridApi.updateGridOptions({
+        columnDefs: visibleColumnDefs,
+        maintainColumnOrder: true
+    });
 }
 
 class WarningCellRenderer {
@@ -386,7 +392,7 @@ function updateComparisonPage(performanceData, kb) {
     if (domLayout === "normal") {
         gridDiv.style.height = `${document.documentElement.clientHeight - 200}px`;
     }
-    const detailsGridOptions = {
+    const comparisonGridOptions = {
         columnDefs: getComparisonColumnDefs(Object.keys(performanceData[kb])),
         rowData: rowData,
         defaultColDef: {
@@ -405,7 +411,8 @@ function updateComparisonPage(performanceData, kb) {
         tooltipTrigger: "focus",
         tooltipInteraction: true,
         rowSelection: rowSelection,
+        suppressDragLeaveHidesColumns: true,
     };
     // Initialize ag-Grid instance
-    agGrid.createGrid(gridDiv, detailsGridOptions);
+    agGrid.createGrid(gridDiv, comparisonGridOptions);
 }

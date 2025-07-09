@@ -230,6 +230,7 @@ function updateTabsWithSelectedRow(rowData) {
             },
             domLayout: domLayout,
             rowStyle: { fontSize: "14px", cursor: "pointer" },
+            suppressDragLeaveHidesColumns: true,
         });
     } else {
         const textDiv = document.querySelector("#results-container div.alert");
@@ -312,6 +313,7 @@ function updateDetailsPage(performanceData, kb, engine) {
             onRuntimeRowSelected(event, performanceData, kb, engine);
         },
         tooltipShowDelay: 500,
+        suppressDragLeaveHidesColumns: true,
     };
     // Initialize ag-Grid instance
     agGrid.createGrid(gridDiv, detailsGridOptions);

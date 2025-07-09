@@ -374,7 +374,7 @@ class ExampleQueriesCommand(QleverCommand):
             # Launch query.
             try:
                 curl_cmd = (
-                    f"curl -s {sparql_endpoint}"
+                    f"curl -Ls {sparql_endpoint}"
                     f' -w "HTTP code: %{{http_code}}\\n"'
                     f' -H "Accept: {accept_header}"'
                     f" --data-urlencode query={shlex.quote(query)}"

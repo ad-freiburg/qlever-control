@@ -99,7 +99,7 @@ def run_curl_command(
     default_result_file = "/tmp/qlever.curl.result"
     actual_result_file = result_file if result_file else default_result_file
     curl_cmd = (
-        f'curl -s -o "{actual_result_file}"'
+        f'curl -Ls -o "{actual_result_file}"'
         f' -w "%{{http_code}}\n" {url}'
         + "".join([f' -H "{key}: {value}"' for key, value in headers.items()])
         + "".join(

@@ -35,6 +35,7 @@ class SettingsCommand(QleverCommand):
             "cache-service-results",
             "default-query-timeout",
             "division-by-zero-is-undef",
+            "enable-prefilter-on-index-scans",
             "group-by-disable-index-scan-optimizations",
             "group-by-hash-map-enabled",
             "lazy-index-scan-max-size-materialization",

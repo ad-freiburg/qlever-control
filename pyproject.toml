@@ -27,6 +27,7 @@ Github = "https://github.com/ad-freiburg/qlever"
 
 [project.scripts]
 "qlever" = "qlever.qlever_main:main"
+"qoxigraph" = "qlever.qlever_main:main"
 
 [tool.setuptools]
 license-files = ["LICENSE"]

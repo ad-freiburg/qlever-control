@@ -26,6 +26,7 @@ dependencies = [ "psutil", "termcolor", "argcomplete", "pyyaml", "rdflib" ]
 Github = "https://github.com/ad-freiburg/qlever"
 
 [project.scripts]
+"qjena" = "qlever.qlever_main:main"
 "qlever" = "qlever.qlever_main:main"
 "qoxigraph" = "qlever.qlever_main:main"
 "qvirtuoso" = "qlever.qlever_main:main"

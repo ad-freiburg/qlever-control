@@ -7,7 +7,7 @@ from pathlib import Path
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import binary_exists, run_command
+from qlever.util import binary_exists, get_total_file_size, run_command
 
 
 class IndexCommand(QleverCommand):
@@ -23,7 +23,7 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files"],
+            "index": ["input_files", "ulimit"],
             "runtime": ["system", "image", "index_container"],
         }
 
@@ -37,6 +37,12 @@ class IndexCommand(QleverCommand):
                 "(this requires that you have oxigraph-cli installed "
                 "on your machine)"
             ),
+        )
+        subparser.add_argument(
+            "--lenient",
+            action="store_true",
+            default=False,
+            help=("Attempt to keep loading even if the data file is invalid"),
         )
 
     @staticmethod
@@ -53,7 +59,19 @@ class IndexCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        index_cmd = f"load --location . --file {args.input_files}"
+        index_cmd = (
+            f"load {'--lenient ' if args.lenient else ''}"
+            f"--location . --file {args.input_files}"
+        )
+
+        # If the total file size is larger than 10 GB, set ulimit (such that a
+        # large number of open files is allowed).
+        total_file_size = get_total_file_size(shlex.split(args.input_files))
+        if args.ulimit is not None:
+            index_cmd = f"ulimit -Sn {args.ulimit} && {index_cmd}"
+        elif total_file_size > 1e10:
+            index_cmd = f"ulimit -Sn 500000 && {index_cmd}"
+
         index_cmd += f" |& tee {args.name}.index-log.txt"
 
         index_cmd = (

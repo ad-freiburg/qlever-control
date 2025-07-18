@@ -61,7 +61,7 @@ class Qleverfile:
             "--text-description",
             type=str,
             default=None,
-            help="A concise description of the additional text data" " if any",
+            help="A concise description of the additional text data if any",
         )
         data_args["format"] = arg(
             "--format",
@@ -190,6 +190,12 @@ class Qleverfile:
             default=None,
             help="File with the documents for the text index (one line "
             "per document, format: `id\tdocument text`)",
+        )
+        index_args["isql_port"] = arg(
+            "--isql-port",
+            type=int,
+            default=1111,
+            help="The port used by Virtuoso's ISQL index binary",
         )
 
         server_args["server_binary"] = arg(

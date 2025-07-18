@@ -26,8 +26,8 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files"],
-            "server": ["host_name", "port", "isql_port"],
+            "index": ["input_files", "isql_port"],
+            "server": ["host_name", "port"],
             "runtime": ["system", "image", "index_container"],
         }
 

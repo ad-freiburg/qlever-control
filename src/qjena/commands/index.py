@@ -23,21 +23,12 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files"],
+            "index": ["input_files", "index_binary", "threads", "jvm_args"],
             "runtime": ["system", "image", "index_container"],
         }
 
     def additional_arguments(self, subparser):
-        subparser.add_argument(
-            "--index-binary",
-            type=str,
-            default="tdb2.xloader",
-            help=(
-                "The binary for building the index (default: tdb2.xloader) "
-                "(this requires that you have apache-jena installed "
-                "on your machine)"
-            ),
-        )
+        pass
 
     @staticmethod
     def build_image(build_cmd: str, system: str, image: str) -> bool:
@@ -64,7 +55,10 @@ class IndexCommand(QleverCommand):
         system = args.system
         input_files = args.input_files
 
-        index_cmd = f"{args.index_binary} --loc index {input_files}"
+        index_cmd = (
+            f'env JVM_ARGS="{args.jvm_args}" {args.index_binary} '
+            f"--threads {args.threads} --loc index {input_files}"
+        )
         index_cmd += f" | tee {args.name}.index-log.txt"
 
         if args.system == "native":

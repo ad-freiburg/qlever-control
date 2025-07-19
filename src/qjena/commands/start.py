@@ -26,7 +26,13 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port"],
+            "server": [
+                "host_name",
+                "jvm_args",
+                "port",
+                "server_binary",
+                "timeout",
+            ],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -38,16 +44,6 @@ class StartCommand(QleverCommand):
             help=(
                 "Run the start command in the foreground "
                 "(default: run in the background)"
-            ),
-        )
-        subparser.add_argument(
-            "--server-binary",
-            type=str,
-            default="fuseki-server",
-            help=(
-                "The binary for starting the server (default: fuseki-server) "
-                "(this requires that you have apache-jena-fuseki installed "
-                "on your machine)"
             ),
         )
 
@@ -70,8 +66,15 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
+        try:
+            timeout_ms = int(args.timeout[:-1]) * 1000
+        except ValueError as e:
+            log.error(f"Invalid timeout value {args.timeout}. Error: {e}")
+            return False
+
         start_cmd = (
-            f"{args.server_binary} --port {args.port} --loc index /{args.name}"
+            f'env JVM_ARGS="{args.jvm_args}" {args.server_binary} '
+            f"--port {args.port} --timeout {timeout_ms} --loc index /{args.name}"
         )
 
         if args.system == "native":
@@ -117,7 +120,7 @@ class StartCommand(QleverCommand):
                 f"To kill the existing server, use `{self.script_name} stop`"
             )
             return False
-    
+
         try:
             process = run_command(
                 start_cmd,

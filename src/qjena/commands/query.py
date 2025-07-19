@@ -9,5 +9,7 @@ class QueryCommand(QoxigraphQueryCommand):
 
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
-            args.sparql_endpoint = f"localhost:{args.port}/{args.name}/query"
+            args.sparql_endpoint = (
+                f"{args.host_name}:{args.port}/{args.name}/query"
+            )
         super().execute(args)

@@ -107,6 +107,13 @@ class UpdateCommand(QleverCommand):
             help="Use the minimum or maximum date of the batch for the "
             "`updatesCompleteUntil` property (default: maximum)",
         )
+        subparser.add_argument(
+            "--wait-between-batches",
+            type=int,
+            help="Wait this many seconds between batches that were "
+            "finished due to a message that is within `lag_seconds` of "
+            "the current time (default: no wait)",
+        )
 
     # Handle Ctrl+C gracefully by finishing the current batch and then exiting.
     def handle_ctrl_c(self, signal_received, frame):
@@ -187,6 +194,7 @@ class UpdateCommand(QleverCommand):
         total_time_s = 0
         start_time = time.perf_counter()
         topics_to_consider = set(args.topics.split(","))
+        wait_before_next_batch = False
 
         # Iterating over all messages in the stream.
         for event in source:
@@ -197,6 +205,15 @@ class UpdateCommand(QleverCommand):
                 batch_assembly_start_time = time.perf_counter()
                 insert_triples = set()
                 delete_triples = set()
+                if wait_before_next_batch:
+                    log.info(
+                        f"Waiting {args.wait_between_batches} "
+                        f"second{'s' if args.wait_between_batches > 1 else ''} "
+                        f"before processing the next batch"
+                    )
+                    log.info("")
+                    time.sleep(args.wait_between_batches)
+                    wait_before_next_batch = False
 
             # Check if the `args.batch_size` is reached (note that we come here
             # after a `continue` due to an error).
@@ -326,6 +343,8 @@ class UpdateCommand(QleverCommand):
                 f"[assembly time: {batch_assembly_time_ms:,} ms, "
                 f"min delta to NOW: {min_delta_to_now_s} s]"
             )
+            wait_before_next_batch = (args.wait_between_batches is not None
+                                      and current_batch_size < args.batch_size)
             current_batch_size = 0
 
             # Add the min and max date of the batch to `insert_triples`.

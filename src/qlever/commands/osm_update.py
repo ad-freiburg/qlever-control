@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import os
 import signal
+import subprocess
+import sys
+import threading
 import time
+
+from daemon import DaemonContext
 
 from qlever.command import QleverCommand
 from qlever.log import log
@@ -129,23 +134,31 @@ class OsmUpdateCommand(QleverCommand):
 
         try:
             while True:
-                if self.ctrl_c_pressed:
-                    raise UserInterruptException()
+                log.info(f"Starting OSM data update...\n")
 
                 start_time = time.time()
 
+                # Run the osm-live-updates tool in a subprocess,
+                # use new_session to avoid that the subprocess receives the
+                # Ctrl+C signal.
                 self.is_running_update = True
-                log.info(f"Starting OSM data update...")
-                process = run_command(olu_cmd, show_output=True, show_stderr=True, use_popen=True)
-                try:
-                    process.wait()
-                except KeyboardInterrupt:
-                    log.warn("\njsdfkalj OSM data update interrupted by user.")
-                    self.is_running_update = False
-                    self.ctrl_c_pressed = True
+                olu = run_command(olu_cmd, show_stderr=True,
+                                  show_output=True, use_popen=True,
+                                  new_session=True)
 
-                log.info("\nOSM data update completed successfully.")
+                # Wait for the subprocess to finish.
+                olu_return_code = olu.wait()
                 self.is_running_update = False
+                if olu_return_code != 0:
+                    log.error(f"\nOSM data update failed with return code "
+                              f"{olu_return_code}.")
+                    return False
+                else:
+                    log.info("\nOSM data update completed successfully.")
+
+                # Check if the user has pressed Ctrl+C during the update.
+                if self.ctrl_c_pressed:
+                    raise UserInterruptException()
 
                 # If the user has specified `--once`, we exit after the
                 # first update.
@@ -153,11 +166,14 @@ class OsmUpdateCommand(QleverCommand):
                     return True
 
                 # Wait for the next update interval based on the granularity
+                # and the time it took to run the previous update.
                 elapsed = time.time() - start_time
                 sleep_time = max(0, granularity_in_seconds - elapsed)
                 if sleep_time > 0:
-                    log.info(f"\nWaiting for {sleep_time:.0f} seconds "
-                             f"until the next update...")
+                    formatted_time = time.strftime('%Hh:%Mm:%Ss',
+                                                   time.gmtime(sleep_time))
+                    log.info(f"\nWaiting for {formatted_time} until the next "
+                             f"update...")
                 time.sleep(sleep_time)
 
         except UserInterruptException:

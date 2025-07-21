@@ -67,7 +67,15 @@ class OsmUpdateCommand(QleverCommand):
             type=str,
             help="The poly file that defines the boundaries of your osm "
                  "dataset. (Poly files for country extracts are available at "
-                 "https://download.geofabrik.de/) If no poly file is provided,"
+                 "https://download.geofabrik.de/). If no boundary is provided,"
+                 " the complete osm planet data will be used.",
+        )
+        subparser.add_argument(
+            "--bbox",
+            nargs='?',
+            type=str,
+            help="The bounding box (LEFT,BOTTOM,RIGHT,TOP) that defines the "
+                 "boundaries of your osm dataset. If no boundary is provided,"
                  " the complete osm planet data will be used.",
         )
         subparser.add_argument(
@@ -119,6 +127,8 @@ class OsmUpdateCommand(QleverCommand):
             f" server '{replication_server}'."]
         self.show("\n".join(cmd_description), only_show=args.show)
 
+        # Handle user interruptions (Ctrl+C) gracefully by waiting for the
+        # current update to finish and then exiting.
         signal.signal(signal.SIGINT, self.handle_ctrl_c)
         if not args.once and not args.show:
             log.warn(
@@ -127,8 +137,15 @@ class OsmUpdateCommand(QleverCommand):
             )
 
         # Construct the command to run the osm-live-updates tool.
-        olu_cmd = self.construct_olu_cmd(replication_server, args)
-        self.show(f"{olu_cmd}")
+        try:
+            olu_cmd = self.construct_olu_cmd(replication_server, args)
+            self.show(f"{olu_cmd}")
+        except (ValueError, FileNotFoundError) as e:
+            log.error(f"{e}")
+            return False
+
+        # If the user has specified `--show`, we only show the command and
+        # return without executing it.
         if args.show:
             return True
 
@@ -192,17 +209,18 @@ class OsmUpdateCommand(QleverCommand):
         olu_cmd += f" -a {args.access_token}"
         olu_cmd += f" -f {replication_server_url}"
         olu_cmd += f" --qlever"
-        olu_cmd += f" --statistics"
 
-        # If the user has specified a polygon file, we add it to the command.
+        # If the user has specified a boundary, we add it to the command.
+        if args.bbox and args.polyfile:
+            raise ValueError("You cannot specify both --bbox and --polyfile. "
+                             "Please choose one of them.")
+        if args.bbox:
+            olu_cmd += f" --bbox {args.bbox}"
         if args.polyfile:
             # Check if polygon file exists
             if not os.path.exists(args.polyfile):
-                log.error(f'No file matching "{args.polyfile}" found')
-                log.info("")
-                log.info("Check if the polyfile exists and if the path is "
-                         "correct.")
-                return False
+                raise FileNotFoundError(f'No file matching "{args.polyfile}"'
+                                        f' found.')
 
             olu_cmd += f" --polygon {args.polyfile}"
 

@@ -4,7 +4,7 @@ from qoxigraph.commands.status import StatusCommand as QoxigraphStatusCommand
 
 
 class StatusCommand(QoxigraphStatusCommand):
-    DEFAULT_REGEX = "mdb-server"
+    DEFAULT_REGEX = "mdb"
 
     def description(self) -> str:
         return "Show MillenniumDB processes running on this machine"

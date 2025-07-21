@@ -6,7 +6,7 @@ from qoxigraph.commands.stop import StopCommand as QoxigraphStopCommand
 
 class StopCommand(QoxigraphStopCommand):
     STATUS_COMMAND = StatusCommand()
-    DEFAULT_REGEX = r"mdb-server.*--port\s%%PORT%%.*"
+    DEFAULT_REGEX = r"mdb.*--port\s%%PORT%%.*"
 
     def description(self) -> str:
         return "Stop MillenniumDB server for a given dataset or port"

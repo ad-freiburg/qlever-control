@@ -9,6 +9,19 @@ from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import binary_exists, is_server_alive, run_command
 
+MDB_SPECIFIC_SERVER_ARGS = [
+    "port",
+    "timeout",
+    "threads",
+    "strings_dynamic",
+    "strings_static",
+    "tensors_dynamic",
+    "tensors_static",
+    "private_buffer",
+    "versioned_buffer",
+    "unversioned_buffer",
+]
+
 
 class StartCommand(QleverCommand):
     def __init__(self):
@@ -26,7 +39,7 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port"],
+            "server": ["host_name", "server_binary"] + MDB_SPECIFIC_SERVER_ARGS,
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -38,16 +51,6 @@ class StartCommand(QleverCommand):
             help=(
                 "Run the start command in the foreground "
                 "(default: run in the background)"
-            ),
-        )
-        subparser.add_argument(
-            "--server-binary",
-            type=str,
-            default="mdb-server",
-            help=(
-                "The binary for starting the server (default: mdb-server) "
-                "(this requires that you have Millennium DB built from source "
-                "on your machine)"
             ),
         )
 
@@ -70,7 +73,16 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        start_cmd = f"{args.server_binary} --port {args.port} index"
+        start_cmd = f"{args.server_binary} server index "
+        try:
+            args.timeout = int(args.timeout[:-1])
+        except ValueError as e:
+            log.error(f"Invalid timeout value {args.timeout}. Error: {e}")
+            return False
+
+        for arg in MDB_SPECIFIC_SERVER_ARGS:
+            if (arg_value := getattr(args, arg)) is not None:
+                start_cmd += f"--{arg.replace("_", "-")} {arg_value} "
 
         if args.system == "native":
             if not args.run_in_foreground:

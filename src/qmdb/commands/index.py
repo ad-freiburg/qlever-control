@@ -23,7 +23,14 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files"],
+            "index": [
+                "input_files",
+                "cat_input_files",
+                "buffer_strings",
+                "buffer_tensors",
+                "btree_permutations",
+                "prefixes",
+            ],
             "runtime": ["system", "image", "index_container"],
         }
 
@@ -31,9 +38,9 @@ class IndexCommand(QleverCommand):
         subparser.add_argument(
             "--index-binary",
             type=str,
-            default="mdb-import",
+            default="mdb",
             help=(
-                "The binary for building the index (default: mdb-import) "
+                "The binary for building the index (default: mdb) "
                 "(this requires that you have Millennium DB built from source "
                 "on your machine)"
             ),
@@ -64,7 +71,22 @@ class IndexCommand(QleverCommand):
         system = args.system
         input_files = args.input_files
 
-        index_cmd = f"{args.index_binary} {input_files} index"
+        # For compressed data, pipe the data from stdin with mandatory --format
+        if args.cat_input_files:
+            index_cmd = (
+                f"{args.cat_input_files} | {args.index_binary} import index "
+                f"--format {args.format}"
+            )
+        else:
+            index_cmd = f"{args.index_binary} import {input_files} index"
+
+        # Additional mdb index args
+        index_cmd += (
+            f" --buffer-strings {args.buffer_strings} --buffer-tensors {args.buffer_tensors} "
+            f"--btree-permutations {args.btree_permutations}"
+        )
+        if args.prefixes:
+            index_cmd += f" --prefixes {args.prefixes}"
         index_cmd += f" | tee {args.name}.index-log.txt"
 
         if args.system == "native":

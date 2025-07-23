@@ -61,10 +61,10 @@ class OsmUpdateCommand(QleverCommand):
                  "granularity.",
         )
         subparser.add_argument(
-            "--polyfile",
+            "--polygon",
             nargs='?',
             type=str,
-            help="The poly file that defines the boundaries of your osm "
+            help="The polygon that defines the boundaries of your osm "
                  "dataset. (Poly files for country extracts are available at "
                  "https://download.geofabrik.de/). If no boundary is provided,"
                  " the complete osm planet data will be used.",
@@ -260,18 +260,18 @@ class OsmUpdateCommand(QleverCommand):
         olu_cmd += f" --qlever"
 
         # If the user has specified a boundary, we add it to the command.
-        if args.bbox and args.polyfile:
-            raise ValueError("You cannot specify both --bbox and --polyfile. "
+        if args.bbox and args.polygon:
+            raise ValueError("You cannot specify both --bbox and --polygon. "
                              "Please choose one of them.")
         if args.bbox:
             olu_cmd += f" --bbox {args.bbox}"
-        if args.polyfile:
+        if args.polygon:
             # Check if polygon file exists
-            if not os.path.exists(args.polyfile):
-                raise FileNotFoundError(f'No file matching "{args.polyfile}"'
+            if not os.path.exists(args.polygon):
+                raise FileNotFoundError(f'No file matching "{args.polygon}"'
                                         f' found.')
 
-            olu_cmd += f" --polygon {args.polyfile}"
+            olu_cmd += f" --polygon {args.polygon}"
 
         olu_cmd = Containerize().containerize_command(
             olu_cmd,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import errno
-import os
 import re
 import secrets
 import shlex
@@ -11,12 +10,12 @@ import string
 import subprocess
 from datetime import date, datetime
 from pathlib import Path
+from platform import system
 from typing import Any, Optional
 
 import psutil
 
 from qlever.log import log
-
 
 def get_total_file_size(patterns: list[str]) -> int:
     """
@@ -61,9 +60,10 @@ def run_command(
         "stderr": None if show_stderr else subprocess.PIPE,
     }
 
-    # Add process group isolation if ignore_sigint is True
-    if new_session:
-        subprocess_args["preexec_fn"] = os.setsid
+    # Add process group isolation if new_session is True
+    # (Works only on POSIX systems).
+    if new_session and system() != "Windows":
+        subprocess_args["start_new_session"] = True
 
     # With `Popen`, the command runs in the current shell and a process object
     # is returned (which can be used, e.g., to kill the process).

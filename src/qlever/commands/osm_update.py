@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import signal
+import subprocess
 import time
+from typing import Optional
 
 from qlever.command import QleverCommand
 from qlever.log import log
@@ -27,6 +29,8 @@ class OsmUpdateCommand(QleverCommand):
         # so we can handle it gracefully.
         self.is_running_update = False
         self.ctrl_c_pressed = False
+        # The process which starts the osm-live-updates tool.
+        self.olu_process: Optional[subprocess.Popen] = None
 
     def description(self) -> str:
         return "Update OSM data for a given dataset"
@@ -102,6 +106,24 @@ class OsmUpdateCommand(QleverCommand):
             else:
                 raise UserInterruptException()
 
+    # Handle forceful termination (Ctrl+Z)
+    def handle_ctrl_z(self, args, signal_received, frame):
+        if self.is_running_update:
+            log.error("Ctrl+Z pressed, will kill the current update and exit."
+                      "\nThe data may be corrupted if triples where currently "
+                      "inserted or deleted.")
+        else:
+            raise UserInterruptException()
+
+        if self.olu_process and self.olu_process.poll() is None:
+            self.olu_process.kill()
+
+        if self.is_running_update:
+            Containerize().stop_and_remove_container(args.system,
+                                                     f"olu-{args.name}")
+
+        raise UserInterruptException()
+
     def execute(self, args) -> bool:
         # If the user has specified a replication server, use that one,
         # otherwise we use the planet replication server with the specified
@@ -131,10 +153,14 @@ class OsmUpdateCommand(QleverCommand):
         # Handle user interruptions (Ctrl+C) gracefully by waiting for the
         # current update to finish and then exiting.
         signal.signal(signal.SIGINT, self.handle_ctrl_c)
+        signal.signal(signal.SIGTSTP,
+                      lambda s, f: self.handle_ctrl_z(args, s, f))
         if not args.once and not args.show:
             log.warn(
                 "Press Ctrl+C to finish any currently running updates and end "
                 "gracefully, press Ctrl+C again to continue\n"
+                "Press Ctrl+Z to terminate updates forcefully. Doing so while "
+                "triples are being deleted or inserted may corrupt the data.\n"
             )
 
         # Create command to pull the latest image for osm-live-updates if
@@ -181,12 +207,13 @@ class OsmUpdateCommand(QleverCommand):
                 # use new_session to avoid that the subprocess receives the
                 # Ctrl+C signal.
                 self.is_running_update = True
-                olu = run_command(olu_cmd, show_stderr=True,
-                                  show_output=True, use_popen=True,
-                                  new_session=True)
+                self.olu_process = run_command(olu_cmd, show_stderr=True,
+                                               show_output=True,
+                                               use_popen=True,
+                                               new_session=True)
 
                 # Wait for the subprocess to finish.
-                olu_return_code = olu.wait()
+                olu_return_code = self.olu_process.wait()
                 self.is_running_update = False
                 if olu_return_code != 0:
                     log.error(f"\nOSM data update failed with return code "
@@ -250,7 +277,7 @@ class OsmUpdateCommand(QleverCommand):
             olu_cmd,
             args.system,
             "run --rm",
-            "olu:latest",
+            args.olu_image,
             container_name,
             volumes=[("$(pwd)", "/update")],
             working_directory="/update",

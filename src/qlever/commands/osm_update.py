@@ -2,19 +2,13 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
-import sys
-import threading
 import time
-
-from daemon import DaemonContext
 
 from qlever.command import QleverCommand
 from qlever.log import log
-from qlever.util import run_command
+from qlever.util import run_command, is_qlever_server_alive
 
 from qlever.containerize import Containerize
-
 
 # Exception to be raised when the user interrupts the command with Ctrl+C.
 class UserInterruptException(Exception):
@@ -42,7 +36,8 @@ class OsmUpdateCommand(QleverCommand):
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
         return {"data": ["name"],
-                "server": ["host_name", "port", "access_token"]}
+                "server": ["host_name", "port", "access_token"],
+                "runtime": ["system"]}
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -85,6 +80,12 @@ class OsmUpdateCommand(QleverCommand):
             help="The URL of the OSM replication server to use. By default, "
                  "the OSM planet replication server "
                  "('https://planet.osm.org/replication/) is used."
+        )
+        subparser.add_argument(
+            "--olu-image",
+            type=str,
+            default="docker.io/adfreiburg/olu",
+            help="The name of the image used for osm-live-updates.",
         )
 
     # Handle Ctrl+C gracefully by finishing the current update and then
@@ -136,6 +137,16 @@ class OsmUpdateCommand(QleverCommand):
                 "gracefully, press Ctrl+C again to continue\n"
             )
 
+        # Create command to pull the latest image for osm-live-updates if
+        # remote image is used.
+        pull_cmd = ""
+        if ("/" in args.olu_image and
+                args.system in Containerize.supported_systems()):
+            pull_cmd = f"{args.system} pull -q {args.olu_image}"
+            log.debug(f"Pulling image `{args.olu_image}` for"
+                      f" osm-live-updates.")
+            self.show(f"{pull_cmd}")
+
         # Construct the command to run the osm-live-updates tool.
         try:
             olu_cmd = self.construct_olu_cmd(replication_server, args)
@@ -148,6 +159,17 @@ class OsmUpdateCommand(QleverCommand):
         # return without executing it.
         if args.show:
             return True
+
+        endpoint_url = f"http://{args.host_name}:{args.port}"
+        if not is_qlever_server_alive(endpoint_url):
+            log.error(
+                f"QLever endpoint at {endpoint_url} is not running."
+            )
+            return False
+
+        # Pull the latest image for osm-live-updates if remote image is used.
+        if pull_cmd:
+            run_command(pull_cmd)
 
         try:
             while True:
@@ -226,7 +248,7 @@ class OsmUpdateCommand(QleverCommand):
 
         olu_cmd = Containerize().containerize_command(
             olu_cmd,
-            "docker",
+            args.system,
             "run --rm",
             "olu:latest",
             container_name,

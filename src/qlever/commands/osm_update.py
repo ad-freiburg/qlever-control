@@ -12,7 +12,9 @@ from qlever.util import run_command, is_qlever_server_alive
 
 from qlever.containerize import Containerize
 
-# Exception to be raised when the user interrupts the command with Ctrl+C.
+
+# Exception to be raised when the user interrupts the command with Ctrl+C or
+# Ctrl+Z.
 class UserInterruptException(Exception):
     pass
 
@@ -25,7 +27,7 @@ class OsmUpdateCommand(QleverCommand):
     def __init__(self):
         self.planet_replication_server_url = \
             "https://planet.osm.org/replication/"
-        # Remember if Ctrl+C was pressed and if a update is currently running,
+        # Remember if Ctrl+C was pressed and if an update is currently running,
         # so we can handle it gracefully.
         self.is_running_update = False
         self.ctrl_c_pressed = False

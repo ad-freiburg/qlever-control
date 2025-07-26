@@ -26,7 +26,7 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port", "java_heap_gb"],
+            "server": ["host_name", "port", "jvm_args"],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -76,7 +76,7 @@ class StartCommand(QleverCommand):
             else "/opt/blazegraph.jar"
         )
         start_cmd = (
-            f"java -server -Xmx{args.java_heap_gb}g "
+            f"java -server {args.jvm_args} -Dbigdata.propertyFile=RWStore.properties "
             f"-Djetty.port={args.port} -jar {jar_path}"
         )
 
@@ -176,7 +176,7 @@ class StartCommand(QleverCommand):
         log.info(
             f"Blazegraph server webapp for {args.name} will be available at "
             f"http://{args.host_name}:{args.port} and the sparql endpoint for "
-            f"queries is {endpoint_url}/namespace/{args.name}/sparql"
+            f"queries is {endpoint_url}/namespace/kb/sparql"
         )
 
         # Kill the log process

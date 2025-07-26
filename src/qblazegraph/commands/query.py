@@ -10,7 +10,6 @@ class QueryCommand(QoxigraphQueryCommand):
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
             args.sparql_endpoint = (
-                f"localhost:{args.port}/blazegraph/namespace/"
-                f"{args.name}/sparql"
+                f"localhost:{args.port}/blazegraph/namespace/kb/sparql"
             )
         super().execute(args)

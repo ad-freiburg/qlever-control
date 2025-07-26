@@ -7,7 +7,11 @@ from qlever.commands.benchmark_queries import (
 
 class BenchmarkQueriesCommand(QleverBenchmarkQueriesCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"data": ["name"], "server": ["port"], "ui": ["ui_config"]}
+        return {
+            "data": ["name"],
+            "server": ["host_name", "port"],
+            "ui": ["ui_config"],
+        }
 
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:

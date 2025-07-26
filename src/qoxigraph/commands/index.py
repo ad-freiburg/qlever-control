@@ -23,27 +23,12 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files", "ulimit"],
+            "index": ["input_files", "ulimit", "index_binary", "lenient"],
             "runtime": ["system", "image", "index_container"],
         }
 
     def additional_arguments(self, subparser):
-        subparser.add_argument(
-            "--index-binary",
-            type=str,
-            default="oxigraph",
-            help=(
-                "The binary for building the index (default: oxigraph) "
-                "(this requires that you have oxigraph-cli installed "
-                "on your machine)"
-            ),
-        )
-        subparser.add_argument(
-            "--lenient",
-            action="store_true",
-            default=False,
-            help=("Attempt to keep loading even if the data file is invalid"),
-        )
+        pass
 
     @staticmethod
     def wrap_cmd_in_container(args, cmd: str) -> str:
@@ -69,7 +54,9 @@ class IndexCommand(QleverCommand):
             index_cmd = f"{args.index_binary} {index_cmd}"
             # If the total file size is larger than 10 GB, set ulimit (such that a
             # large number of open files is allowed).
-            total_file_size = get_total_file_size(shlex.split(args.input_files))
+            total_file_size = get_total_file_size(
+                shlex.split(args.input_files)
+            )
             if args.ulimit is not None:
                 index_cmd = f"ulimit -Sn {args.ulimit} && {index_cmd}"
             elif total_file_size > 1e10:

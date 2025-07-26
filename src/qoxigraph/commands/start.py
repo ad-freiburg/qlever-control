@@ -26,7 +26,7 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port"],
+            "server": ["host_name", "port", "server_binary"],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -38,16 +38,6 @@ class StartCommand(QleverCommand):
             help=(
                 "Run the start command in the foreground "
                 "(default: run in the background)"
-            ),
-        )
-        subparser.add_argument(
-            "--server-binary",
-            type=str,
-            default="oxigraph",
-            help=(
-                "The binary for starting the server (default: oxigraph) "
-                "(this requires that you have oxigraph-cli installed "
-                "on your machine)"
             ),
         )
 

@@ -26,32 +26,13 @@ class IndexCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name", "format"],
-            "index": ["input_files", "isql_port"],
-            "server": ["host_name", "port"],
+            "index": ["input_files", "index_binary", "isql_port"],
+            "server": ["host_name", "port", "server_binary"],
             "runtime": ["system", "image", "index_container"],
         }
 
     def additional_arguments(self, subparser):
-        subparser.add_argument(
-            "--index-binary",
-            type=str,
-            default="isql",
-            help=(
-                "The isql binary for building the index (default: isql) "
-                "(this requires that you have virtuoso binaries installed "
-                "on your machine)"
-            ),
-        )
-        subparser.add_argument(
-            "--server-binary",
-            type=str,
-            default="virtuoso-t",
-            help=(
-                "The binary for starting the server (default: virtuoso-t) "
-                "(this requires that you have virtuoso binaries installed "
-                "on your machine)"
-            ),
-        )
+        pass
 
     def virtuoso_ini_help_msg(self, args, ini_files: list[str]) -> str:
         ini_msg = (

@@ -75,8 +75,10 @@ class StartCommand(QleverCommand):
             if args.system == "native"
             else "/opt/blazegraph.jar"
         )
+        web_xml_exists = Path("web.xml").exists()
         start_cmd = (
-            f"java -server {args.jvm_args} -Dbigdata.propertyFile=RWStore.properties "
+            f"java -server {args.jvm_args} -Dbigdata.propertyFile=RWStore.properties"
+            f"{'' if not web_xml_exists else ' -Djetty.overrideWebXml=web.xml'} "
             f"-Djetty.port={args.port} -jar {jar_path}"
         )
 

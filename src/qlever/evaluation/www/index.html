@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SPARQL Engine Comparison</title>
+
+        <!-- Bootstrap 5 -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet" />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/ag-grid-community@33.3.2/styles/ag-theme-balham.css"
+        />
+        <!-- <link href=" https://cdn.jsdelivr.net/npm/treantjs@1.0.0/Treant.min.css " rel="stylesheet"> -->
+        <!-- Custom CSS -->
+        <link href="styles.css" rel="stylesheet" />
+        <script src="https://unpkg.com/navigo@8.11.1/lib/navigo.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
+        <script src=" https://cdn.jsdelivr.net/npm/raphael@2.3.0/raphael.min.js "></script>
+        <!-- <script src=" https://cdn.jsdelivr.net/npm/treantjs@1.0.0/Treant.min.js "></script> -->
+        <!-- <script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script> -->
+        <script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
+        <script src="treant.js"></script>
+        <script src="util.js"></script>
+        <script src="details.js"></script>
+        <script src="comparison.js"></script>
+        <script src="compareExecTrees.js"></script>
+        <script src="main.js"></script>
+    </head>
+    <body>
+        <a
+            href="/"
+            data-navigo
+            class="btn btn-outline-dark position-fixed m-1 z-3"
+            id="home-button"
+            title="Home"
+            aria-label="Home"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    d="M3 12L12 3l9 9M4 10v10a1 1 0 001 1h5m4 0h5a1 1 0 001-1V10"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                />
+            </svg>
+        </a>
+        <div id="page-main" class="page container mt-3">
+            <div class="main-title">SPARQL Engine Comparison</div>
+            <div id="main-table-container"></div>
+        </div>
+
+        <div id="page-details" class="page hidden container mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="details-title" class="main-title flex-grow-1">Query Details</div>
+                <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark ms-3">
+                    Compare Execution Trees
+                </button>
+            </div>
+            <!-- Tabs here -->
+            <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link active text-dark"
+                        id="runtimes-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#runtimes-tab-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="runtimes-tab-pane"
+                        aria-selected="true"
+                    >
+                        Query runtimes
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link text-dark"
+                        id="query-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#query-tab-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="query-tab-pane"
+                        aria-selected="false"
+                    >
+                        Full query
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link text-dark"
+                        id="exec-tree-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#exec-tree-tab-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="exec-tree-tab-pane"
+                        aria-selected="false"
+                    >
+                        Execution tree
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link text-dark"
+                        id="results-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#results-tab-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="results-tab-pane"
+                        aria-selected="false"
+                    >
+                        Query result
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content px-3" id="myTabContent">
+                <div
+                    class="tab-pane fade show active"
+                    id="runtimes-tab-pane"
+                    role="tabpanel"
+                    aria-labelledby="runtimes-tab"
+                    tabindex="0"
+                >
+                    <!-- Tab 1 content -->
+
+                    <div id="details-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+                </div>
+                <div class="tab-pane fade" id="query-tab-pane" role="tabpanel" aria-labelledby="query-tab" tabindex="0">
+                    <!-- Tab 2 content -->
+                    <div class="alert alert-info mt-4">Please select a query from the Query Runtimes table!</div>
+                    <div class="p-3 bg-white mt-4">
+                        <pre><code id="full-query"></code></pre>
+                    </div>
+                </div>
+                <div
+                    class="tab-pane fade"
+                    id="exec-tree-tab-pane"
+                    role="tabpanel"
+                    aria-labelledby="exec-tree-tab"
+                    tabindex="0"
+                >
+                    <div class="alert alert-info mt-4">Please select a query from the Query Runtimes table!</div>
+                    <!-- Tab 2 content -->
+                    <div id="result-tree-div" class="mt-4">
+                        <div class="alert alert-info mt-4">
+                            Execution Tree is only available for QLever with accept header
+                            application/qlever-results+json!
+                        </div>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="Details zoom controls">
+                                <button id="zoomIn" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
+                        </div>
+                        <div id="result-tree" class="overflow-auto" style="height: calc(100vh - 280px)"></div>
+                    </div>
+                </div>
+                <div
+                    class="tab-pane fade"
+                    id="results-tab-pane"
+                    role="tabpanel"
+                    aria-labelledby="results-tab"
+                    tabindex="0"
+                >
+                    <!-- Tab 3 content -->
+                    <div class="alert alert-info mt-4">Please select a query from the Query Runtimes table!</div>
+                    <div id="results-container" class="mt-4">
+                        <div class="alert p-2"></div>
+                        <div id="results-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-comparison" class="page hidden container mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="comparison-title" class="main-title flex-grow-1">Performance Comparison</div>
+                <button id="goToCompareExecTreesBtn" class="btn btn-outline-dark ms-3">Compare Execution Trees</button>
+            </div>
+            <div class="d-flex align-items-start">
+                <!-- Accordion takes most of the space -->
+                <div class="flex-grow-1">
+                    <div class="py-2 pe-3 mt-1" id="columns-checkbox-container">
+                        <div class="d-flex align-items-center flex-wrap gap-3">
+                            <label class="mb-0 me-3 fw-bold">Engines to hide:</label>
+                            <div class="d-flex flex-wrap gap-3" id="columnCheckboxContainer">
+                                <!-- Checkboxes will be added here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right-aligned checkbox -->
+                <div class="form-check form-switch ms-3 mt-3">
+                    <input class="form-check-input" type="checkbox" style="cursor: pointer" id="showResultSize" />
+                    <label class="form-check-label" style="cursor: pointer" for="showResultSize">
+                        Show result size
+                    </label>
+                </div>
+            </div>
+
+            <div id="comparison-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+        </div>
+
+        <div id="page-compareExecTrees" class="page hidden container mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="compareExecTrees-title" class="main-title">Execution Tree Comparison</div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="syncScrollCheck" />
+                    <label class="form-check-label" for="syncScrollCheck">Sync Zoom & Scroll</label>
+                </div>
+            </div>
+
+            <div id="compareExecQuery" class="alert alert-secondary p-2 text-center"></div>
+
+            <!-- Second row: Two selects + Compare button -->
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <!-- <label for="select1" class="form-label">Select QLever tree 1</label> -->
+                    <select title="First QLever instance" class="form-select" id="select1"></select>
+                </div>
+                <div class="col-md-5">
+                    <!-- <label for="select2" class="form-label">Select QLever tree 2</label> -->
+                    <select title="Second QLever instance" class="form-select" id="select2"></select>
+                </div>
+                <div class="col-md-2">
+                    <button id="compareExecTreesBtn" class="btn btn-outline-dark w-100">Compare</button>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="row g-3 overflow-hidden">
+                    <div class="col-6">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info-1" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="CompareExecTrees zoom">
+                                <button id="zoomIn1" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut1" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
+                        </div>
+                        <div id="tree1" class="overflow-auto" style="height: calc(100vh - 250px)"></div>
+                    </div>
+                    <div class="col-6 border-start border-dark border-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div id="meta-info-2" class="flex-grow-1"></div>
+
+                            <div class="ms-2" role="group" aria-label="CompareExecTrees zoom">
+                                <button id="zoomIn2" title="Zoom in" class="btn btn-outline-secondary">+</button>
+                                <button id="zoomOut2" title="Zoom out" class="btn btn-outline-secondary">−</button>
+                            </div>
+                        </div>
+                        <div id="tree2" class="overflow-auto" style="height: calc(100vh - 250px)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="page-error" class="page hidden container mt-3">
+            <div id="siteErrorMsg" class="alert alert-danger">404: Page Not Found!</div>
+        </div>
+    </body>
+</html>

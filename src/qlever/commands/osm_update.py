@@ -47,10 +47,11 @@ class OsmUpdateCommand(QleverCommand):
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
-            "granularity",
+            "--granularity",
             nargs=1,
             choices=["minute", "hour", "day"],
             type=str,
+            required=True,
             help="The granularity with which the OSM data should be updated. "
                  "Choose from 'minute', 'hour', or 'day'.",
         )

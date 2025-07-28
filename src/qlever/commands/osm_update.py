@@ -8,7 +8,7 @@ from typing import Optional
 
 from qlever.command import QleverCommand
 from qlever.log import log
-from qlever.util import run_command, is_qlever_server_alive
+from qlever.util import run_command, is_qlever_server_alive, binary_exists
 
 from qlever.containerize import Containerize
 
@@ -93,6 +93,13 @@ class OsmUpdateCommand(QleverCommand):
             type=str,
             default="docker.io/adfreiburg/olu",
             help="The name of the image used for osm-live-updates.",
+        )
+        subparser.add_argument(
+            "--olu-binary",
+            type=str,
+            default="osm-live-updates",
+            help="The name or path of the compiled `osm-live-updates` binary"
+                 " to use when running natively.",
         )
 
     # Handle Ctrl+C gracefully by finishing the current update and then
@@ -269,22 +276,29 @@ class OsmUpdateCommand(QleverCommand):
         if args.bbox:
             olu_cmd += f" --bbox {args.bbox}"
         if args.polygon:
-            # Check if polygon file exists
+            # Check if the polygon file exists
             if not os.path.exists(args.polygon):
                 raise FileNotFoundError(f'No file matching "{args.polygon}"'
                                         f' found.')
 
             olu_cmd += f" --polygon {args.polygon}"
 
-        olu_cmd = Containerize().containerize_command(
-            olu_cmd,
-            args.system,
-            "run --rm",
-            args.olu_image,
-            container_name,
-            volumes=[("$(pwd)", "/update")],
-            working_directory="/update",
-            use_bash=False
-        )
+        if args.system == "native":
+            if not binary_exists(args.olu_binary, "olu-binary"):
+                # 'binary_exists' will log an error message, so we raise the
+                # FileNotFoundError without an additional message.
+                raise FileNotFoundError()
+            else:
+                return f'{args.olu_binary} {olu_cmd}'
+        else:
+            return Containerize().containerize_command(
+                olu_cmd,
+                args.system,
+                "run --rm",
+                args.olu_image,
+                container_name,
+                volumes=[("$(pwd)", "/update")],
+                working_directory="/update",
+                use_bash=False
+            )
 
-        return olu_cmd

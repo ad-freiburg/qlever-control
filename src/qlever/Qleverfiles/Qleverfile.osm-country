@@ -7,6 +7,14 @@
 # Make sure that osm2rdf is in your path. Set CONTINENT and COUNTRY such that
 # the link under GET_DATA_CMD exists (the names are usually the canonical
 # names). The time for osm2rdf is around the same as that for "qlever index".
+#
+# If you plan to use the 'osm-update' command, you should also define POLYGON
+# and GET_POLYGON_CMD, which should return a polygon that describes the area of
+# the dataset. Otherwise, the complete OSM planet data will be used to update
+# your endpoint.
+#
+# qlever get-polygon                              # downloads the .polygon file from Geofabrik, that defines the boundaries of your extract
+# qlever osm-update --granularity minute/hour/day # the endpoint will be updated every minute/hour/day
 
 # Dataset settings
 [data]
@@ -17,6 +25,8 @@ PBF               = ${NAME}.pbf
 WITH_TEXT         = false
 VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6)
 GET_DATA_CMD      = wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${NAME}.*.bz2; ( time osm2rdf ${PBF} -o ${NAME}.ttl --cache . ) 2>&1 | tee ${NAME}.osm2rdf-log.txt; rm -f spatial-*
+POLYGON           = ${NAME}.polygon
+GET_POLYGON_CMD   = wget -O ${POLYGON} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}.poly
 DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
 
 # Indexer settings

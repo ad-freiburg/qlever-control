@@ -41,7 +41,7 @@ class OsmUpdateCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name"],
+        return {"data": ["name", "polygon"],
                 "server": ["host_name", "port", "access_token"],
                 "runtime": ["system"]}
 
@@ -64,21 +64,13 @@ class OsmUpdateCommand(QleverCommand):
                  "granularity.",
         )
         subparser.add_argument(
-            "--polygon",
-            nargs='?',
-            type=str,
-            help="The polygon that defines the boundaries of your osm "
-                 "dataset. (Poly files for country extracts are available at "
-                 "https://download.geofabrik.de/). If no boundary is provided,"
-                 " the complete osm planet data will be used.",
-        )
-        subparser.add_argument(
             "--bbox",
             nargs='?',
             type=str,
             help="The bounding box (LEFT,BOTTOM,RIGHT,TOP) that defines the "
-                 "boundaries of your osm dataset. If no boundary is provided,"
-                 " the complete osm planet data will be used.",
+                 "boundaries of your OSM dataset. Not necessary if you want to"
+                 " use the complete OSM planet data or if you have already run"
+                 " the 'qlever get-polygon' command.",
         )
         subparser.add_argument(
             "--replication-server",
@@ -275,13 +267,18 @@ class OsmUpdateCommand(QleverCommand):
                              "Please choose one of them.")
         if args.bbox:
             olu_cmd += f" --bbox {args.bbox}"
-        if args.polygon:
+        elif args.polygon:
             # Check if the polygon file exists
             if not os.path.exists(args.polygon):
                 raise FileNotFoundError(f'No file matching "{args.polygon}"'
-                                        f' found.')
+                                        f' found. Did you call '
+                                        f'`qlever get-polygon`? If you did, '
+                                        f'check POLYGON and GET_POLYGON_CMD in'
+                                        f' the QLeverfile"')
 
             olu_cmd += f" --polygon {args.polygon}"
+        # If the user has not specified a bounding box or polygon, we assume
+        # the user wants to use the complete OSM planet data.
 
         if args.system == "native":
             if not binary_exists(args.olu_binary, "olu-binary"):

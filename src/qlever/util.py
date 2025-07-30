@@ -285,7 +285,11 @@ def stop_process_with_regex(cmdline_regex: str) -> list[bool] | None:
                     "cmdline",
                 ]
             )
-            cmdline = " ".join(pinfo["cmdline"])
+            cmdline = (
+                " ".join(pinfo["cmdline"])
+                if isinstance(pinfo["cmdline"], list)
+                else ""
+            )
         except Exception as e:
             log.debug(f"Error getting process info: {e}")
             return None

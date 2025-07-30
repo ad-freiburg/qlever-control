@@ -27,6 +27,7 @@ Github = "https://github.com/ad-freiburg/qlever"
 
 [project.scripts]
 "qblazegraph" = "qlever.qlever_main:main"
+"qgraphdb" = "qlever.qlever_main:main"
 "qjena" = "qlever.qlever_main:main"
 "qlever" = "qlever.qlever_main:main"
 "qmdb" = "qlever.qlever_main:main"

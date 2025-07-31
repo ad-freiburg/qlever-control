@@ -25,7 +25,7 @@ PBF               = ${NAME}.pbf
 WITH_TEXT         = false
 VERSION           = $$(ls -l --time-style=+%d.%m.%Y ${PBF} 2> /dev/null | cut -d' ' -f6)
 GET_DATA_CMD      = wget -nc -O ${PBF} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}-latest.osm.pbf; rm -f ${NAME}.*.bz2; ( time osm2rdf ${PBF} -o ${NAME}.ttl --cache . ) 2>&1 | tee ${NAME}.osm2rdf-log.txt; rm -f spatial-*
-POLYGON           = ${NAME}.polygon
+POLYGON           = ${NAME}.poly
 GET_POLYGON_CMD   = wget -O ${POLYGON} https://download.geofabrik.de/${CONTINENT}/${COUNTRY}.poly
 DESCRIPTION       = OSM ${COUNTRY}, dump from ${VERSION} with ogc:sfContains
 

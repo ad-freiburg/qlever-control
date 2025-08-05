@@ -38,7 +38,9 @@ class StopCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        cmdline_regex = args.cmdline_regex.replace("%%PORT%%", str(args.port))
+        cmdline_regex = args.cmdline_regex
+        if "%%PORT%%" in args.cmdline_regex and hasattr(args, "port"):
+            cmdline_regex = args.cmdline_regex.replace("%%PORT%%", str(args.port))
         description = (
             f'Checking for processes matching "{cmdline_regex}"'
             if args.system == "native"

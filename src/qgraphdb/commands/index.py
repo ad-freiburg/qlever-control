@@ -63,6 +63,9 @@ class IndexCommand(QleverCommand):
                 graph.remove((sub, pred, obj))
                 graph.add((sub, pred, new_val))
         graph.serialize(destination=Path.cwd() / "config.ttl", format="ttl")
+        log.info(
+            "config.ttl successfully overwritten with relevant Qleverfile entries!"
+        )
 
     @staticmethod
     def wrap_cmd_in_container(args, cmd: str) -> str:

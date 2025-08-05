@@ -28,6 +28,8 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
             run_curl_command(url=repo_config_ttl, result_file="config.ttl")
             log.info(
                 "Successfully downloaded config.ttl for specifying config parameters."
+                "There is no need to change this file as all the relevant entries will "
+                "be overwritten by entries from the Qleverfile."
             )
             return True
         except Exception as e:

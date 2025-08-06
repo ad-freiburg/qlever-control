@@ -41,7 +41,10 @@ class BenchmarkQueriesCommand(QleverCommand):
         return False
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["host_name", "port"], "ui": ["ui_config"]}
+        return {
+            "server": ["host_name", "port", "timeout"],
+            "ui": ["ui_config"],
+        }
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -335,9 +338,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 )
                 return []
 
-        return [
-            (query['query'], query['sparql']) for query in data["queries"]
-        ]
+        return [(query["query"], query["sparql"]) for query in data["queries"]]
 
     def get_result_size(
         self,
@@ -594,12 +595,19 @@ class BenchmarkQueriesCommand(QleverCommand):
         width_query_description_half = args.width_query_description // 2
         width_query_description = 2 * width_query_description_half + 1
 
+        try:
+            timeout = int(args.timeout[: -1])
+        except ValueError:
+            timeout = None
+
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query
         # processing time (seconds).
         query_times = []
         result_sizes = []
         result_yml_query_records = {"queries": []}
+        if timeout:
+            result_yml_query_records["timeout"] = timeout
         num_failed = 0
         for description, query in filtered_queries:
             if len(query) == 0:

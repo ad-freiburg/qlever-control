@@ -36,13 +36,15 @@ function getAllQueryStatsByKb(performanceData, kb) {
  * It applies proper formatting and filters based on the type of each metric.
  * @returns {Array<Object>} ag-Grid gridOptions object
  */
-function mainTableColumnDefs() {
+function mainTableColumnDefs(penaltyFactor) {
     // Define custom formatting and filters based on column keys
     return [
         {
             headerName: "SPARQL Engine",
             field: "engine_name",
             filter: "agTextColumnFilter",
+            headerTooltip: "Name of the SPARQL engine being benchmarked.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Failed",
@@ -50,6 +52,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of queries that failed to return results.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Arithmetic Mean",
@@ -57,6 +61,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Arithmetic mean of all query runtimes, including penalties for failed queries. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Geometric Mean",
@@ -64,6 +70,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Geometric mean of all query runtimes, using log scale, includes failed query penalties. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Median",
@@ -71,6 +79,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Median runtime of all queries, including penalties for failed ones. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "<= 1s",
@@ -78,6 +88,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries that completed in 1 second or less.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "(1s, 5s]",
@@ -85,6 +97,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries completed in more than 1 second and up to 5 seconds.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "> 5s",
@@ -92,11 +106,13 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries that took more than 5 seconds to complete.",
+            tooltipComponent: CustomDetailsTooltip,
         },
     ];
 }
 
-function updateMainPage(performanceData) {
+function updateMainPage(performanceData, penaltyFactor) {
     const container = document.getElementById("main-table-container");
 
     // Clear container if any existing content
@@ -152,7 +168,7 @@ function updateMainPage(performanceData) {
 
         // Initialize ag-Grid instance
         agGrid.createGrid(gridDiv, {
-            columnDefs: mainTableColumnDefs(),
+            columnDefs: mainTableColumnDefs(penaltyFactor),
             rowData: rowData,
             defaultColDef: {
                 sortable: true,
@@ -163,6 +179,7 @@ function updateMainPage(performanceData) {
             },
             domLayout: "autoHeight",
             rowStyle: { fontSize: "14px", cursor: "pointer" },
+            tooltipShowDelay: 500,
             onRowClicked: onRowClicked,
             suppressDragLeaveHidesColumns: true,
         });
@@ -177,13 +194,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const response = await fetch(`${yaml_path}yaml_data`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         performanceData = await response.json();
+        const penaltyFactor = performanceData.penalty?.toString() ?? "Penalty Factor";
+        delete performanceData.penalty;
 
         // Routes
         router
             .on({
                 "/": () => {
                     showPage("main");
-                    updateMainPage(performanceData);
+                    updateMainPage(performanceData, penaltyFactor);
                 },
                 "/details": (params) => {
                     const kb = params.params.kb;
@@ -251,7 +270,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             })
             .notFound(() => {
                 showPage("main");
-                updateMainPage(performanceData);
+                updateMainPage(performanceData, penaltyFactor);
             });
 
         router.resolve();

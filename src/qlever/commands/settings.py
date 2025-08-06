@@ -34,6 +34,8 @@ class SettingsCommand(QleverCommand):
             "cache-max-size-single-entry",
             "cache-service-results",
             "default-query-timeout",
+            "division-by-zero-is-undef",
+            "enable-prefilter-on-index-scans",
             "group-by-disable-index-scan-optimizations",
             "group-by-hash-map-enabled",
             "lazy-index-scan-max-size-materialization",
@@ -44,6 +46,7 @@ class SettingsCommand(QleverCommand):
             "request-body-limit",
             "service-max-value-rows",
             "sort-estimate-cancellation-factor",
+            "syntax-test-mode",
             "throw-on-unbound-variables",
             "use-binsearch-transitive-path",
         ]

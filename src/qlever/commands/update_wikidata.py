@@ -27,7 +27,7 @@ def custom_cast_lexical_to_python(lexical, datatype):
 rdflib.term._castLexicalToPython = custom_cast_lexical_to_python
 
 
-class UpdateCommand(QleverCommand):
+class UpdateWikidataCommand(QleverCommand):
     """
     Class for executing the `update` command.
     """

@@ -116,6 +116,20 @@ class Qleverfile:
             "files (default: 1048576 when the total size of the input files "
             "is larger than 10 GB)",
         )
+        index_args["vocabulary_type"] = arg(
+            "--vocabulary-type",
+            type=str,
+            choices=[
+                "on-disk-compressed",
+                "on-disk-uncompressed",
+                "in-memory-compressed",
+                "in-memory-uncompressed",
+                "on-disk-compressed-geo-split",
+            ],
+            default="on-disk-compressed",
+            help="The type of the vocabulary to use for the index "
+            " (default: `on-disk-compressed`)",
+        )
         index_args["index_binary"] = arg(
             "--index-binary",
             type=str,

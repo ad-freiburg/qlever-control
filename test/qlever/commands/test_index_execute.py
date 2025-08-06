@@ -40,6 +40,7 @@ class TestIndexCommand(unittest.TestCase):
         args.system = "native"
         args.show = False
         args.overwrite_existing = False
+        args.vocabulary_type = "on-disk-compressed"
         args.index_container = "test_container"
         args.image = "test_image"
         args.multi_input_json = False
@@ -61,6 +62,7 @@ class TestIndexCommand(unittest.TestCase):
         expected_index_cmd = (
             f"{args.cat_input_files} | {args.index_binary}"
             f" -i {args.name} -s {args.name}.settings.json"
+            f" --vocabulary-type {args.vocabulary_type}"
             f" -F {args.format} -f - | tee"
             f" {args.name}.index-log.txt"
         )
@@ -243,6 +245,7 @@ class TestIndexCommand(unittest.TestCase):
         args.system = "native"
         args.show = False
         args.overwrite_existing = False
+        args.vocabulary_type = "on-disk-compressed"
         args.index_container = "test_container"
         args.image = "test_image"
         args.multi_input_json = False
@@ -264,6 +267,7 @@ class TestIndexCommand(unittest.TestCase):
         expected_index_cmd = (
             f"ulimit -Sn 500000 && {args.cat_input_files} | {args.index_binary}"
             f" -i {args.name} -s {args.name}.settings.json"
+            f" --vocabulary-type {args.vocabulary_type}"
             f" -F {args.format} -f -"
             f" | tee {args.name}.index-log.txt"
         )
@@ -350,6 +354,7 @@ class TestIndexCommand(unittest.TestCase):
         args.input_files = "*.nt"
         args.system = "native"
         args.settings_json = '{"example": "settings"}'
+        args.vocabulary_type = "on-disk-compressed"
         args.show = True
         args.ulimit = None
         args.parser_buffer_size = None
@@ -364,6 +369,7 @@ class TestIndexCommand(unittest.TestCase):
         expected_index_cmd = (
             f"{args.index_binary}"
             f" -i {args.name} -s {args.name}.settings.json"
+            f" --vocabulary-type {args.vocabulary_type}"
             f" {mock_input_json.return_value}"
             f" --only-pso-and-pos-permutations --no-patterns"
             f" --no-patterns -w {args.name}.wordsfile.tsv"

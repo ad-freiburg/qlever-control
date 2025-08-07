@@ -57,16 +57,14 @@ def get_query_stats(
         total_log_time += max(math.log(runtime), 0.001)
 
     total_successful = len(queries) - failed
-    if total_successful == 0:
-        query_data["failed"] = 100.0
-    else:
-        query_data["ameanTime"] = total_time / len(queries)
-        query_data["gmeanTime"] = math.exp(total_log_time / len(queries))
-        query_data["medianTime"] = sorted(runtimes)[len(queries) // 2]
+    query_data["ameanTime"] = total_time / len(queries)
+    query_data["gmeanTime"] = math.exp(total_log_time / len(queries))
+    query_data["medianTime"] = sorted(runtimes)[len(queries) // 2]
+    query_data["failed"] = (failed / len(queries)) * 100
+    if total_successful != 0:
         query_data["under1s"] = (under_1 / total_successful) * 100
         query_data["between1to5s"] = (bw_1_to_5 / total_successful) * 100
         query_data["over5s"] = (over_5 / total_successful) * 100
-        query_data["failed"] = (failed / len(queries)) * 100
     return query_data
 
 

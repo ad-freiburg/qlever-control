@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
+import statistics
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -33,7 +33,6 @@ def get_query_stats(
     if not queries:
         return query_data
     failed = under_1 = bw_1_to_5 = over_5 = 0
-    total_time = total_log_time = 0.0
     runtimes = []
 
     for query in queries:
@@ -53,13 +52,11 @@ def get_query_stats(
             else:
                 bw_1_to_5 += 1
         runtimes.append(runtime)
-        total_time += runtime
-        total_log_time += max(math.log(runtime), 0.001)
 
     total_successful = len(queries) - failed
-    query_data["ameanTime"] = total_time / len(queries)
-    query_data["gmeanTime"] = math.exp(total_log_time / len(queries))
-    query_data["medianTime"] = sorted(runtimes)[len(queries) // 2]
+    query_data["ameanTime"] = statistics.mean(runtimes)
+    query_data["gmeanTime"] = statistics.geometric_mean(runtimes)
+    query_data["medianTime"] = statistics.median(runtimes)
     query_data["failed"] = (failed / len(queries)) * 100
     if total_successful != 0:
         query_data["under1s"] = (under_1 / total_successful) * 100

@@ -19,9 +19,9 @@ class UserInterruptException(Exception):
     pass
 
 
-class OsmUpdateCommand(QleverCommand):
+class UpdateOsmCommand(QleverCommand):
     """
-    Class for executing the `osm-update` command.
+    Class for executing the `update-osm` command.
     """
 
     def __init__(self):

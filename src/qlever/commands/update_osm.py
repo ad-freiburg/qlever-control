@@ -3,12 +3,14 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import shlex
 import time
 from typing import Optional
 
 from qlever.command import QleverCommand
 from qlever.log import log
-from qlever.util import run_command, is_qlever_server_alive, binary_exists
+from qlever.util import run_command, is_qlever_server_alive, binary_exists, \
+    get_total_file_size
 
 from qlever.containerize import Containerize
 
@@ -41,7 +43,7 @@ class UpdateOsmCommand(QleverCommand):
         return True
 
     def relevant_qleverfile_arguments(self) -> dict[str: list[str]]:
-        return {"data": ["name", "polygon"],
+        return {"data": ["name", "polygon", "get_polygon_cmd"],
                 "server": ["host_name", "port", "access_token"],
                 "runtime": ["system"]}
 
@@ -51,7 +53,7 @@ class UpdateOsmCommand(QleverCommand):
             nargs=1,
             choices=["minute", "hour", "day"],
             type=str,
-            required=True,
+            default="day",
             help="The granularity with which the OSM data should be updated. "
                  "Choose from 'minute', 'hour', or 'day'.",
         )
@@ -93,6 +95,13 @@ class UpdateOsmCommand(QleverCommand):
             help="The name or path of the compiled `osm-live-updates` binary"
                  " to use when running natively.",
         )
+        subparser.add_argument(
+            "--get-polygon",
+            action='store_true',
+            default=False,
+            help="If set, the command will get the polygon for an OSM country"
+                 " extract using the GET_POLYGON_CMD in the Qleverfile."
+        )
 
     # Handle Ctrl+C gracefully by finishing the current update and then
     # exiting.
@@ -127,6 +136,12 @@ class UpdateOsmCommand(QleverCommand):
         raise UserInterruptException()
 
     def execute(self, args) -> bool:
+        # If the '--get-polygon' flag is set, we download the polygon and
+        # return.
+        if args.get_polygon:
+            self.get_polygon(args)
+            return True
+
         # If the user has specified a replication server, use that one,
         # otherwise we use the planet replication server with the specified
         # granularity.
@@ -272,9 +287,9 @@ class UpdateOsmCommand(QleverCommand):
             if not os.path.exists(args.polygon):
                 raise FileNotFoundError(f'No file matching "{args.polygon}"'
                                         f' found. Did you call '
-                                        f'`qlever get-polygon`? If you did, '
-                                        f'check POLYGON and GET_POLYGON_CMD in'
-                                        f' the QLeverfile"')
+                                        f'`qlever update-osm --get-polygon`? If'
+                                        f' you did, check POLYGON and '
+                                        f'GET_POLYGON_CMD in the QLeverfile')
 
             olu_cmd += f" --polygon {args.polygon}"
         # If the user has not specified a bounding box or polygon, we assume
@@ -299,3 +314,22 @@ class UpdateOsmCommand(QleverCommand):
                 use_bash=False
             )
 
+    def get_polygon(self, args) -> bool:
+        # Construct the command line and show it.
+        self.show(args.get_polygon_cmd, only_show=args.show)
+        if args.show:
+            return True
+
+        # Execute the command line.
+        try:
+            run_command(args.get_polygon_cmd, show_output=True)
+        except Exception as e:
+            log.error(f"Problem executing \"{args.get_polygon_cmd}\": {e}")
+            return False
+
+        # Show the total file size in GB and return.
+        patterns = shlex.split(args.polygon)
+        total_file_size = get_total_file_size(patterns)
+        print(f"Download successful, total file size: "
+              f"{total_file_size:,} bytes")
+        return True

@@ -53,7 +53,7 @@ class UpdateOsmCommand(QleverCommand):
             nargs=1,
             choices=["minute", "hour", "day"],
             type=str,
-            default="day",
+            default=["day"],
             help="The granularity with which the OSM data should be updated. "
                  "Choose from 'minute', 'hour', or 'day'.",
         )

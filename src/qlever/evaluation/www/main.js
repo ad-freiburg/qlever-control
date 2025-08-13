@@ -113,6 +113,7 @@ function mainTableColumnDefs(penaltyFactor) {
 }
 
 function updateMainPage(performanceData, additionalData) {
+    document.querySelector("#main-page-header").innerHTML = "SPARQL Engine Comparison";
     const container = document.getElementById("main-table-container");
 
     // Clear container if any existing content

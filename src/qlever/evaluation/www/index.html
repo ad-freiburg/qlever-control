@@ -28,42 +28,95 @@
         <script src="main.js"></script>
     </head>
     <body>
-        <a
-            href="/"
-            data-navigo
-            class="btn btn-outline-dark position-fixed m-1 z-3"
-            id="home-button"
-            title="Home"
-            aria-label="Home"
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                viewBox="0 0 24 24"
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+            <a
+                href="/"
+                data-navigo
+                class="btn btn-dark position-absolute top-50 start-30 translate-middle-y px-3"
+                style="z-index: 1030"
             >
-                <path
-                    d="M3 12L12 3l9 9M4 10v10a1 1 0 001 1h5m4 0h5a1 1 0 001-1V10"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                />
-            </svg>
-        </a>
-        <div id="page-main" class="page container mt-3">
-            <div class="main-title">SPARQL Engine Comparison</div>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        d="M3 12L12 3l9 9M4 10v10a1 1 0 001 1h5m4 0h5a1 1 0 001-1V10"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </svg>
+            </a>
+            <div class="container-fluid mx-2">
+                <!-- <a class="navbar-brand px-3" href="/">🏠 Home</a> -->
+
+                <div class="container d-flex justify-content-between align-items-center px-4">
+                    <div id="main-page-header" class="fw-bold fs-4 text-white mb-0">SPARQL Engine Comparison</div>
+
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-outline-light dropdown-toggle"
+                            type="button"
+                            id="resourcesDropdown"
+                            data-bs-toggle="dropdown"
+                        >
+                            Resources
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="resourcesDropdown">
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://ad-publications.informatik.uni-freiburg.de/CIKM_qlever_BB_2017.pdf"
+                                >
+                                    QLever publication</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://ad-publications.cs.uni-freiburg.de/ISWC_sparqloscope_BKTU_2025.pdf"
+                                    >Sparqloscope publication</a
+                                >
+                            </li>
+                            <li>
+                                <a class="dropdown-item" target="_blank" href="https://github.com/ad-freiburg/qlever"
+                                    >QLever on GitHub</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://github.com/ad-freiburg/qlever-control"
+                                    >qlever-control on GitHub</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://github.com/ad-freiburg/sparqloscope"
+                                    >Sparqloscope on GitHub</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div id="page-main" class="page container">
+            <!-- <div class="main-title">SPARQL Engine Comparison</div> -->
             <div id="main-table-container"></div>
         </div>
 
-        <div id="page-details" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="details-title" class="main-title flex-grow-1">Query Details</div>
-                <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark ms-3">
-                    Compare Execution Trees
-                </button>
-            </div>
+        <div id="page-details" class="page hidden container" data-kb="" data-engine="">
             <!-- Tabs here -->
             <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -184,11 +237,7 @@
             </div>
         </div>
 
-        <div id="page-comparison" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="comparison-title" class="main-title flex-grow-1">Performance Comparison</div>
-                <button id="goToCompareExecTreesBtn" class="btn btn-outline-dark ms-3">Compare Execution Trees</button>
-            </div>
+        <div id="page-comparison" class="page hidden container" data-kb="">
             <div class="d-flex align-items-start">
                 <!-- Accordion takes most of the space -->
                 <div class="flex-grow-1">
@@ -211,13 +260,10 @@
                 </div>
             </div>
 
-            <div id="comparison-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+            <div id="comparison-grid" class="ag-theme-balham mt-3" style="width: 100%"></div>
         </div>
 
-        <div id="page-compareExecTrees" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="compareExecTrees-title" class="main-title">Execution Tree Comparison</div>
-                <div class="form-check form-switch">
+        <div id="page-compareExecTrees" class="page hidden container">
                     <input class="form-check-input" type="checkbox" id="syncScrollCheck" />
                     <label class="form-check-label" for="syncScrollCheck">Sync Zoom & Scroll</label>
                 </div>

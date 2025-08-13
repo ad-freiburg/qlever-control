@@ -364,10 +364,13 @@ function getComparisonColumnDefs(engines, showResultSize) {
 }
 
 function updateComparisonPage(performanceData, kb) {
-    const titleNode = document.querySelector("#comparison-title");
+    const pageNode = document.querySelector("#page-comparison");
+    const lastKb = pageNode.dataset.kb;
+    if (lastKb === kb) return;
+    const titleNode = document.querySelector("#main-page-header");
     const title = `Performance comparison for ${capitalize(kb)}`;
-    if (titleNode.innerHTML === title) return;
     titleNode.innerHTML = title;
+    pageNode.dataset.kb = kb;
 
     populateColumnCheckboxes(Object.keys(performanceData[kb]));
     document.querySelector("#showResultSize").checked = false;
@@ -390,7 +393,7 @@ function updateComparisonPage(performanceData, kb) {
     if (rowCount < 25) domLayout = "autoHeight";
 
     if (domLayout === "normal") {
-        gridDiv.style.height = `${document.documentElement.clientHeight - 200}px`;
+        gridDiv.style.height = `${document.documentElement.clientHeight - 205}px`;
     }
     const comparisonGridOptions = {
         columnDefs: getComparisonColumnDefs(Object.keys(performanceData[kb])),

@@ -256,11 +256,14 @@ function onRuntimeRowSelected(event, performanceData, kb, engine) {
 }
 
 function updateDetailsPage(performanceData, kb, engine) {
+    const pageNode = document.querySelector("#page-details");
+    if (pageNode.dataset.kb === kb && pageNode.dataset.engine === engine) return;
     let engine_header = capitalize(engine);
     if (engine_header === "Qlever") engine_header = "QLever";
-    const titleNode = document.querySelector("#details-title");
-    if (titleNode.innerHTML === `Details - ${engine_header} (${capitalize(kb)})`) return;
-    else titleNode.innerHTML = `Details - ${engine_header} (${capitalize(kb)})`;
+    const titleNode = document.querySelector("#main-page-header");
+    titleNode.innerHTML = `Details - ${engine_header} (${capitalize(kb)})`;
+    pageNode.dataset.kb = kb;
+    pageNode.dataset.engine = engine;
 
     setTabsToDefault();
     const tab = new bootstrap.Tab(document.querySelector("#runtimes-tab"));
@@ -283,7 +286,7 @@ function updateDetailsPage(performanceData, kb, engine) {
     if (rowCount < 25) domLayout = "autoHeight";
 
     if (domLayout === "normal") {
-        gridDiv.style.height = `${document.documentElement.clientHeight - 200}px`;
+        gridDiv.style.height = `${document.documentElement.clientHeight - 150}px`;
     }
     let selectedRow = null;
     const detailsGridOptions = {

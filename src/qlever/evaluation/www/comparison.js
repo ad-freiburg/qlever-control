@@ -276,7 +276,7 @@ function getTooltipValue(params) {
         for (const key in params.data) {
             const value = params.data[key];
             if (value && typeof value === "object" && typeof value.sparql === "string") {
-                return value.sparql;
+                return { title: value.long_query || "", sparql: value.sparql || "" };
             }
         }
         return null;
@@ -296,14 +296,19 @@ function getTooltipValue(params) {
 
 class CustomTooltip {
     init(params) {
-        const tooltipText = params.value || "";
+        const tooltipText = typeof params.value === "string" ? params.value : params.value.sparql;
+        const tooltipTitle = params.value.title;
 
         const container = document.createElement("div");
         container.className = "custom-tooltip";
 
         const textDiv = document.createElement("div");
         textDiv.className = "tooltip-text";
-        textDiv.textContent = tooltipText;
+        if (tooltipTitle) {
+            textDiv.innerHTML = `<b>${tooltipTitle}</b><br><br><pre>${tooltipText}</pre>`;
+        } else {
+            textDiv.textContent = tooltipText;
+        }
 
         // Copy button
         const copyButton = document.createElement("button");
@@ -312,10 +317,17 @@ class CustomTooltip {
         copyButton.title = "Copy";
 
         copyButton.onclick = () => {
-            navigator.clipboard.writeText(textDiv.textContent).then(() => {
-                copyButton.innerHTML = "✅";
-                setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
-            });
+            navigator.clipboard
+                .writeText(tooltipText)
+                .then(() => {
+                    copyButton.innerHTML = "✅";
+                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                })
+                .catch((err) => {
+                    console.error("Failed to copy full SPARQL query:", err);
+                    copyButton.innerHTML = "❌";
+                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                });
         };
 
         container.appendChild(textDiv);

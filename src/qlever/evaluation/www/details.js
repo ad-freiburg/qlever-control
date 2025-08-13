@@ -39,6 +39,7 @@ function getQueryRuntimes(performanceData, kb, engine) {
     const allQueriesData = performanceData[kb][engine].queries;
     const queryRuntimes = {
         query: [],
+        long_query: [],
         sparql: [],
         runtime: [],
         failed: [],
@@ -47,6 +48,7 @@ function getQueryRuntimes(performanceData, kb, engine) {
 
     for (const queryData of allQueriesData) {
         queryRuntimes.query.push(queryData.query);
+        queryRuntimes.long_query.push(queryData.long_query || "");
         queryRuntimes.sparql.push(queryData.sparql);
         const runtime = Number(queryData.runtime_info.client_time.toFixed(2));
         queryRuntimes.runtime.push(runtime);
@@ -92,14 +94,19 @@ function getQueryResultsDict(headers, queryResults) {
 class CustomDetailsTooltip {
     eGui;
     init(params) {
-        const tooltipText = params.value || "";
+        const tooltipText = typeof params.value === "string" ? params.value : params.value.sparql;
+        const tooltipTitle = params.value.title;
 
         const container = document.createElement("div");
         container.className = "custom-tooltip";
 
         const textDiv = document.createElement("div");
         textDiv.className = "tooltip-text";
-        textDiv.textContent = tooltipText;
+        if (tooltipTitle) {
+            textDiv.innerHTML = `<b>${tooltipTitle}</b><br><br><pre>${tooltipText}</pre>`;
+        } else {
+            textDiv.textContent = tooltipText;
+        }
         container.appendChild(textDiv);
         this.eGui = container;
     }
@@ -123,7 +130,7 @@ function getQueryRuntimesColumnDefs() {
             filter: "agTextColumnFilter",
             flex: 3,
             tooltipValueGetter: (params) => {
-                return params.data.sparql;
+                return { title: params.data.long_query || "", sparql: params.data.sparql || "" };
             },
             tooltipComponent: CustomDetailsTooltip,
         },
@@ -164,6 +171,11 @@ function updateTabsWithSelectedRow(rowData) {
         for (const div of document.querySelectorAll("#query-tab-pane div")) {
             if (div.classList.contains("alert-info")) div.classList.add("d-none");
             else div.classList.remove("d-none");
+        }
+        const queryTitle = rowData?.long_query;
+        if (queryTitle) {
+            document.querySelector("#query-title").innerHTML = queryTitle;
+            document.querySelector("#query-title").className = "fw-bold pb-3";
         }
         document.querySelector("#full-query").textContent = sparqlQuery;
     }

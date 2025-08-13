@@ -116,6 +116,7 @@ MULTI_INPUT_JSON = [{ "cmd": "zcat ${data:ONTOLOGIES_DIR}/*.nt.gz", "graph": "${
                     { "cmd": "zcat {}", "graph": "${BASE_URL}/taxonomy", "for-each": "${data:PUBCHEM_DIR}/taxonomy/*.ttl.gz" }]
 SETTINGS_JSON   = { "languages-internal": [], "prefixes-external": [""], "num-triples-per-batch": 10000000 }
 STXXL_MEMORY    = 20G
+ULIMIT          = 10000
 
 [server]
 PORT               = 7023

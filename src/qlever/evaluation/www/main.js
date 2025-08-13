@@ -124,13 +124,44 @@ function updateMainPage(performanceData, additionalData) {
         const section = document.createElement("div");
         section.className = "kg-section";
 
-        // Header with KB name and a dummy compare button
+        // Header with KB name and a compare button
         const header = document.createElement("div");
         header.className = "kg-header";
+
+        const titleWrapper = document.createElement("div");
+        titleWrapper.className = "d-inline-flex align-items-center";
 
         const title = document.createElement("h5");
         title.textContent = capitalize(kb);
         title.style.fontWeight = "bold";
+        title.classList.add("mb-1");
+
+        const indexDescription = additionalData.kbs[kb].index_description;
+
+        let infoPill = null;
+        if (indexDescription) {
+            infoPill = document.createElement("a");
+            infoPill.setAttribute("tabindex", 0);
+            infoPill.className = "badge bg-light text-dark border border-dark rounded-pill ms-2";
+            infoPill.style.cursor = "pointer";
+            infoPill.style.padding = "0.25em 0.45em";
+            infoPill.style.fontSize = "0.65rem"; // smaller
+            infoPill.style.lineHeight = "1";
+            infoPill.style.textDecoration = "none";
+            infoPill.textContent = "ℹ"; 
+            infoPill.setAttribute("data-bs-toggle", "popover");
+            infoPill.setAttribute("data-bs-trigger", "focus");
+            infoPill.setAttribute("data-bs-placement", "right");
+            infoPill.setAttribute("data-bs-html", "true");
+            infoPill.setAttribute("data-bs-custom-class", "bg-dark");
+            infoPill.setAttribute(
+                "data-bs-content",
+                anchorme({
+                    input: indexDescription,
+                    options: { attributes: { target: "_blank", class: "text-info" } },
+                })
+            );
+        }
 
         const compareBtn = document.createElement("button");
         compareBtn.className = "btn btn-outline-dark btn-sm";
@@ -139,10 +170,15 @@ function updateMainPage(performanceData, additionalData) {
             router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
         };
 
-        header.appendChild(title);
+        titleWrapper.appendChild(title);
+        if (infoPill) {
+            titleWrapper.appendChild(infoPill);
+            new bootstrap.Popover(infoPill);
+        }
+        header.appendChild(titleWrapper);
         header.appendChild(compareBtn);
 
-        // Grid div with ag-theme-alpine styling
+        // Grid div with ag-theme-balham styling
         const gridDiv = document.createElement("div");
         gridDiv.className = "ag-theme-balham";
         gridDiv.style.width = "100%";

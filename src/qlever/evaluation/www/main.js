@@ -235,6 +235,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         performanceData = data.performance_data;
         const additionalData = data.additional_data;
 
+        for (const kb in performanceData) {
+            for (const engine in performanceData[kb]) {
+                const queries = performanceData[kb][engine].queries;
+                if (Array.isArray(queries)) {
+                    queries.forEach((query) => {
+                        try {
+                            query.sparql = spfmt.format(query.sparql);
+                        }
+                        catch (err) {
+                            console.log(err);
+                        }
+                    });
+                }
+            }
+        }
 
         // Routes
         router

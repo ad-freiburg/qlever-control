@@ -112,7 +112,7 @@ function mainTableColumnDefs(penaltyFactor) {
     ];
 }
 
-function updateMainPage(performanceData, penaltyFactor) {
+function updateMainPage(performanceData, additionalData) {
     const container = document.getElementById("main-table-container");
 
     // Clear container if any existing content
@@ -166,6 +166,8 @@ function updateMainPage(performanceData, penaltyFactor) {
             router.navigate(`/details?kb=${encodeURIComponent(kb)}&engine=${encodeURIComponent(engine)}`);
         };
 
+        const penaltyFactor = additionalData.penalty?.toString() ?? "Penalty Factor";
+
         // Initialize ag-Grid instance
         agGrid.createGrid(gridDiv, {
             columnDefs: mainTableColumnDefs(penaltyFactor),
@@ -193,16 +195,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         const yaml_path = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
         const response = await fetch(`${yaml_path}yaml_data`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        performanceData = await response.json();
-        const penaltyFactor = performanceData.penalty?.toString() ?? "Penalty Factor";
-        delete performanceData.penalty;
+        const data = await response.json();
+        performanceData = data.performance_data;
+        const additionalData = data.additional_data;
+
 
         // Routes
         router
             .on({
                 "/": () => {
                     showPage("main");
-                    updateMainPage(performanceData, penaltyFactor);
+                    updateMainPage(performanceData, additionalData);
                 },
                 "/details": (params) => {
                     const kb = params.params.kb;
@@ -270,7 +273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             })
             .notFound(() => {
                 showPage("main");
-                updateMainPage(performanceData, penaltyFactor);
+                updateMainPage(performanceData, additionalData);
             });
 
         router.resolve();

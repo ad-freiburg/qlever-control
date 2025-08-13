@@ -118,7 +118,7 @@
 
         <div id="page-details" class="page hidden container" data-kb="" data-engine="">
             <!-- Tabs here -->
-            <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
+            <ul class="nav nav-tabs sticky-top bg-white d-flex align-items-center" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button
                         class="nav-link active text-dark"
@@ -175,6 +175,11 @@
                         Query result
                     </button>
                 </li>
+                <li class="ms-auto">
+                    <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark">
+                        Compare Execution Trees
+                    </button>
+                </li>
             </ul>
             <div class="tab-content px-3" id="myTabContent">
                 <div
@@ -192,6 +197,7 @@
                     <!-- Tab 2 content -->
                     <div class="alert alert-info mt-4">Please select a query from the Query Runtimes table!</div>
                     <div class="p-3 bg-white mt-4">
+                        <div id="query-title"></div>
                         <pre><code id="full-query"></code></pre>
                     </div>
                 </div>
@@ -241,22 +247,57 @@
             <div class="d-flex align-items-start">
                 <!-- Accordion takes most of the space -->
                 <div class="flex-grow-1">
-                    <div class="py-2 pe-3 mt-1" id="columns-checkbox-container">
+                    <div class="py-2 pe-3" id="columns-checkbox-container">
                         <div class="d-flex align-items-center flex-wrap gap-3">
-                            <label class="mb-0 me-3 fw-bold">Engines to hide:</label>
-                            <div class="d-flex flex-wrap gap-3" id="columnCheckboxContainer">
+                            <label class="fw-bold">Hide Engines:</label>
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="columnCheckboxContainer">
                                 <!-- Checkboxes will be added here dynamically -->
                             </div>
                         </div>
                     </div>
                 </div>
+                <button id="goToCompareExecTreesBtn" class="btn btn-sm btn-outline-dark ms-3 mt-2">
+                    Compare Execution Trees
+                </button>
+            </div>
 
-                <!-- Right-aligned checkbox -->
-                <div class="form-check form-switch ms-3 mt-3">
-                    <input class="form-check-input" type="checkbox" style="cursor: pointer" id="showResultSize" />
-                    <label class="form-check-label" style="cursor: pointer" for="showResultSize">
-                        Show result size
-                    </label>
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                <!-- Left side: Label + dropdown -->
+                <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap py-2">
+                    <label for="orderColumnsDropdown" class="fw-bold" style="font-size: 0.95rem"
+                        >Order Engines by Metric:</label
+                    >
+                    <select
+                        class="form-select form-select-sm"
+                        id="orderColumnsDropdown"
+                        style="min-width: 150px; max-width: 250px"
+                    >
+                        <option value="gmeanTime-asc">Geometric Mean ↑</option>
+                        <option value="gmeanTime-desc">Geometric Mean ↓</option>
+                        <option value="failed-asc">Failed Queries ↑</option>
+                        <option value="failed-desc">Failed Queries ↓</option>
+                        <option value="medianTime-asc">Median ↑</option>
+                        <option value="medianTime-desc">Median ↓</option>
+                        <option value="ameanTime-asc">Arithmetic Mean ↑</option>
+                        <option value="ameanTime-desc">Arithmetic Mean ↓</option>
+                    </select>
+                </div>
+
+                <!-- Right side: toggles -->
+                <div class="d-flex gap-3 ms-3 flex-wrap">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showMetrics" style="cursor: pointer" />
+                        <label class="form-check-label small" for="showMetrics" style="cursor: pointer">
+                            Show Aggregate Metrics
+                        </label>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showResultSize" style="cursor: pointer" />
+                        <label class="form-check-label small" for="showResultSize" style="cursor: pointer">
+                            Show result size
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -264,12 +305,16 @@
         </div>
 
         <div id="page-compareExecTrees" class="page hidden container">
+            <div id="compareExecQueryContainer" class="d-flex align-items-center mb-3">
+                <!-- Query content (left-aligned) -->
+                <div id="compareExecQuery" class="alert alert-secondary p-2 mb-0 flex-grow-1 text-center"></div>
+
+                <!-- Toggle (right-aligned) -->
+                <div class="form-check form-switch ms-2 mb-0">
                     <input class="form-check-input" type="checkbox" id="syncScrollCheck" />
                     <label class="form-check-label" for="syncScrollCheck">Sync Zoom & Scroll</label>
                 </div>
             </div>
-
-            <div id="compareExecQuery" class="alert alert-secondary p-2 text-center"></div>
 
             <!-- Second row: Two selects + Compare button -->
             <div class="row g-3 align-items-end">

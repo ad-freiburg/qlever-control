@@ -42,6 +42,50 @@ function setComparisonPageEvents() {
         }
     });
 
+    document.querySelector("#orderColumnsDropdown").addEventListener("change", (event) => {
+        const selectedValue = event.target.value;
+        const [metric, order] = selectedValue.split("-");
+        const kb = document.querySelector("#page-comparison").dataset.kb; 
+        const enginesToDisplay = Array.from(
+            document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:not(:checked)')
+        ).map((cb) => cb.value);
+        const sortedEngines = sortEngines(enginesToDisplay, kb, metric, order);
+        const showResultSize = document.querySelector("#showResultSize").checked;
+        const sortedColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
+        const showMetrics = document.querySelector("#showMetrics").checked;
+        sortedColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+        gridApi.updateGridOptions({
+            columnDefs: sortedColumnDefs,
+            maintainColumnOrder: false,
+        });
+    })
+
+    document.querySelector("#showMetrics").addEventListener("change", (event) => {
+        if (!gridApi) return;
+        const showMetrics = event.target.checked;
+        const enginesToDisplay = gridApi
+            .getColumns()
+            .filter((col) => {
+                return col.colId !== "query";
+            })
+            .map((col) => {
+                return col.colId;
+            });
+        const columnDefs = gridApi.getColumnDefs();
+        let pinnedMetricData = [];
+        let queryHeader = "Query";
+        if (showMetrics) {
+            const kb = document.querySelector("#page-comparison").dataset.kb;
+            pinnedMetricData = getPinnedMetricData(enginesToDisplay, kb);
+            queryHeader = "Metric/Query";
+        }
+        columnDefs[0].headerName = queryHeader;
+        gridApi.updateGridOptions({
+            pinnedTopRowData: pinnedMetricData,
+            columnDefs: columnDefs,
+        });
+    })
+
     document.querySelector("#showResultSize").addEventListener("change", (event) => {
         if (!gridApi) return;
         const showResultSize = event.target.checked;
@@ -54,9 +98,11 @@ function setComparisonPageEvents() {
                 return col.colId;
             });
         const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
+        const showMetrics = document.querySelector("#showMetrics").checked;
+        visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
         gridApi.updateGridOptions({
             columnDefs: visibleColumnDefs,
-            maintainColumnOrder: true
+            maintainColumnOrder: true,
         });
     });
 
@@ -202,20 +248,26 @@ function getPerformanceComparisonPerKbDict(allEngineStats, enginesToDisplay = nu
 function updateHiddenColumns(enginesToDisplay) {
     if (!gridApi) return;
 
-    const kb = new URLSearchParams(window.location.hash.split("?")[1]).get("kb");
+    const kb = document.querySelector("#page-comparison").dataset.kb; 
     const visibleTableData = getPerformanceComparisonPerKbDict(performanceData[kb], enginesToDisplay);
     const visibleRowData = getGridRowData(visibleTableData.query.length, visibleTableData);
-    gridApi.setGridOption("rowData", visibleRowData);
+    // gridApi.setGridOption("rowData", visibleRowData);
     const showResultSize = document.querySelector("#showResultSize").checked;
-    const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
+    const [metric, order] = document.querySelector("#orderColumnsDropdown").value.split("-");
+    const sortedEngines = sortEngines(enginesToDisplay, kb, metric, order);
+    const visibleColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
+    const showMetrics = document.querySelector("#showMetrics").checked;
+    visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
     gridApi.updateGridOptions({
         columnDefs: visibleColumnDefs,
-        maintainColumnOrder: true
+        rowData: visibleRowData,
+        maintainColumnOrder: false,
     });
 }
 
 class WarningCellRenderer {
     init(params) {
+        if (params.pinned) console.log(params);
         const value = params.value;
         const container = document.createElement("div");
         container.style.whiteSpace = "normal";
@@ -224,7 +276,17 @@ class WarningCellRenderer {
         warning.textContent = "⚠️";
         warning.style.marginRight = "4px";
 
-        if (params.column.getColId() === "query") {
+        if (params.node.rowPinned) {
+            container.classList.add("fw-bold");
+            if (typeof value === "string") {
+                container.appendChild(document.createTextNode(`${value}`));
+            }
+            else {
+                const unit = params.data.query === "Failed Queries" ? "%": "s";
+                container.appendChild(document.createTextNode(`${value.toFixed(2)} ${unit}`));
+            }
+        }
+        else if (params.column.getColId() === "query") {
             container.appendChild(document.createTextNode(`${value}  `));
             if (params.data.row_warning) {
                 warning.title = "The result sizes for the engines do not match!";
@@ -340,6 +402,24 @@ class CustomTooltip {
     }
 }
 
+function getPinnedMetricData(engines, kb) {
+    let pinnedMetricData = [];
+    const metricKeyNameObj = {
+        "gmeanTime": "Geometric Mean",
+        "failed": "Failed Queries",
+        "medianTime": "Median",
+        "ameanTime": "Arithmetic Mean",
+    };
+    for (const [metric, metricName] of Object.entries(metricKeyNameObj)) {
+        let metricData = {"query": metricName};
+        for (const engine of engines) {
+            metricData[engine] = performanceData[kb][engine][metric];
+        }
+        pinnedMetricData.push(metricData);
+    }
+    return pinnedMetricData;
+}
+
 /**
  * Returns column definitions for ag-Grid to display engine comparison results.
  *
@@ -383,9 +463,11 @@ function updateComparisonPage(performanceData, kb) {
     const title = `Performance comparison for ${capitalize(kb)}`;
     titleNode.innerHTML = title;
     pageNode.dataset.kb = kb;
+    document.querySelector("#orderColumnsDropdown").selectedIndex = 0;
 
     populateColumnCheckboxes(Object.keys(performanceData[kb]));
     document.querySelector("#showResultSize").checked = false;
+    document.querySelector("#showMetrics").checked = false;
     let rowSelection = undefined;
     const execTreeEngines = getEnginesWithExecTrees(performanceData[kb]);
     if (execTreeEngines.length < 2) {
@@ -407,8 +489,10 @@ function updateComparisonPage(performanceData, kb) {
     if (domLayout === "normal") {
         gridDiv.style.height = `${document.documentElement.clientHeight - 205}px`;
     }
+    // Default column ordering = first option of orderColumnsDropdown
+    const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime", "asc");
     const comparisonGridOptions = {
-        columnDefs: getComparisonColumnDefs(Object.keys(performanceData[kb])),
+        columnDefs: getComparisonColumnDefs(sortedEngines),
         rowData: rowData,
         defaultColDef: {
             sortable: true,

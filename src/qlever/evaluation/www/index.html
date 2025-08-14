@@ -17,10 +17,9 @@
         <script src="https://unpkg.com/navigo@8.11.1/lib/navigo.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
-        <script src=" https://cdn.jsdelivr.net/npm/raphael@2.3.0/raphael.min.js "></script>
-        <!-- <script src=" https://cdn.jsdelivr.net/npm/treantjs@1.0.0/Treant.min.js "></script> -->
-        <!-- <script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script> -->
-        <script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/raphael@2.3.0/raphael.min.js "></script>
+        <script src="https://cdn.jsdelivr.net/gh/sparqling/sparql-formatter@v1.0.2/dist/spfmt.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/anchorme/3.0.8/anchorme.min.js"></script>
         <script src="treant.js"></script>
         <script src="util.js"></script>
         <script src="details.js"></script>
@@ -29,44 +28,97 @@
         <script src="main.js"></script>
     </head>
     <body>
-        <a
-            href="/"
-            data-navigo
-            class="btn btn-outline-dark position-fixed m-1 z-3"
-            id="home-button"
-            title="Home"
-            aria-label="Home"
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                viewBox="0 0 24 24"
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+            <a
+                href="/"
+                data-navigo
+                class="btn btn-dark position-absolute top-50 start-30 translate-middle-y px-3"
+                style="z-index: 1030"
             >
-                <path
-                    d="M3 12L12 3l9 9M4 10v10a1 1 0 001 1h5m4 0h5a1 1 0 001-1V10"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                />
-            </svg>
-        </a>
-        <div id="page-main" class="page container mt-3">
-            <div class="main-title">SPARQL Engine Comparison</div>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        d="M3 12L12 3l9 9M4 10v10a1 1 0 001 1h5m4 0h5a1 1 0 001-1V10"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+                </svg>
+            </a>
+            <div class="container-fluid mx-2">
+                <!-- <a class="navbar-brand px-3" href="/">🏠 Home</a> -->
+
+                <div class="container d-flex justify-content-between align-items-center px-4">
+                    <div id="main-page-header" class="fw-bold fs-4 text-white mb-0">SPARQL Engine Comparison</div>
+
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-outline-light dropdown-toggle"
+                            type="button"
+                            id="resourcesDropdown"
+                            data-bs-toggle="dropdown"
+                        >
+                            Resources
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="resourcesDropdown">
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://ad-publications.informatik.uni-freiburg.de/CIKM_qlever_BB_2017.pdf"
+                                >
+                                    QLever publication</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://ad-publications.cs.uni-freiburg.de/ISWC_sparqloscope_BKTU_2025.pdf"
+                                    >Sparqloscope publication</a
+                                >
+                            </li>
+                            <li>
+                                <a class="dropdown-item" target="_blank" href="https://github.com/ad-freiburg/qlever"
+                                    >QLever on GitHub</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://github.com/ad-freiburg/qlever-control"
+                                    >qlever-control on GitHub</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    target="_blank"
+                                    href="https://github.com/ad-freiburg/sparqloscope"
+                                    >Sparqloscope on GitHub</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div id="page-main" class="page container">
+            <!-- <div class="main-title">SPARQL Engine Comparison</div> -->
             <div id="main-table-container"></div>
         </div>
 
-        <div id="page-details" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="details-title" class="main-title flex-grow-1">Query Details</div>
-                <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark ms-3">
-                    Compare Execution Trees
-                </button>
-            </div>
+        <div id="page-details" class="page hidden container" data-kb="" data-engine="">
             <!-- Tabs here -->
-            <ul class="nav nav-tabs sticky-top bg-white" id="myTab" role="tablist">
+            <ul class="nav nav-tabs sticky-top bg-white d-flex align-items-center" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button
                         class="nav-link active text-dark"
@@ -123,6 +175,11 @@
                         Query result
                     </button>
                 </li>
+                <li class="ms-auto">
+                    <button id="detailsCompareExecTreesBtn" class="btn btn-outline-dark">
+                        Compare Execution Trees
+                    </button>
+                </li>
             </ul>
             <div class="tab-content px-3" id="myTabContent">
                 <div
@@ -140,6 +197,7 @@
                     <!-- Tab 2 content -->
                     <div class="alert alert-info mt-4">Please select a query from the Query Runtimes table!</div>
                     <div class="p-3 bg-white mt-4">
+                        <div id="query-title"></div>
                         <pre><code id="full-query"></code></pre>
                     </div>
                 </div>
@@ -185,46 +243,78 @@
             </div>
         </div>
 
-        <div id="page-comparison" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="comparison-title" class="main-title flex-grow-1">Performance Comparison</div>
-                <button id="goToCompareExecTreesBtn" class="btn btn-outline-dark ms-3">Compare Execution Trees</button>
-            </div>
+        <div id="page-comparison" class="page hidden container" data-kb="">
             <div class="d-flex align-items-start">
                 <!-- Accordion takes most of the space -->
                 <div class="flex-grow-1">
-                    <div class="py-2 pe-3 mt-1" id="columns-checkbox-container">
+                    <div class="py-2 pe-3" id="columns-checkbox-container">
                         <div class="d-flex align-items-center flex-wrap gap-3">
-                            <label class="mb-0 me-3 fw-bold">Engines to hide:</label>
-                            <div class="d-flex flex-wrap gap-3" id="columnCheckboxContainer">
+                            <label class="fw-bold">Hide Engines:</label>
+                            <div class="d-flex flex-wrap gap-3 mt-1" id="columnCheckboxContainer">
                                 <!-- Checkboxes will be added here dynamically -->
                             </div>
                         </div>
                     </div>
                 </div>
+                <button id="goToCompareExecTreesBtn" class="btn btn-sm btn-outline-dark ms-3 mt-2">
+                    Compare Execution Trees
+                </button>
+            </div>
 
-                <!-- Right-aligned checkbox -->
-                <div class="form-check form-switch ms-3 mt-3">
-                    <input class="form-check-input" type="checkbox" style="cursor: pointer" id="showResultSize" />
-                    <label class="form-check-label" style="cursor: pointer" for="showResultSize">
-                        Show result size
-                    </label>
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                <!-- Left side: Label + dropdown -->
+                <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap py-2">
+                    <label for="orderColumnsDropdown" class="fw-bold" style="font-size: 0.95rem"
+                        >Order Engines by Metric:</label
+                    >
+                    <select
+                        class="form-select form-select-sm"
+                        id="orderColumnsDropdown"
+                        style="min-width: 150px; max-width: 250px"
+                    >
+                        <option value="gmeanTime-asc">Geometric Mean ↑</option>
+                        <option value="gmeanTime-desc">Geometric Mean ↓</option>
+                        <option value="failed-asc">Failed Queries ↑</option>
+                        <option value="failed-desc">Failed Queries ↓</option>
+                        <option value="medianTime-asc">Median ↑</option>
+                        <option value="medianTime-desc">Median ↓</option>
+                        <option value="ameanTime-asc">Arithmetic Mean ↑</option>
+                        <option value="ameanTime-desc">Arithmetic Mean ↓</option>
+                    </select>
+                </div>
+
+                <!-- Right side: toggles -->
+                <div class="d-flex gap-3 ms-3 flex-wrap">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showMetrics" style="cursor: pointer" />
+                        <label class="form-check-label small" for="showMetrics" style="cursor: pointer">
+                            Show Aggregate Metrics
+                        </label>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showResultSize" style="cursor: pointer" />
+                        <label class="form-check-label small" for="showResultSize" style="cursor: pointer">
+                            Show result size
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            <div id="comparison-grid" class="ag-theme-balham mt-4" style="width: 100%"></div>
+            <div id="comparison-grid" class="ag-theme-balham mt-3" style="width: 100%"></div>
         </div>
 
-        <div id="page-compareExecTrees" class="page hidden container mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <div id="compareExecTrees-title" class="main-title">Execution Tree Comparison</div>
-                <div class="form-check form-switch">
+        <div id="page-compareExecTrees" class="page hidden container">
+            <div id="compareExecQueryContainer" class="d-flex align-items-center mb-3">
+                <!-- Query content (left-aligned) -->
+                <div id="compareExecQuery" class="alert alert-secondary p-2 mb-0 flex-grow-1 text-center"></div>
+
+                <!-- Toggle (right-aligned) -->
+                <div class="form-check form-switch ms-2 mb-0">
                     <input class="form-check-input" type="checkbox" id="syncScrollCheck" />
                     <label class="form-check-label" for="syncScrollCheck">Sync Zoom & Scroll</label>
                 </div>
             </div>
-
-            <div id="compareExecQuery" class="alert alert-secondary p-2 text-center"></div>
 
             <!-- Second row: Two selects + Compare button -->
             <div class="row g-3 align-items-end">

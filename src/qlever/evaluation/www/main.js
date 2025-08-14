@@ -36,13 +36,15 @@ function getAllQueryStatsByKb(performanceData, kb) {
  * It applies proper formatting and filters based on the type of each metric.
  * @returns {Array<Object>} ag-Grid gridOptions object
  */
-function mainTableColumnDefs() {
+function mainTableColumnDefs(penaltyFactor) {
     // Define custom formatting and filters based on column keys
     return [
         {
             headerName: "SPARQL Engine",
             field: "engine_name",
             filter: "agTextColumnFilter",
+            headerTooltip: "Name of the SPARQL engine being benchmarked.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Failed",
@@ -50,6 +52,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of queries that failed to return results.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Arithmetic Mean",
@@ -57,6 +61,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Arithmetic mean of all query runtimes, including penalties for failed queries. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Geometric Mean",
@@ -64,6 +70,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Geometric mean of all query runtimes, using log scale, includes failed query penalties. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "Median",
@@ -71,6 +79,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Median runtime of all queries, including penalties for failed ones. (Runtime for failed queries = timeout * ${penaltyFactor})`,
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "<= 1s",
@@ -78,6 +88,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries that completed in 1 second or less.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "(1s, 5s]",
@@ -85,6 +97,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries completed in more than 1 second and up to 5 seconds.",
+            tooltipComponent: CustomDetailsTooltip,
         },
         {
             headerName: "> 5s",
@@ -92,11 +106,14 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of successful queries that took more than 5 seconds to complete.",
+            tooltipComponent: CustomDetailsTooltip,
         },
     ];
 }
 
-function updateMainPage(performanceData) {
+function updateMainPage(performanceData, additionalData) {
+    document.querySelector("#main-page-header").innerHTML = "SPARQL Engine Comparison";
     const container = document.getElementById("main-table-container");
 
     // Clear container if any existing content
@@ -108,13 +125,44 @@ function updateMainPage(performanceData) {
         const section = document.createElement("div");
         section.className = "kg-section";
 
-        // Header with KB name and a dummy compare button
+        // Header with KB name and a compare button
         const header = document.createElement("div");
         header.className = "kg-header";
+
+        const titleWrapper = document.createElement("div");
+        titleWrapper.className = "d-inline-flex align-items-center";
 
         const title = document.createElement("h5");
         title.textContent = capitalize(kb);
         title.style.fontWeight = "bold";
+        title.classList.add("mb-1");
+
+        const indexDescription = additionalData.kbs[kb].index_description;
+
+        let infoPill = null;
+        if (indexDescription) {
+            infoPill = document.createElement("a");
+            infoPill.setAttribute("tabindex", 0);
+            infoPill.className = "badge bg-light text-dark border border-dark rounded-pill ms-2";
+            infoPill.style.cursor = "pointer";
+            infoPill.style.padding = "0.25em 0.45em";
+            infoPill.style.fontSize = "0.65rem"; // smaller
+            infoPill.style.lineHeight = "1";
+            infoPill.style.textDecoration = "none";
+            infoPill.textContent = "ℹ"; 
+            infoPill.setAttribute("data-bs-toggle", "popover");
+            infoPill.setAttribute("data-bs-trigger", "focus");
+            infoPill.setAttribute("data-bs-placement", "right");
+            infoPill.setAttribute("data-bs-html", "true");
+            infoPill.setAttribute("data-bs-custom-class", "bg-dark");
+            infoPill.setAttribute(
+                "data-bs-content",
+                anchorme({
+                    input: indexDescription,
+                    options: { attributes: { target: "_blank", class: "text-info" } },
+                })
+            );
+        }
 
         const compareBtn = document.createElement("button");
         compareBtn.className = "btn btn-outline-dark btn-sm";
@@ -123,10 +171,15 @@ function updateMainPage(performanceData) {
             router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
         };
 
-        header.appendChild(title);
+        titleWrapper.appendChild(title);
+        if (infoPill) {
+            titleWrapper.appendChild(infoPill);
+            new bootstrap.Popover(infoPill);
+        }
+        header.appendChild(titleWrapper);
         header.appendChild(compareBtn);
 
-        // Grid div with ag-theme-alpine styling
+        // Grid div with ag-theme-balham styling
         const gridDiv = document.createElement("div");
         gridDiv.className = "ag-theme-balham";
         gridDiv.style.width = "100%";
@@ -150,9 +203,11 @@ function updateMainPage(performanceData) {
             router.navigate(`/details?kb=${encodeURIComponent(kb)}&engine=${encodeURIComponent(engine)}`);
         };
 
+        const penaltyFactor = additionalData.penalty?.toString() ?? "Penalty Factor";
+
         // Initialize ag-Grid instance
         agGrid.createGrid(gridDiv, {
-            columnDefs: mainTableColumnDefs(),
+            columnDefs: mainTableColumnDefs(penaltyFactor),
             rowData: rowData,
             defaultColDef: {
                 sortable: true,
@@ -163,6 +218,7 @@ function updateMainPage(performanceData) {
             },
             domLayout: "autoHeight",
             rowStyle: { fontSize: "14px", cursor: "pointer" },
+            tooltipShowDelay: 500,
             onRowClicked: onRowClicked,
             suppressDragLeaveHidesColumns: true,
         });
@@ -176,14 +232,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         const yaml_path = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
         const response = await fetch(`${yaml_path}yaml_data`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        performanceData = await response.json();
+        const data = await response.json();
+        performanceData = data.performance_data;
+        const additionalData = data.additional_data;
+
+        for (const kb in performanceData) {
+            for (const engine in performanceData[kb]) {
+                const queries = performanceData[kb][engine].queries;
+                if (Array.isArray(queries)) {
+                    queries.forEach((query) => {
+                        try {
+                            query.sparql = spfmt.format(query.sparql);
+                        }
+                        catch (err) {
+                            console.log(err);
+                        }
+                    });
+                }
+            }
+        }
 
         // Routes
         router
             .on({
                 "/": () => {
                     showPage("main");
-                    updateMainPage(performanceData);
+                    updateMainPage(performanceData, additionalData);
                 },
                 "/details": (params) => {
                     const kb = params.params.kb;
@@ -251,7 +325,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             })
             .notFound(() => {
                 showPage("main");
-                updateMainPage(performanceData);
+                updateMainPage(performanceData, additionalData);
             });
 
         router.resolve();

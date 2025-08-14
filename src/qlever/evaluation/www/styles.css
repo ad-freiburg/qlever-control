@@ -96,6 +96,10 @@ body {
     word-break: break-word;
 }
 
+.popover-body {
+    color: white;
+}
+
 .copy-btn {
     background: none;
     border: none;

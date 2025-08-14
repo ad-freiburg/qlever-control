@@ -205,7 +205,7 @@ function getEnginesWithExecTrees(performanceDataForKb) {
 }
 
 function updateCompareExecTreesPage(kb, query, queryEngineStat) {
-    const titleNode = document.querySelector("#compareExecTrees-title");
+    const titleNode = document.querySelector("#main-page-header");
     const queryNode = document.querySelector("#compareExecQuery");
     const title = `Query Execution Tree comparison - ${capitalize(kb)}`;
 

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
-import re
+import statistics
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -16,41 +15,61 @@ from qlever.log import log
 EVAL_DIR = Path(__file__).parent.parent / "evaluation"
 
 
+QUERY_STATS_DICT = {
+    "ameanTime": None,
+    "gmeanTime": None,
+    "medianTime": None,
+    "under1s": 0.0,
+    "between1to5s": 0.0,
+    "over5s": 0.0,
+    "failed": 0.0,
+}
 
-def get_query_stats(queries: list[dict]) -> dict[str, float | None]:
-    query_data = {stat: val for stat, val in QUERY_STATS_DICT.items()}    
+
+def get_query_stats(
+    queries: list[dict], timeout: int | None, error_penalty: int
+) -> dict[str, float | None]:
+    query_data = {stat: val for stat, val in QUERY_STATS_DICT.items()}
+    if not queries:
+        return query_data
     failed = under_1 = bw_1_to_5 = over_5 = 0
-    total_time = total_log_time = 0.0
     runtimes = []
+
     for query in queries:
+        runtime = float(query["runtime_info"]["client_time"])
         if len(query["headers"]) == 0 and isinstance(query["results"], str):
             failed += 1
+            runtime = (
+                runtime * error_penalty
+                if timeout is None
+                else timeout * error_penalty
+            )
         else:
-            runtime = float(query["runtime_info"]["client_time"])
-            total_time += runtime
-            total_log_time += max(math.log(runtime), 0.001)
-            runtimes.append(runtime)
             if runtime <= 1:
                 under_1 += 1
             elif runtime > 5:
                 over_5 += 1
             else:
                 bw_1_to_5 += 1
-    total_successful = len(runtimes)
-    if total_successful == 0:
-        query_data["failed"] = 100.0
-    else:
-        query_data["ameanTime"] = total_time / total_successful
-        query_data["gmeanTime"] = math.exp(total_log_time / total_successful)
-        query_data["medianTime"] = sorted(runtimes)[total_successful // 2]
+        runtimes.append(runtime)
+
+    total_successful = len(queries) - failed
+    query_data["ameanTime"] = statistics.mean(runtimes)
+    query_data["gmeanTime"] = statistics.geometric_mean(runtimes)
+    query_data["medianTime"] = statistics.median(runtimes)
+    query_data["failed"] = (failed / len(queries)) * 100
+    if total_successful != 0:
         query_data["under1s"] = (under_1 / total_successful) * 100
         query_data["between1to5s"] = (bw_1_to_5 / total_successful) * 100
         query_data["over5s"] = (over_5 / total_successful) * 100
-        query_data["failed"] = (failed / len(queries)) * 100
     return query_data
 
 
-def create_performance_data(yaml_dir: Path) -> dict | None:
+def create_json_data(yaml_dir: Path, error_penalty: int) -> dict | None:
+    data = {
+        "performance_data": None,
+        "additional_data": {"penalty": error_penalty, "kbs": {}},
+    }
     performance_data = {}
     if not yaml_dir.is_dir():
         return None
@@ -65,127 +84,29 @@ def create_performance_data(yaml_dir: Path) -> dict | None:
             performance_data[dataset][engine] = {}
         with yaml_file.open("r", encoding="utf-8") as queries_file:
             queries_data = yaml.safe_load(queries_file)
-            query_stats = get_query_stats(queries_data["queries"])
+            data["additional_data"]["kbs"][dataset] = {
+                "index_description": queries_data.get("index_description")
+            }
+            query_stats = get_query_stats(
+                queries_data["queries"],
+                queries_data.get("timeout"),
+                error_penalty,
+            )
             performance_data[dataset][engine] = {**query_stats, **queries_data}
-    return performance_data
-
-
-QUERY_STATS_DICT = {
-    "ameanTime": None,
-    "gmeanTime": None,
-    "medianTime": None,
-    "under1s": 0.0,
-    "between1to5s": 0.0,
-    "over5s": 0.0,
-    "failed": 0.0,
-}
-
-
-def get_all_query_stats_by_kb(
-    performance_data: dict[str, dict[str, float | list]], kb: str
-) -> dict[str, list]:
-    """
-    Given a knowledge base (kb), get all query stats for each engine to display
-    on the main page of eval web app as a table
-    """
-    engines_dict = performance_data[kb]
-    engines_dict_for_table = {col: [] for col in ["engine_name"] + QUERY_STATS_DICT.keys()}
-    for engine, engine_stats in engines_dict.items():
-        engines_dict_for_table["engine_name"].append(engine.capitalize())
-        for metric_key in QUERY_STATS_DICT.keys():
-            metric = engine_stats[metric_key]
-            engines_dict_for_table[metric_key].append(metric)
-    return engines_dict_for_table
-
-
-def extract_core_value(sparql_value: list[str] | str) -> str:
-    if isinstance(sparql_value, list):
-        if not sparql_value:
-            return ""
-        sparql_value = sparql_value[0]
-
-    if not isinstance(sparql_value, str) or not sparql_value.strip():
-        return ""
-
-    # URI enclosed in angle brackets
-    if sparql_value.startswith("<") and sparql_value.endswith(">"):
-        return sparql_value[1:-1]
-
-    # Literal string (e.g., "\"Some value\"")
-    literal_match = re.match(r'^"((?:[^"\\]|\\.)*)"', sparql_value)
-    if literal_match:
-        raw = literal_match.group(1)
-        return re.sub(r"\\(.)", r"\1", raw)
-
-    # Fallback
-    return sparql_value
-
-
-def get_single_result(query_data) -> str | None:
-    result_size = query_data.get("result_size")
-    result_size = 0 if result_size is None else result_size
-    single_result = None
-    if (
-        result_size == 1
-        and len(query_data["headers"]) == 1
-        and len(query_data["results"]) == 1
-    ):
-        single_result = query_data["results"][0]
-        single_result = extract_core_value(single_result)
-        try:
-            single_result = f"{int(single_result):,}"
-        except ValueError:
-            pass
-    return single_result
-
-
-def get_query_runtimes(
-    performance_data: dict[str, dict[str, float | list]], kb: str, engine: str
-) -> dict[str, list]:
-    all_queries_data = performance_data[kb][engine]["queries"]
-    query_runtimes = {
-        "query": [],
-        "runtime": [],
-        "failed": [],
-        "result_size": [],
-    }
-    for query_data in all_queries_data:
-        query_runtimes["query"].append(query_data["query"])
-        runtime = round(query_data["runtime_info"]["client_time"], 2)
-        query_runtimes["runtime"].append(runtime)
-        failed = (
-            isinstance(query_data["results"], str)
-            or len(query_data["headers"]) == 0
-        )
-        query_runtimes["failed"].append(failed)
-        result_size = query_data.get("result_size")
-        result_size = 0 if result_size is None else result_size
-        single_result = get_single_result(query_data)
-        result_size_to_display = (
-            f"{result_size:,}"
-            if single_result is None
-            else f"1 [{single_result}]"
-        )
-        query_runtimes["result_size"].append(result_size_to_display)
-    return query_runtimes
-
-
-def get_query_results_df(
-    headers: list[str], query_results: list[list[str]]
-) -> dict[str, list[str]]:
-    query_results_lists = [[] for _ in headers]
-    for result in query_results:
-        for i in range(len(headers)):
-            query_results_lists[i].append(result[i])
-    query_results_dict = {
-        header: query_results_lists[i] for i, header in enumerate(headers)
-    }
-    return query_results_dict
+    data["performance_data"] = performance_data
+    return data
 
 
 class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, yaml_dir: Path | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        yaml_dir: Path | None = None,
+        error_penalty: int = 2,
+        **kwargs,
+    ) -> None:
         self.yaml_dir = yaml_dir
+        self.error_penalty = error_penalty
         super().__init__(*args, **kwargs)
 
     def do_GET(self) -> None:
@@ -193,7 +114,9 @@ class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         if path == "/yaml_data":
             try:
-                data = create_performance_data(self.yaml_dir)
+                data = create_json_data(
+                    self.yaml_dir, self.error_penalty
+                )
                 json_data = json.dumps(data, indent=2).encode("utf-8")
 
                 self.send_response(200)
@@ -237,15 +160,13 @@ class ServeEvaluationAppCommand(QleverCommand):
                 "served (Default = 8000)"
             ),
         )
-        (
-            subparser.add_argument(
-                "--host",
-                type=str,
-                default="localhost",
-                help=(
-                    "Host where the Performance comparison webapp will be "
-                    "served (Default = localhost)"
-                ),
+        subparser.add_argument(
+            "--host",
+            type=str,
+            default="localhost",
+            help=(
+                "Host where the Performance comparison webapp will be "
+                "served (Default = localhost)"
             ),
         )
         subparser.add_argument(
@@ -257,11 +178,24 @@ class ServeEvaluationAppCommand(QleverCommand):
                 "example-queries are saved (Default = current working dir)"
             ),
         )
+        subparser.add_argument(
+            "--error-penalty",
+            type=int,
+            default=2,
+            help=(
+                "The timeout (or failed runtime) will be multiplied with this "
+                "error penalty factor when computing aggregate query metrics "
+                "(Default = 2)"
+            ),
+        )
 
     def execute(self, args) -> bool:
         yaml_dir = Path(args.results_dir)
         handler = partial(
-            CustomHTTPRequestHandler, directory=EVAL_DIR, yaml_dir=yaml_dir
+            CustomHTTPRequestHandler,
+            directory=EVAL_DIR,
+            yaml_dir=yaml_dir,
+            error_penalty=args.error_penalty,
         )
         httpd = HTTPServer(("", args.port), handler)
         log.info(

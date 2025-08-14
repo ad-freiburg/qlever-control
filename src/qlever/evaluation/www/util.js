@@ -361,3 +361,29 @@ function goToCompareExecTreesPage(agGridApi, tableName) {
         alert(`Please select a query from the ${tableName} Table!`);
     }
 }
+
+function sortEngines(engines, kb, metric, order) {
+    return engines.slice().sort((a, b) => {
+        const left = order === "asc" ? a : b;
+        const right = order === "asc" ? b : a;
+        return performanceData[kb][left][metric] - performanceData[kb][right][metric];
+    });
+}
+
+function extractFirstUrl(text) {
+    // Regex matches http(s):// and www. patterns, stops before spaces or closing punctuation
+    const regex = /\b((?:https?:\/\/|www\.)[^\s<>"]+[^.,;:!?()\[\]{}<>\s"])/i;
+    const match = text.match(regex);
+
+    if (match) {
+        let url = match[1].trim();
+
+        // Normalize URLs starting with www.
+        if (url.startsWith("www.")) {
+            url = "http://" + url;
+        }
+
+        return url;
+    }
+    return null;
+}

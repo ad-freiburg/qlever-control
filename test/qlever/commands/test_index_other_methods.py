@@ -36,6 +36,7 @@ class TestIndexCommand(unittest.TestCase):
                     "multi_input_json",
                     "parallel_parsing",
                     "settings_json",
+                    "vocabulary_type",
                     "index_binary",
                     "only_pso_and_pos_permutations",
                     "ulimit",
@@ -81,7 +82,8 @@ class TestIndexCommand(unittest.TestCase):
 
         # Expected command-line options string based on the JSON data
         expected_result = (
-            "-f <(test_data1) -g - -F json -f " "<(test_data2) -g - -F jsonld"
+            "-f <(test_data1) -g - -F json -p false "
+            "-f <(test_data2) -g - -F jsonld -p false"
         )
         self.assertEqual(result, expected_result)
 

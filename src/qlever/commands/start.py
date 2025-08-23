@@ -10,7 +10,7 @@ from qlever.commands.stop import StopCommand
 from qlever.commands.warmup import WarmupCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import is_qlever_server_alive, run_command
+from qlever.util import binary_exists, is_qlever_server_alive, run_command
 
 
 # Construct the command line based on the config file.
@@ -30,6 +30,8 @@ def construct_command(args) -> str:
         start_cmd += f" -s {args.timeout}"
     if args.access_token:
         start_cmd += f" -a {args.access_token}"
+    if args.persist_updates:
+        start_cmd += " --persist-updates"
     if args.only_pso_and_pos_permutations:
         start_cmd += " --only-pso-and-pos-permutations"
     if not args.use_patterns:
@@ -67,22 +69,6 @@ def wrap_command_in_container(args, start_cmd) -> str:
         working_directory="/index",
     )
     return start_cmd
-
-
-# When running natively, check if the binary exists and works.
-def check_binary(binary) -> bool:
-    try:
-        run_command(f"{binary} --help")
-        return True
-    except Exception as e:
-        log.error(
-            f'Running "{binary}" failed, '
-            f"set `--server-binary` to a different binary or "
-            f"set `--system to a container system`"
-        )
-        log.info("")
-        log.info(f"The error message was: {e}")
-        return False
 
 
 # Set the index description.
@@ -148,6 +134,7 @@ class StartCommand(QleverCommand):
                 "cache_max_num_entries",
                 "num_threads",
                 "timeout",
+                "persist_updates",
                 "only_pso_and_pos_permutations",
                 "use_patterns",
                 "use_text_index",
@@ -157,12 +144,6 @@ class StartCommand(QleverCommand):
         }
 
     def additional_arguments(self, subparser) -> None:
-        # subparser.add_argument("--kill-existing-with-same-name",
-        #                        action="store_true",
-        #                        default=False,
-        #                        help="If a QLever server is already running "
-        #                             "with the same name, kill it before "
-        #                             "starting a new server")
         subparser.add_argument(
             "--kill-existing-with-same-port",
             action="store_true",
@@ -223,12 +204,11 @@ class StartCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            ret = check_binary(args.server_binary)
-            if not ret:
+            if not binary_exists(args.server_binary, "server-binary"):
                 return False
 
         # Check if a QLever server is already running on this port.
-        endpoint_url = f"http://localhost:{args.port}"
+        endpoint_url = f"http://{args.host_name}:{args.port}"
         if is_qlever_server_alive(endpoint_url):
             log.error(f"QLever server already running on {endpoint_url}")
             log.info("")

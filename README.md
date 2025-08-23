@@ -37,7 +37,7 @@ qlever setup-config olympics   # Get Qleverfile (config file) for this dataset
 qlever get-data                # Download the dataset
 qlever index                   # Build index data structures for this dataset
 qlever start                   # Start a QLever server using that index
-qlever example-queries         # Launch some example queries
+qlever query                   # Launch an example query
 qlever ui                      # Launch the QLever UI
 ```
 

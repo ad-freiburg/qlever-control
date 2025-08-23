@@ -9,6 +9,7 @@ from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import (
+    binary_exists,
     get_existing_index_files,
     get_total_file_size,
     run_command,
@@ -38,6 +39,7 @@ class IndexCommand(QleverCommand):
                 "multi_input_json",
                 "parallel_parsing",
                 "settings_json",
+                "vocabulary_type",
                 "index_binary",
                 "only_pso_and_pos_permutations",
                 "ulimit",
@@ -169,6 +171,8 @@ class IndexCommand(QleverCommand):
                 input_option += f" -F {input_format}"
                 if input_parallel == "true":
                     input_option += " -p true"
+                else:
+                    input_option += " -p false"
                 input_options.append(input_option)
         # Return the concatenated command-line options.
         return " ".join(input_options)
@@ -181,6 +185,7 @@ class IndexCommand(QleverCommand):
             index_cmd = (
                 f"{args.cat_input_files} | {args.index_binary}"
                 f" -i {args.name} -s {args.name}.settings.json"
+                f" --vocabulary-type {args.vocabulary_type}"
                 f" -F {args.format} -f -"
             )
             if args.parallel_parsing:
@@ -196,6 +201,7 @@ class IndexCommand(QleverCommand):
             index_cmd = (
                 f"{args.index_binary}"
                 f" -i {args.name} -s {args.name}.settings.json"
+                f" --vocabulary-type {args.vocabulary_type}"
                 f" {input_options}"
             )
         else:
@@ -236,9 +242,9 @@ class IndexCommand(QleverCommand):
         # large number of open files is allowed).
         total_file_size = get_total_file_size(shlex.split(args.input_files))
         if args.ulimit is not None:
-            index_cmd = f"ulimit -Sn {args.ulimit}; {index_cmd}"
+            index_cmd = f"ulimit -Sn {args.ulimit} && {index_cmd}"
         elif total_file_size > 1e10:
-            index_cmd = f"ulimit -Sn 1048576; {index_cmd}"
+            index_cmd = f"ulimit -Sn 500000 && {index_cmd}"
 
         # Run the command in a container (if so desired).
         if args.system in Containerize.supported_systems():
@@ -265,16 +271,7 @@ class IndexCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            try:
-                run_command(f"{args.index_binary} --help")
-            except Exception as e:
-                log.error(
-                    f'Running "{args.index_binary}" failed, '
-                    f"set `--index-binary` to a different binary or "
-                    f"set `--system to a container system`"
-                )
-                log.info("")
-                log.info(f"The error message was: {e}")
+            if not binary_exists(args.index_binary, "index-binary"):
                 return False
 
         # Check if all of the input files exist.

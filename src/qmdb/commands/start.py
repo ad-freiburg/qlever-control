@@ -39,7 +39,8 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "server_binary"] + MDB_SPECIFIC_SERVER_ARGS,
+            "server": ["host_name", "server_binary", "extra_args"]
+            + MDB_SPECIFIC_SERVER_ARGS,
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -60,7 +61,7 @@ class StartCommand(QleverCommand):
         if not args.run_in_foreground:
             run_subcommand += " -d"
         if not args.run_in_foreground:
-            cmd = f"{cmd} > {args.name}.server-log.txt 2>&1"
+            cmd = f"{cmd}> {args.name}.server-log.txt 2>&1"
         return Containerize().containerize_command(
             cmd=cmd,
             container_system=args.system,
@@ -73,7 +74,7 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        start_cmd = f"{args.server_binary} server index "
+        start_cmd = f"{args.server_binary} server {args.name}_index "
         try:
             args.timeout = int(args.timeout[:-1])
         except ValueError as e:
@@ -81,13 +82,16 @@ class StartCommand(QleverCommand):
             return False
 
         for arg in MDB_SPECIFIC_SERVER_ARGS:
-            if (arg_value := getattr(args, arg)) is not None:
-                start_cmd += f"--{arg.replace("_", "-")} {arg_value} "
+            if (arg_value := getattr(args, arg)) is not None and arg_value:
+                start_cmd += f"--{arg.replace('_', '-')} {arg_value} "
+
+        if args.extra_args:
+            start_cmd += f"{args.extra_args} "
 
         if args.system == "native":
             if not args.run_in_foreground:
                 start_cmd = (
-                    f"nohup {start_cmd} > {args.name}.server-log.txt 2>&1 &"
+                    f"nohup {start_cmd}> {args.name}.server-log.txt 2>&1 &"
                 )
         else:
             start_cmd = self.wrap_cmd_in_container(args, start_cmd)
@@ -101,17 +105,8 @@ class StartCommand(QleverCommand):
         if args.system == "native":
             if not binary_exists(args.server_binary, "server-binary"):
                 return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
-                )
-                return False
 
-        index_dir = Path("index")
+        index_dir = Path(f"{args.name}_index")
         if not index_dir.exists() or not any(index_dir.iterdir()):
             log.info(f"No MillenniumDB index files for {args.name} found! ")
             log.info(
@@ -120,10 +115,10 @@ class StartCommand(QleverCommand):
             )
             return False
 
-        endpoint_url = f"http://{args.host_name}:{args.port}/sparql"
+        endpoint_url = f"http://{args.host_name}:{args.port}"
         if is_server_alive(url=endpoint_url):
             log.error(
-                f"MillenniumDB server already running on {endpoint_url}\n"
+                f"MillenniumDB server already running on {endpoint_url}/sparql\n"
             )
             log.info(
                 f"To kill the existing server, use `{self.script_name} stop`"
@@ -159,7 +154,8 @@ class StartCommand(QleverCommand):
             time.sleep(1)
 
         log.info(
-            f"MillenniumDB server sparql endpoint for queries is {endpoint_url}"
+            "MillenniumDB server sparql endpoint for queries is "
+            f"{endpoint_url}/sparql"
         )
 
         # Kill the log process

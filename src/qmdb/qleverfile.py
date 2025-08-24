@@ -33,26 +33,36 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         "--buffer-strings",
         type=str,
         default="2GB",
-        help=("Size of buffer for strings used during import"),
+        help="Size of buffer for strings used during import",
     )
     index_args["buffer_tensors"] = arg(
         "--buffer-tensors",
         type=str,
         default="2GB",
-        help=("Size of buffer for tensors used during import"),
+        help="Size of buffer for tensors used during import",
     )
     index_args["prefixes"] = arg(
         "--prefixes",
         type=str,
         default=None,
-        help=("Prefixes file path (for IRI compression)"),
+        help="Prefixes file path (for IRI compression)",
     )
     index_args["btree_permutations"] = arg(
         "--btree-permutations",
         type=int,
         choices=[3, 4, 6],
         default=4,
-        help=("Btree permutations -> 3, 4 or 6"),
+        help="Btree permutations -> 3, 4 or 6",
+    )
+    index_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default=None,
+        help=(
+            "Additional arguments to pass directly to the mdb import process. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
     )
 
     server_args["server_binary"] = arg(
@@ -118,4 +128,14 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         type=str,
         default=None,
         help="Size for the unversioned-buffer",
+    )
+    server_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default=None,
+        help=(
+            "Additional arguments to pass directly to the mdb server process. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
     )

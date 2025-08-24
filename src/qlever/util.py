@@ -348,3 +348,43 @@ def input_files_exist(input_files: str, script_name: str) -> bool:
             )
             return False
     return True
+
+
+def build_image(build_cmd: str, system: str, image: str) -> bool:
+    """
+    Build a container image using the build command, container system and
+    image name. This method is supposed to be used before executing the index
+    command and the logs show that.
+    """
+    log.info(f"Building {system} image {image}...")
+    try:
+        run_command(build_cmd, show_output=True)
+        log.info(
+            f"Finished building {system} image {image}! "
+            "Continuing with index operation...\n"
+        )
+        return True
+    except Exception as e:
+        log.error(f"Building the {system} image {image} failed: {e}")
+        return False
+
+
+def get_container_image_id(system: str, image: str) -> str:
+    """
+    Get the container image ID to check if the image exists on the system.
+    """
+    try:
+        image_id = run_command(
+            f"{system} images -q {image}", return_output=True
+        )
+    except Exception as e:
+        log.info(
+            f"Couldn't identify if {system} image {image} "
+            f"exists on the system : {e}"
+        )
+        log.info(
+            "Assuming that the image doesn't exist and the image would "
+            "be built.\n"
+        )
+        image_id = ""
+    return image_id

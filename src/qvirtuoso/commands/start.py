@@ -9,7 +9,11 @@ from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
 from qlever.util import is_server_alive, run_command
-from qvirtuoso.commands.index import IndexCommand as QvirtuosoIndexCommand
+from qvirtuoso.commands.index import (
+    log_virtuoso_ini_changes,
+    update_virtuoso_ini,
+    virtuoso_ini_help_msg,
+)
 
 
 class StartCommand(QleverCommand):
@@ -28,7 +32,14 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port", "server_binary"],
+            "server": [
+                "host_name",
+                "port",
+                "server_binary",
+                "timeout",
+                "max_query_memory",
+                "extra_args",
+            ],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -43,6 +54,39 @@ class StartCommand(QleverCommand):
             ),
         )
 
+    def config_dict_for_update_ini(self, args) -> dict[str, dict[str, str]]:
+        """
+        Construct the parameter dictionary for all the necessary sections and
+        options of virtuoso.ini that need updating for the start process
+        """
+        config_dict = {
+            "Parameters": {},
+            "HTTPServer": {},
+            "Database": {},
+            "SPARQL": {},
+        }
+        http_port = (
+            f"{args.host_name}:{args.port}"
+            if args.system == "native"
+            else str(args.port)
+        )
+
+        try:
+            timeout_s = int(args.timeout[:-1])
+        except ValueError as e:
+            log.warning(f"Invalid timeout value {args.timeout}. Error: {e}")
+            log.info("Setting timeout to 30s!")
+            timeout_s = 30
+
+        # config_dict["Parameters"]["ServerPort"] = str(args.isql_port)
+        config_dict["Parameters"]["MaxQueryMem"] = str(args.max_query_memory)
+        config_dict["HTTPServer"]["ServerPort"] = http_port
+        config_dict["Database"]["ErrorLogFile"] = f"{args.name}.server-log.txt"
+        config_dict["SPARQL"]["MaxQueryCostEstimationTime"] = "-1"
+        config_dict["SPARQL"]["MaxConstructTriples"] = "0"
+        config_dict["SPARQL"]["MaxQueryExecutionTime"] = str(timeout_s)
+        return config_dict
+
     @staticmethod
     def wrap_cmd_in_container(args, cmd: str) -> str:
         run_subcommand = "run --restart=unless-stopped"
@@ -56,11 +100,12 @@ class StartCommand(QleverCommand):
             container_name=args.server_container,
             volumes=[("$(pwd)", "/database")],
             ports=[(args.port, args.port)],
-            use_bash=False,
         )
 
     def execute(self, args) -> bool:
-        start_cmd = f"{args.server_binary} -c {args.name}.virtuoso.ini"
+        start_cmd = (
+            f"{args.server_binary} -c {args.name}.virtuoso.ini {args.extra_args} "
+        )
         if args.system == "native":
             if args.run_in_foreground:
                 start_cmd += " -f"
@@ -72,9 +117,11 @@ class StartCommand(QleverCommand):
             self.show(
                 f"{args.name}.virtuoso.ini configfile "
                 "not found in the current directory! "
-                f"{QvirtuosoIndexCommand().virtuoso_ini_help_msg(args, ini_files)}"
+                f"{virtuoso_ini_help_msg(self.script_name, args, ini_files)}"
             )
 
+        virtuoso_ini_config_dict = self.config_dict_for_update_ini(args)
+        log_virtuoso_ini_changes(args.name, virtuoso_ini_config_dict)
         # Show the command line.
         self.show(start_cmd, only_show=args.show)
         if args.show:
@@ -89,15 +136,6 @@ class StartCommand(QleverCommand):
                     f'Running "{args.server_binary}" failed, '
                     "set `--server-binary` to a different binary or "
                     "set `--system to a container system`"
-                )
-                return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
                 )
                 return False
 
@@ -128,25 +166,11 @@ class StartCommand(QleverCommand):
                 log.error(
                     f"{args.name}.virtuoso.ini configfile "
                     "not found in the current directory! "
-                    f"{QvirtuosoIndexCommand().virtuoso_ini_help_msg(args, ini_files)}"
+                    f"{virtuoso_ini_help_msg(self.script_name, args, ini_files)}"
                 )
                 return False
 
-        try:
-            section, option, new_value = (
-                "Database",
-                "ErrorLogFile",
-                f"{args.name}.server-log.txt",
-            )
-            sed_cmd = (
-                rf"sed -i '/^\[{section}\]/,/^\[/{{s/^\({option}"
-                rf"[[:space:]]*=[[:space:]]*\)[a-zA-Z0-9:.-]*/\1{new_value}/}}'"
-            )
-            run_command(f"{sed_cmd} {args.name}.virtuoso.ini")
-        except Exception as e:
-            log.error(
-                f"Couldn't replace the necessary sections in virtuoso.ini: {e}"
-            )
+        if not update_virtuoso_ini(args.name, virtuoso_ini_config_dict):
             return False
 
         try:

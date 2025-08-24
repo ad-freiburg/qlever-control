@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from qlever.command import QleverCommand
@@ -26,7 +27,14 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port", "jvm_args"],
+            "server": [
+                "host_name",
+                "port",
+                "jvm_args",
+                "read_only",
+                "timeout",
+                "extra_args",
+            ],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -52,6 +60,42 @@ class StartCommand(QleverCommand):
         )
 
     @staticmethod
+    def overwrite_web_xml(
+        xml_file_path: Path, timeout_ms: int, read_only: bool
+    ) -> None:
+        """
+        Overwrite readOnly and queryTimeout parameters in web.xml
+        This method could be made more general by making new_value dict
+        itself an input parameter to the function. But for now, I could only
+        identify readOnly and queryTimeout as the 2 parameters that would
+        need updating and it is better to be explicit about it.
+        """
+        new_values = {
+            "queryTimeout": str(timeout_ms),
+            "readOnly": str(read_only).lower(),
+        }
+        ns_uri = "http://java.sun.com/xml/ns/javaee"
+        namespace = {"ns": "http://java.sun.com/xml/ns/javaee"}
+
+        # Register the default namespace to avoid ns0 prefixes
+        ET.register_namespace("", ns_uri)
+
+        # Parse the XML and preserve comments
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+        tree = ET.parse(xml_file_path, parser=parser)
+        root = tree.getroot()
+
+        # Find and update values
+        for context_param in root.findall("ns:context-param", namespace):
+            param_name = context_param.find("ns:param-name", namespace)
+            if param_name is not None and param_name.text in new_values:
+                param_value = context_param.find("ns:param-value", namespace)
+                if param_value is not None:
+                    param_value.text = new_values[param_name.text]
+        tree.write(xml_file_path, encoding="UTF-8", xml_declaration=True)
+        log.info("Successfully updated web.xml.")
+
+    @staticmethod
     def wrap_cmd_in_container(args, cmd: str) -> str:
         run_subcommand = "run --restart=unless-stopped"
         if not args.run_in_foreground:
@@ -75,14 +119,29 @@ class StartCommand(QleverCommand):
             if args.system == "native"
             else "/opt/blazegraph.jar"
         )
-        web_xml_exists = Path("web.xml").exists() or Path(f"{args.name}.web.xml")
-        if web_xml_exists and not Path(f"{args.name}.web.xml").exists():
-            Path("web.xml").rename(f"{args.name}.web.xml")
-            log.info(f"Successfully renamed web.xml to {args.name}.web.xml")
+
+        xml_candidates = [Path("web.xml"), Path(f"{args.name}.web.xml")]
+        existing_files = [p for p in xml_candidates if p.is_file()]
+        if len(existing_files) > 1:
+            log.error(
+                "Expected exactly one of 'web.xml' or "
+                f"'{args.name}.web.xml' in the current directory."
+            )
+            return False
+        web_xml_exists = len(existing_files) == 1
+        web_xml_path = existing_files[0] if web_xml_exists else None
+
+        if web_xml_exists:
+            log.info(
+                f"queryTimeout and readOnly parameters would be overwritten in {web_xml_path.name}"
+            )
+            if web_xml_path.name == "web.xml":
+                log.info(f"web.xml would be renamed to {args.name}.web.xml")
+            log.info("")
         start_cmd = (
             f"java -server {args.jvm_args} -Dbigdata.propertyFile=RWStore.properties"
             f"{'' if not web_xml_exists else f' -Djetty.overrideWebXml={args.name}.web.xml'} "
-            f"-Djetty.port={args.port} -jar {jar_path}"
+            f"-Djetty.port={args.port} {args.extra_args} -jar {jar_path}"
         )
 
         if args.system == "native":
@@ -122,15 +181,6 @@ class StartCommand(QleverCommand):
                     f"blazegraph.jar can be downloaded from {jar_link}"
                 )
                 return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
-                )
-                return False
 
         jnl_file = Path("blazegraph.jnl")
         if not jnl_file.exists():
@@ -146,6 +196,27 @@ class StartCommand(QleverCommand):
             log.error(f"Blazegraph server already running on {endpoint_url}\n")
             log.info(
                 f"To kill the existing server, use `{self.script_name} stop`"
+            )
+            return False
+
+        try:
+            timeout_ms = int(args.timeout[:-1]) * 1000
+        except ValueError as e:
+            log.error(f"Invalid timeout value {args.timeout}. Error: {e}")
+            return False
+
+        try:
+            if web_xml_exists:
+                read_only = True if args.read_only == "yes" else False
+                self.overwrite_web_xml(web_xml_path, timeout_ms, read_only)
+                if web_xml_path.name == "web.xml":
+                    Path("web.xml").rename(f"{args.name}.web.xml")
+                    log.info(
+                        f"Successfully renamed web.xml to {args.name}.web.xml\n"
+                    )
+        except Exception as e:
+            log.error(
+                f"Overwriting web.xml with Qleverfile parameters failed: {e}"
             )
             return False
 

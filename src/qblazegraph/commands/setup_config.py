@@ -18,6 +18,11 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
 
     IMAGE = "adfreiburg/qblazegraph"
 
+    ENGINE_SPECIFIC_PARAMETERS = {
+        "index": {"JVM_ARGS": "-Xmx4G"},
+        "server": {"JVM_ARGS": "-Xmx4G", "TIMEOUT": "60s", "READ_ONLY": "yes"}
+    }
+
     def execute(self, args) -> bool:
         qleverfile_successfully_created = super().execute(args)
         if not qleverfile_successfully_created:

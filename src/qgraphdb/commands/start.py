@@ -28,9 +28,7 @@ class StartCommand(QleverCommand):
             "server": [
                 "host_name",
                 "heap_size_gb",
-                "port",
                 "server_binary",
-                "timeout",
             ],
             "runtime": ["system", "image", "server_container"],
         }
@@ -65,9 +63,12 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
+        port = 7200 if not args.override_port else args.override_port
         start_cmd = (
             f'env GDB_HEAP_SIZE="{args.heap_size_gb}" {args.server_binary} -s'
         )
+        if port != 7200:
+            start_cmd += f" -Dgraphdb.connector.port={port}"
 
         if args.system == "native":
             if not args.run_in_foreground:
@@ -96,7 +97,9 @@ class StartCommand(QleverCommand):
                 )
                 return False
 
-        endpoint_url = f"http://{args.host_name}:{args.port}/repositories/{args.name}"
+        endpoint_url = (
+            f"http://{args.host_name}:{port}/repositories/{args.name}"
+        )
         if is_server_alive(url=endpoint_url):
             log.error(f"GraphDB server already running on {endpoint_url}\n")
             log.info(
@@ -133,9 +136,7 @@ class StartCommand(QleverCommand):
         while not is_server_alive(endpoint_url):
             time.sleep(1)
 
-        log.info(
-            f"GraphDB sparql endpoint for queries is {endpoint_url}"
-        )
+        log.info(f"GraphDB sparql endpoint for queries is {endpoint_url}")
 
         # Kill the log process
         if not args.run_in_foreground:

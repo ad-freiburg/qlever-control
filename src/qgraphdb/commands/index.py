@@ -31,8 +31,9 @@ class IndexCommand(QleverCommand):
                 "threads",
                 "jvm_args",
                 "entity_index_size",
+                "ruleset",
             ],
-            "server": ["timeout"],
+            "server": ["timeout", "read_only"],
             "runtime": ["system", "image", "index_container"],
         }
 
@@ -49,9 +50,9 @@ class IndexCommand(QleverCommand):
             "repositoryID": args.name,
             "label": f"{args.name} repository TTL config file",
             "throw-QueryEvaluationException-on-timeout": "true",
-            "read-only": "true",
+            "read-only": "true" if args.read_only else "false",
             "query-timeout": str(timeout),
-            "ruleset": "empty",
+            "ruleset": args.ruleset,
             "entity-index-size": str(args.entity_index_size),
         }
         graph = rdflib.Graph()

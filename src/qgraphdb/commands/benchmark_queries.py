@@ -15,7 +15,8 @@ class BenchmarkQueriesCommand(QleverBenchmarkQueriesCommand):
 
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
+            port = 7200 if not args.override_port else args.override_port
             args.sparql_endpoint = (
-                f"{args.host_name}:{args.port}/repositories/{args.name}"
+                f"{args.host_name}:{port}/repositories/{args.name}"
             )
         return super().execute(args)

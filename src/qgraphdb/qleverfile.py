@@ -24,9 +24,7 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         "--threads",
         type=int,
         default=2,
-        help=(
-            "Number of rdf parsers."
-        ),
+        help=("Number of rdf parsers."),
     )
     index_args["entity_index_size"] = arg(
         "--entity-index-size",
@@ -44,8 +42,26 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         "--jvm_args",
         type=str,
         default="-Xms4g -Xmx4G",
+        help=("Arguments for the JVM. "),
+    )
+    index_args["ruleset"] = arg(
+        "--ruleset",
+        type=str,
+        default="empty",
+        choices=[
+            "empty",
+            "rdfs",
+            "owl-horst",
+            "owl-max",
+            "owl2-rl",
+            "rdfs-optimized",
+            "owl-horst-optimized",
+            "owl-max-optimized",
+            "owl2-rl-optimized",
+        ],
         help=(
-            "Arguments for the JVM. "
+            "Sets of axiomatic triples, consistency checks and entailment rules, "
+            "which determine the applied semantics."
         ),
     )
 
@@ -72,4 +88,16 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         type=str,
         default="30s",
         help="The maximal time in seconds a query is allowed to run",
+    )
+    server_args["override_port"] = arg(
+        "--override-port",
+        type=int,
+        default=None,
+        help="Override the default GraphDB port i.e. 7200",
+    )
+    server_args["read_only"] = arg(
+        "--read-only",
+        action="store_true",
+        default=True,
+        help="When true, the REST API will not permit mutation operations",
     )

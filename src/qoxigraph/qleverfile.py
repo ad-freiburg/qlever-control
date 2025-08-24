@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
-    """Define additional mdb specific Qleverfile parameters"""
+    """Define additional oxigraph specific Qleverfile parameters"""
 
     def arg(*args, **kwargs):
         return (args, kwargs)
@@ -24,7 +24,17 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         "--lenient",
         action="store_true",
         default=False,
-        help=("Attempt to keep loading even if the data file is invalid"),
+        help="Attempt to keep loading even if the data file is invalid",
+    )
+    index_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default=None,
+        help=(
+            "Additional arguments to pass directly to the oxigraph load process. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
     )
 
     server_args["server_binary"] = arg(
@@ -35,5 +45,26 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
             "The binary for starting the server (default: oxigraph) "
             "(this requires that you have oxigraph-cli installed "
             "on your machine)"
+        ),
+    )
+    server_args["read_only"] = arg(
+        "--read-only",
+        type=str,
+        choices=["yes", "no"],
+        default="yes",
+        help=(
+            "The HTTP server will not permit mutation operations in "
+            "read-only mode"
+        ),
+    )
+    server_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default=None,
+        help=(
+            "Additional arguments to pass directly to the oxigraph "
+            "serve/serve-read-only. This allows advanced users to specify "
+            "options not exposed in Qleverfile. The string is appended "
+            "verbatim to the command."
         ),
     )

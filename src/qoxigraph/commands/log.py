@@ -24,6 +24,9 @@ class LogCommand(QleverLogCommand):
         if args.system == "native":
             return super().execute(args)
 
+        # Handle container logging using docker/podman logs command instead of tail
+        # This is because we don't have <args.name>.server-log.txt for
+        # containerized execution
         log_cmd = f"{args.system} logs "
 
         if not args.from_beginning:

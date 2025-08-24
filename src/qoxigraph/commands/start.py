@@ -26,7 +26,13 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port", "server_binary"],
+            "server": [
+                "host_name",
+                "port",
+                "read_only",
+                "server_binary",
+                "extra_args",
+            ],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -52,9 +58,9 @@ class StartCommand(QleverCommand):
             run_subcommand=run_subcommand,
             image_name=args.image,
             container_name=args.server_container,
-            volumes=[("$(pwd)", "/index")],
+            volumes=[("$(pwd)", "/opt")],
             ports=[(args.port, args.port)],
-            working_directory="/index",
+            working_directory="/opt",
             use_bash=False,
         )
 
@@ -64,7 +70,9 @@ class StartCommand(QleverCommand):
             if args.system == "native"
             else f"0.0.0.0:{args.port}"
         )
-        start_cmd = f"serve-read-only --location . --bind={bind}"
+        process = "serve-read-only" if args.read_only == "yes" else "serve"
+        extra_args = "" if not args.extra_args else f"{args.extra_args} "
+        start_cmd = f"{process} --location {args.name}_index/ {extra_args}--bind={bind}"
 
         if args.system == "native":
             start_cmd = f"{args.server_binary} {start_cmd}"
@@ -86,25 +94,20 @@ class StartCommand(QleverCommand):
         if args.system == "native":
             if not binary_exists(args.server_binary, "server-binary"):
                 return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
-                )
-                return False
 
-        # Check if index files (*.sst) present in cwd
-        if len([p.name for p in Path.cwd().glob("*.sst")]) == 0:
+        # Check if index files (*.sst) present in index directory
+        if (
+            len([p.name for p in Path(f"{args.name}_index/").glob("*.sst")])
+            == 0
+        ):
             log.error(f"No Oxigraph index files for {args.name} found!\n")
             log.info(
                 f"Did you call `{self.script_name} index`? If you did, check "
-                "if .sst index files are present in current working directory."
+                "if .sst index files are present in index directory."
             )
             return False
 
+        # Check if server already alive at endpoint url from a previous run
         if is_server_alive(url=endpoint_url):
             log.error(f"Oxigraph server already running on {endpoint_url}\n")
             log.info(

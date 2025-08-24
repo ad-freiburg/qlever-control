@@ -4,7 +4,7 @@ from qlever.commands.status import StatusCommand as QleverStatusCommand
 
 
 class StatusCommand(QleverStatusCommand):
-    DEFAULT_REGEX = "oxigraph\\s+serve-read-only"
+    DEFAULT_REGEX = "oxigraph\\s+serve"
 
     def description(self) -> str:
         return "Show Oxigraph processes running on this machine"

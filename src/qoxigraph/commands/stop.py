@@ -11,7 +11,7 @@ class StopCommand(QleverCommand):
     # Override this with StatusCommand from child class for execute
     # method to work as intended
     STATUS_COMMAND = StatusCommand()
-    DEFAULT_REGEX = "oxigraph\\s+serve-read-only.*:%%PORT%%"
+    DEFAULT_REGEX = "oxigraph\\s+serve.*:%%PORT%%"
 
     def __init__(self):
         pass
@@ -40,7 +40,9 @@ class StopCommand(QleverCommand):
     def execute(self, args) -> bool:
         cmdline_regex = args.cmdline_regex
         if "%%PORT%%" in args.cmdline_regex and hasattr(args, "port"):
-            cmdline_regex = args.cmdline_regex.replace("%%PORT%%", str(args.port))
+            cmdline_regex = args.cmdline_regex.replace(
+                "%%PORT%%", str(args.port)
+            )
         description = (
             f'Checking for processes matching "{cmdline_regex}"'
             if args.system == "native"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import glob
 import re
 import secrets
 import shlex
@@ -331,3 +332,19 @@ def is_server_alive(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def input_files_exist(input_files: str, script_name: str) -> bool:
+    """
+    Check if all of the input files exist in current working directory.
+    """
+    for pattern in shlex.split(input_files):
+        if len(glob.glob(pattern)) == 0:
+            log.error(f'No file matching "{pattern}" found')
+            log.info("")
+            log.info(
+                f"Did you call `{script_name} get-data`? If you did, "
+                "check GET_DATA_CMD and INPUT_FILES in the Qleverfile"
+            )
+            return False
+    return True

@@ -12,3 +12,8 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
     """
 
     IMAGE = "adfreiburg/qjena"
+
+    ENGINE_SPECIFIC_PARAMETERS = {
+        "index": {"THREADS": 2, "JVM_ARGS": "-Xmx4G"},
+        "server": {"TIMEOUT": "60s", "JVM_ARGS": "-Xmx4G"}
+    }

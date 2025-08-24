@@ -41,14 +41,33 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
             "Increasing is only necessary for large numbers of long literals."
         ),
     )
+    index_args["extra_env_args"] = arg(
+        "--extra-env-args",
+        type=str,
+        default="",
+        help=(
+            "Additional environment variable arguments to pass directly to "
+            "the tdb2.xloader binary as a string of key=value pairs. This allows "
+            "advanced users to specify options not exposed in Qleverfile. "
+            "The string is appended verbatim to the bash env command."
+        ),
+    )
+    index_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default="",
+        help=(
+            "Additional arguments to pass directly to the tdb2.xloader binary. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
+    )
 
     server_args["jvm_args"] = arg(
         "--jvm_args",
         type=str,
         default="-Xmx4G",
-        help=(
-            "Arguments for the JVM."
-        ),
+        help=("Arguments for the JVM."),
     )
     server_args["server_binary"] = arg(
         "--server-binary",
@@ -63,6 +82,27 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
     server_args["timeout"] = arg(
         "--timeout",
         type=str,
-        default="30s",
+        default="60s",
         help="The maximal time in seconds a query is allowed to run",
+    )
+    server_args["extra_env_args"] = arg(
+        "--extra-env-args",
+        type=str,
+        default="",
+        help=(
+            "Additional environment variable arguments to pass directly to "
+            "the fuseki-server binary as a string of key=value pairs. This allows "
+            "advanced users to specify options not exposed in Qleverfile. "
+            "The string is appended verbatim to the bash env command."
+        ),
+    )
+    server_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default="",
+        help=(
+            "Additional arguments to pass directly to the fuseki-server binary. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
     )

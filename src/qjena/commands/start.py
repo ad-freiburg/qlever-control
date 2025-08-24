@@ -32,6 +32,8 @@ class StartCommand(QleverCommand):
                 "port",
                 "server_binary",
                 "timeout",
+                "extra_args",
+                "extra_env_args",
             ],
             "runtime": ["system", "image", "server_container"],
         }
@@ -73,8 +75,9 @@ class StartCommand(QleverCommand):
             return False
 
         start_cmd = (
-            f'env JVM_ARGS="{args.jvm_args}" {args.server_binary} '
-            f"--port {args.port} --timeout {timeout_ms} --loc index /{args.name}"
+            f'env JVM_ARGS="{args.jvm_args}" {args.extra_env_args} '
+            f"{args.server_binary} --port {args.port} --timeout {timeout_ms} "
+            f"--loc index {args.extra_args} /{args.name}"
         )
 
         if args.system == "native":
@@ -93,15 +96,6 @@ class StartCommand(QleverCommand):
         # When running natively, check if the binary exists and works.
         if args.system == "native":
             if not binary_exists(args.server_binary, "server-binary"):
-                return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
-                )
                 return False
 
         index_dir = Path("index/Data-0001")

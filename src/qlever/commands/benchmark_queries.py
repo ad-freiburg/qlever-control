@@ -34,14 +34,19 @@ class BenchmarkQueriesCommand(QleverCommand):
     def description(self) -> str:
         return (
             "Run the given benchmark or example queries and show their "
-            "processing times and result sizes"
+            "processing times and result sizes. Optionally, store the "
+            "benchmark results in a YML file."
         )
 
     def should_have_qleverfile(self) -> bool:
         return False
 
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {"server": ["host_name", "port"], "ui": ["ui_config"]}
+        return {
+            "data": ["description"],
+            "server": ["host_name", "port", "timeout"],
+            "ui": ["ui_config"],
+        }
 
     def additional_arguments(self, subparser) -> None:
         subparser.add_argument(
@@ -335,9 +340,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 )
                 return []
 
-        return [
-            (query['query'], query['sparql']) for query in data["queries"]
-        ]
+        return [(query["query"], query["sparql"]) for query in data["queries"]]
 
     def get_result_size(
         self,
@@ -450,6 +453,15 @@ class BenchmarkQueriesCommand(QleverCommand):
         except Exception:
             pass
         return single_int_result
+    
+    @staticmethod
+    def split_query_description(query: str) -> tuple[str, str]:
+        match = re.fullmatch(r'(.+?)\s*\[(.+)\]', query)
+        if match:
+            short_query, long_query = match.groups()
+            return short_query, long_query
+        else:
+            return query, ""
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -594,12 +606,20 @@ class BenchmarkQueriesCommand(QleverCommand):
         width_query_description_half = args.width_query_description // 2
         width_query_description = 2 * width_query_description_half + 1
 
+        try:
+            timeout = int(args.timeout[: -1])
+        except ValueError:
+            timeout = None
+
         # Launch the queries one after the other and for each print: the
         # description, the result size (number of rows), and the query
         # processing time (seconds).
         query_times = []
         result_sizes = []
         result_yml_query_records = {"queries": []}
+        if timeout:
+            result_yml_query_records["timeout"] = timeout
+        result_yml_query_records["index_description"] = args.description
         num_failed = 0
         for description, query in filtered_queries:
             if len(query) == 0:
@@ -608,6 +628,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 log.info(f"{description}\t{query}")
                 return False
             query_type = self.sparql_query_type(query)
+            short_query_desc, long_query_desc = self.split_query_description(description)
             if args.add_query_type_to_description or args.accept == "AUTO":
                 description = f"{description} [{query_type}]"
 
@@ -759,7 +780,8 @@ class BenchmarkQueriesCommand(QleverCommand):
                     error_msg if error_msg is not None else result_file
                 )
                 query_record = self.get_result_yml_query_record(
-                    query=description,
+                    short_query=short_query_desc,
+                    long_query=long_query_desc,
                     sparql=self.pretty_printed_query(
                         query, args.show_prefixes
                     ),
@@ -897,7 +919,8 @@ class BenchmarkQueriesCommand(QleverCommand):
 
     def get_result_yml_query_record(
         self,
-        query: str,
+        short_query: str,
+        long_query: str,
         sparql: str,
         client_time: float,
         result: str | dict[str, str],
@@ -909,7 +932,8 @@ class BenchmarkQueriesCommand(QleverCommand):
         Construct a dictionary with query information for output result yaml file
         """
         record = {
-            "query": query,
+            "query": short_query,
+            "long_query": long_query,
             "sparql": sparql,
             "runtime_info": {},
         }

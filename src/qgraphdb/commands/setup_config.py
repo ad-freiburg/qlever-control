@@ -15,6 +15,16 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
 
     IMAGE = "ontotext/graphdb:11.0.1"
 
+    ENGINE_SPECIFIC_PARAMETERS = {
+        "index": {
+            "THREADS": 2,
+            "ENTITY_INDEX_SIZE": 100_000_000,
+            "RULESET": "empty",
+            "JVM_ARGS": "-Xms4G -Xmx4G",
+        },
+        "server": {"HEAP_SIZE_GB": "4G", "TIMEOUT": "60s"},
+    }
+
     def execute(self, args) -> bool:
         qleverfile_successfully_created = super().execute(args)
         if not qleverfile_successfully_created:
@@ -36,4 +46,3 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
             log.error(f"Failed to download config.ttl file: {e}")
             log.info(f"Download it manually from {repo_config_ttl}")
             return False
-

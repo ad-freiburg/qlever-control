@@ -113,8 +113,9 @@ function mainTableColumnDefs(penaltyFactor) {
 }
 
 function updateMainPage(performanceData, additionalData) {
-    document.querySelector("#main-page-header").innerHTML = "SPARQL Engine Comparison";
+    document.querySelector("#main-page-header").innerHTML = additionalData.title;
     const container = document.getElementById("main-table-container");
+    removeTitleInfoPill();
 
     // Clear container if any existing content
     container.innerHTML = "";
@@ -137,31 +138,11 @@ function updateMainPage(performanceData, additionalData) {
         title.style.fontWeight = "bold";
         title.classList.add("mb-1");
 
-        const indexDescription = additionalData.kbs[kb].index_description;
+        const indexDescription = additionalData.kbs[kb].description;
 
         let infoPill = null;
         if (indexDescription) {
-            infoPill = document.createElement("a");
-            infoPill.setAttribute("tabindex", 0);
-            infoPill.className = "badge bg-light text-dark border border-dark rounded-pill ms-2";
-            infoPill.style.cursor = "pointer";
-            infoPill.style.padding = "0.25em 0.45em";
-            infoPill.style.fontSize = "0.65rem"; // smaller
-            infoPill.style.lineHeight = "1";
-            infoPill.style.textDecoration = "none";
-            infoPill.textContent = "ℹ"; 
-            infoPill.setAttribute("data-bs-toggle", "popover");
-            infoPill.setAttribute("data-bs-trigger", "focus");
-            infoPill.setAttribute("data-bs-placement", "right");
-            infoPill.setAttribute("data-bs-html", "true");
-            infoPill.setAttribute("data-bs-custom-class", "bg-dark");
-            infoPill.setAttribute(
-                "data-bs-content",
-                anchorme({
-                    input: indexDescription,
-                    options: { attributes: { target: "_blank", class: "text-info" } },
-                })
-            );
+            infoPill = createBenchmarkDescriptionInfoPill(indexDescription);
         }
 
         const compareBtn = document.createElement("button");
@@ -286,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         );
                         return;
                     }
-                    updateComparisonPage(performanceData, kb);
+                    updateComparisonPage(performanceData, kb, additionalData.kbs[kb]);
                     showPage("comparison");
                 },
                 "/compareExecTrees": (params) => {

@@ -20,7 +20,7 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
             "FREE_MEMORY_GB": "4G",
             "NUM_PARALLEL_LOADERS": 1,
         },
-        "server": {"MAX_QUERY_MEM": "2G", "TIMEOUT": "30s"},
+        "server": {"MAX_QUERY_MEMORY": "2G", "TIMEOUT": "30s"},
     }
 
     def execute(self, args) -> bool:

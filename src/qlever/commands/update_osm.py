@@ -272,8 +272,8 @@ class UpdateOsmCommand(QleverCommand):
         container_name = f"olu-{args.name}"
 
         olu_cmd = f"{sparql_endpoint}"
-        olu_cmd += f" -a {args.access_token}"
-        olu_cmd += f" -f {replication_server_url}"
+        olu_cmd += f" --access-token {args.access_token}"
+        olu_cmd += f" --replication-server {replication_server_url}"
         olu_cmd += f" --qlever"
 
         # If the user has specified a boundary, we add it to the command.

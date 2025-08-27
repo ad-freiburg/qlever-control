@@ -17,6 +17,7 @@ function populateColumnCheckboxes(columnNames) {
         checkbox.type = "checkbox";
         checkbox.id = `col-${col}`;
         checkbox.value = col;
+        checkbox.checked = true;
 
         const label = document.createElement("label");
         label.className = "form-check-label";
@@ -34,7 +35,7 @@ function setComparisonPageEvents() {
     document.querySelector("#columnCheckboxContainer").addEventListener("change", (event) => {
         if (event.target && event.target.matches('input[type="checkbox"]')) {
             const enginesToDisplay = Array.from(
-                document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:not(:checked)')
+                document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:checked')
             ).map((cb) => cb.value);
             // console.log("Currently checked:", selectedValues);
             updateHiddenColumns(enginesToDisplay);
@@ -45,9 +46,9 @@ function setComparisonPageEvents() {
     document.querySelector("#orderColumnsDropdown").addEventListener("change", (event) => {
         const selectedValue = event.target.value;
         const [metric, order] = selectedValue.split("-");
-        const kb = document.querySelector("#page-comparison").dataset.kb; 
+        const kb = document.querySelector("#page-comparison").dataset.kb;
         const enginesToDisplay = Array.from(
-            document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:not(:checked)')
+            document.querySelectorAll('#columnCheckboxContainer input[type="checkbox"]:checked')
         ).map((cb) => cb.value);
         const sortedEngines = sortEngines(enginesToDisplay, kb, metric, order);
         const showResultSize = document.querySelector("#showResultSize").checked;
@@ -58,7 +59,7 @@ function setComparisonPageEvents() {
             columnDefs: sortedColumnDefs,
             maintainColumnOrder: false,
         });
-    })
+    });
 
     document.querySelector("#showMetrics").addEventListener("change", (event) => {
         if (!gridApi) return;
@@ -84,7 +85,7 @@ function setComparisonPageEvents() {
             pinnedTopRowData: pinnedMetricData,
             columnDefs: columnDefs,
         });
-    })
+    });
 
     document.querySelector("#showResultSize").addEventListener("change", (event) => {
         if (!gridApi) return;
@@ -248,7 +249,7 @@ function getPerformanceComparisonPerKbDict(allEngineStats, enginesToDisplay = nu
 function updateHiddenColumns(enginesToDisplay) {
     if (!gridApi) return;
 
-    const kb = document.querySelector("#page-comparison").dataset.kb; 
+    const kb = document.querySelector("#page-comparison").dataset.kb;
     const visibleTableData = getPerformanceComparisonPerKbDict(performanceData[kb], enginesToDisplay);
     const visibleRowData = getGridRowData(visibleTableData.query.length, visibleTableData);
     // gridApi.setGridOption("rowData", visibleRowData);
@@ -280,13 +281,11 @@ class WarningCellRenderer {
             container.classList.add("fw-bold");
             if (typeof value === "string") {
                 container.appendChild(document.createTextNode(`${value}`));
-            }
-            else {
-                const unit = params.data.query === "Failed Queries" ? "%": "s";
+            } else {
+                const unit = params.data.query === "Failed Queries" ? "%" : "s";
                 container.appendChild(document.createTextNode(`${value.toFixed(2)} ${unit}`));
             }
-        }
-        else if (params.column.getColId() === "query") {
+        } else if (params.column.getColId() === "query") {
             container.appendChild(document.createTextNode(`${value}  `));
             if (params.data.row_warning) {
                 warning.title = "The result sizes for the engines do not match!";
@@ -338,7 +337,7 @@ function getTooltipValue(params) {
         for (const key in params.data) {
             const value = params.data[key];
             if (value && typeof value === "object" && typeof value.sparql === "string") {
-                return { title: value.long_query || "", sparql: value.sparql || "" };
+                return { title: value.description || "", sparql: value.sparql || "" };
             }
         }
         return null;
@@ -405,13 +404,13 @@ class CustomTooltip {
 function getPinnedMetricData(engines, kb) {
     let pinnedMetricData = [];
     const metricKeyNameObj = {
-        "gmeanTime": "Geometric Mean",
-        "failed": "Failed Queries",
-        "medianTime": "Median",
-        "ameanTime": "Arithmetic Mean",
+        gmeanTime: "Geometric Mean",
+        failed: "Failed Queries",
+        medianTime: "Median",
+        ameanTime: "Arithmetic Mean",
     };
     for (const [metric, metricName] of Object.entries(metricKeyNameObj)) {
-        let metricData = {"query": metricName};
+        let metricData = { query: metricName };
         for (const engine of engines) {
             metricData[engine] = performanceData[kb][engine][metric];
         }
@@ -455,12 +454,22 @@ function getComparisonColumnDefs(engines, showResultSize) {
     return columnDefs;
 }
 
-function updateComparisonPage(performanceData, kb) {
+function updateComparisonPage(performanceData, kb, kbAdditionalData) {
     const pageNode = document.querySelector("#page-comparison");
     const lastKb = pageNode.dataset.kb;
     if (lastKb === kb) return;
+    removeTitleInfoPill();
     const titleNode = document.querySelector("#main-page-header");
-    const title = `Performance comparison for ${capitalize(kb)}`;
+    let title = `Performance comparison for ${capitalize(kb)}`;
+    if (kbAdditionalData.title) title = kbAdditionalData.title;
+    let infoPill = null;
+    if (kbAdditionalData.description) {
+        infoPill = createBenchmarkDescriptionInfoPill(kbAdditionalData.description, false, "bottom");
+    }
+    if (infoPill) {
+        document.querySelector("#mainTitleWrapper").appendChild(infoPill);
+        new bootstrap.Popover(infoPill);
+    }
     titleNode.innerHTML = title;
     pageNode.dataset.kb = kb;
     document.querySelector("#orderColumnsDropdown").selectedIndex = 0;

@@ -387,3 +387,38 @@ function extractFirstUrl(text) {
     }
     return null;
 }
+
+function createBenchmarkDescriptionInfoPill(indexDescription, isBgLight = true, tooltipPlacement = "right") {
+    infoPill = document.createElement("a");
+    infoPill.setAttribute("tabindex", 0);
+    infoPill.className = "badge border rounded-pill ms-2";
+    if (isBgLight) {
+        infoPill.className += " bg-light text-dark border-dark"
+    }
+    else {
+        infoPill.className += " bg-dark text-light border-light"
+    }
+    infoPill.style.cursor = "pointer";
+    infoPill.style.padding = "0.25em 0.45em";
+    infoPill.style.fontSize = "0.65rem"; // smaller
+    infoPill.style.lineHeight = "1";
+    infoPill.style.textDecoration = "none";
+    infoPill.textContent = "ℹ";
+    infoPill.setAttribute("data-bs-toggle", "popover");
+    infoPill.setAttribute("data-bs-trigger", "focus");
+    infoPill.setAttribute("data-bs-placement", tooltipPlacement);
+    infoPill.setAttribute("data-bs-html", "true");
+    infoPill.setAttribute("data-bs-custom-class", "bg-dark");
+    infoPill.setAttribute(
+        "data-bs-content",
+        anchorme({
+            input: indexDescription,
+            options: { attributes: { target: "_blank", class: "text-info" } },
+        })
+    );
+    return infoPill;
+}
+
+function removeTitleInfoPill() {
+    document.querySelector("#mainTitleWrapper a")?.remove();
+}

@@ -26,7 +26,7 @@ QUERY_STATS_DICT = {
 }
 
 
-def get_query_stats(
+def get_query_data(
     queries: list[dict], timeout: int | None, error_penalty: int
 ) -> dict[str, float | None]:
     query_data = {stat: val for stat, val in QUERY_STATS_DICT.items()}
@@ -36,6 +36,9 @@ def get_query_stats(
     runtimes = []
 
     for query in queries:
+        # Have the old query and sparql keys to not break the web app
+        query["sparql"] = query.pop("query")
+        query["query"] = query.pop("name")
         runtime = float(query["runtime_info"]["client_time"])
         if len(query["headers"]) == 0 and isinstance(query["results"], str):
             failed += 1
@@ -62,13 +65,20 @@ def get_query_stats(
         query_data["under1s"] = (under_1 / total_successful) * 100
         query_data["between1to5s"] = (bw_1_to_5 / total_successful) * 100
         query_data["over5s"] = (over_5 / total_successful) * 100
+    query_data["queries"] = queries
     return query_data
 
 
-def create_json_data(yaml_dir: Path, error_penalty: int) -> dict | None:
+def create_json_data(
+    yaml_dir: Path, error_penalty: int, title: str
+) -> dict | None:
     data = {
         "performance_data": None,
-        "additional_data": {"penalty": error_penalty, "kbs": {}},
+        "additional_data": {
+            "penalty": error_penalty,
+            "title": title,
+            "kbs": {},
+        },
     }
     performance_data = {}
     if not yaml_dir.is_dir():
@@ -85,14 +95,15 @@ def create_json_data(yaml_dir: Path, error_penalty: int) -> dict | None:
         with yaml_file.open("r", encoding="utf-8") as queries_file:
             queries_data = yaml.safe_load(queries_file)
             data["additional_data"]["kbs"][dataset] = {
-                "index_description": queries_data.get("index_description")
+                "description": queries_data.get("description"),
+                "title": queries_data.get("title"),
             }
-            query_stats = get_query_stats(
+            query_data = get_query_data(
                 queries_data["queries"],
                 queries_data.get("timeout"),
                 error_penalty,
             )
-            performance_data[dataset][engine] = {**query_stats, **queries_data}
+            performance_data[dataset][engine] = {**query_data}
     data["performance_data"] = performance_data
     return data
 
@@ -103,10 +114,12 @@ class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
         *args,
         yaml_dir: Path | None = None,
         error_penalty: int = 2,
+        title: str = "SPARQL Engine Performance Evaluation",
         **kwargs,
     ) -> None:
         self.yaml_dir = yaml_dir
         self.error_penalty = error_penalty
+        self.title = title
         super().__init__(*args, **kwargs)
 
     def do_GET(self) -> None:
@@ -115,7 +128,7 @@ class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
         if path == "/yaml_data":
             try:
                 data = create_json_data(
-                    self.yaml_dir, self.error_penalty
+                    self.yaml_dir, self.error_penalty, self.title
                 )
                 json_data = json.dumps(data, indent=2).encode("utf-8")
 
@@ -179,6 +192,12 @@ class ServeEvaluationAppCommand(QleverCommand):
             ),
         )
         subparser.add_argument(
+            "--title-overview-page",
+            type=str,
+            default="SPARQL Engine Performance Evaluation",
+            help="Title text displayed in the navigation bar of the Overview page.",
+        )
+        subparser.add_argument(
             "--error-penalty",
             type=int,
             default=2,
@@ -196,6 +215,7 @@ class ServeEvaluationAppCommand(QleverCommand):
             directory=EVAL_DIR,
             yaml_dir=yaml_dir,
             error_penalty=args.error_penalty,
+            title=args.title_overview_page,
         )
         httpd = HTTPServer(("", args.port), handler)
         log.info(

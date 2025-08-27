@@ -219,6 +219,7 @@ function updateCompareExecTreesPage(kb, query, queryEngineStat) {
     }
 
     if (titleNode.innerHTML === title && queryNode.innerHTML === queryTitle) return;
+    removeTitleInfoPill();
     titleNode.innerHTML = title;
     queryNode.innerHTML = queryTitle;
     queryNode.title = sparql;

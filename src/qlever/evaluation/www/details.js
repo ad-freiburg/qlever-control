@@ -39,7 +39,7 @@ function getQueryRuntimes(performanceData, kb, engine) {
     const allQueriesData = performanceData[kb][engine].queries;
     const queryRuntimes = {
         query: [],
-        long_query: [],
+        description: [],
         sparql: [],
         runtime: [],
         failed: [],
@@ -48,7 +48,7 @@ function getQueryRuntimes(performanceData, kb, engine) {
 
     for (const queryData of allQueriesData) {
         queryRuntimes.query.push(queryData.query);
-        queryRuntimes.long_query.push(queryData.long_query || "");
+        queryRuntimes.description.push(queryData.description || "");
         queryRuntimes.sparql.push(queryData.sparql);
         const runtime = Number(queryData.runtime_info.client_time.toFixed(2));
         queryRuntimes.runtime.push(runtime);
@@ -130,7 +130,7 @@ function getQueryRuntimesColumnDefs() {
             filter: "agTextColumnFilter",
             flex: 3,
             tooltipValueGetter: (params) => {
-                return { title: params.data.long_query || "", sparql: params.data.sparql || "" };
+                return { title: params.data.description || "", sparql: params.data.sparql || "" };
             },
             tooltipComponent: CustomDetailsTooltip,
         },
@@ -172,7 +172,7 @@ function updateTabsWithSelectedRow(rowData) {
             if (div.classList.contains("alert-info")) div.classList.add("d-none");
             else div.classList.remove("d-none");
         }
-        const queryTitle = rowData?.long_query;
+        const queryTitle = rowData?.description;
         if (queryTitle) {
             document.querySelector("#query-title").innerHTML = queryTitle;
             document.querySelector("#query-title").className = "fw-bold pb-3";
@@ -270,6 +270,7 @@ function onRuntimeRowSelected(event, performanceData, kb, engine) {
 function updateDetailsPage(performanceData, kb, engine) {
     const pageNode = document.querySelector("#page-details");
     if (pageNode.dataset.kb === kb && pageNode.dataset.engine === engine) return;
+    removeTitleInfoPill();
     let engine_header = capitalize(engine);
     if (engine_header === "Qlever") engine_header = "QLever";
     const titleNode = document.querySelector("#main-page-header");

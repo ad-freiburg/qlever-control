@@ -457,7 +457,6 @@ function getComparisonColumnDefs(engines, showResultSize) {
 function updateComparisonPage(performanceData, kb, kbAdditionalData) {
     const pageNode = document.querySelector("#page-comparison");
     const lastKb = pageNode.dataset.kb;
-    if (lastKb === kb) return;
     removeTitleInfoPill();
     const titleNode = document.querySelector("#main-page-header");
     let title = `Performance comparison for ${capitalize(kb)}`;
@@ -471,6 +470,7 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
         new bootstrap.Popover(infoPill);
     }
     titleNode.innerHTML = title;
+    if (lastKb === kb) return;
     pageNode.dataset.kb = kb;
     document.querySelector("#orderColumnsDropdown").selectedIndex = 0;
 

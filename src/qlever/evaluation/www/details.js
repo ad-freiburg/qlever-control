@@ -269,12 +269,12 @@ function onRuntimeRowSelected(event, performanceData, kb, engine) {
 
 function updateDetailsPage(performanceData, kb, engine) {
     const pageNode = document.querySelector("#page-details");
-    if (pageNode.dataset.kb === kb && pageNode.dataset.engine === engine) return;
     removeTitleInfoPill();
     let engine_header = capitalize(engine);
     if (engine_header === "Qlever") engine_header = "QLever";
     const titleNode = document.querySelector("#main-page-header");
     titleNode.innerHTML = `Details - ${engine_header} (${capitalize(kb)})`;
+    if (pageNode.dataset.kb === kb && pageNode.dataset.engine === engine) return;
     pageNode.dataset.kb = kb;
     pageNode.dataset.engine = engine;
 

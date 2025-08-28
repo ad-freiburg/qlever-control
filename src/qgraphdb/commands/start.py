@@ -29,6 +29,7 @@ class StartCommand(QleverCommand):
                 "host_name",
                 "heap_size_gb",
                 "server_binary",
+                "override_port",
             ],
             "runtime": ["system", "image", "server_container"],
         }

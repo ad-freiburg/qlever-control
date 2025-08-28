@@ -9,7 +9,7 @@ class BenchmarkQueriesCommand(QleverBenchmarkQueriesCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "port", "timeout"],
+            "server": ["host_name", "override_port", "timeout"],
             "ui": ["ui_config"],
         }
 

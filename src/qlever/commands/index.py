@@ -215,6 +215,8 @@ class IndexCommand(QleverCommand):
             return False
 
         # Add remaining options.
+        if args.encode_as_id:
+            index_cmd += f" --encode-as-id {args.encode_as_id}"
         if args.only_pso_and_pos_permutations:
             index_cmd += " --only-pso-and-pos-permutations --no-patterns"
         if not args.use_patterns:

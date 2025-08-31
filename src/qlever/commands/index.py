@@ -36,6 +36,7 @@ class IndexCommand(QleverCommand):
             "index": [
                 "input_files",
                 "cat_input_files",
+                "encode_as_id",
                 "multi_input_json",
                 "parallel_parsing",
                 "settings_json",

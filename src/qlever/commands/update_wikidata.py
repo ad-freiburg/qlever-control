@@ -110,9 +110,10 @@ class UpdateWikidataCommand(QleverCommand):
         subparser.add_argument(
             "--wait-between-batches",
             type=int,
+            default=3600,
             help="Wait this many seconds between batches that were "
             "finished due to a message that is within `lag_seconds` of "
-            "the current time (default: no wait)",
+            "the current time (default: 3600s)",
         )
 
     # Handle Ctrl+C gracefully by finishing the current batch and then exiting.
@@ -185,7 +186,11 @@ class UpdateWikidataCommand(QleverCommand):
 
         # Initialize the SSE stream and all the statistics variables.
         source = requests_sse.EventSource(
-            args.sse_stream_url, headers={"Accept": "text/event-stream"}
+            args.sse_stream_url,
+            headers={
+                "Accept": "text/event-stream",
+                "User-Agent": "qlever update-wikidata",
+            },
         )
         source.connect()
         current_batch_size = 0
@@ -343,8 +348,10 @@ class UpdateWikidataCommand(QleverCommand):
                 f"[assembly time: {batch_assembly_time_ms:,} ms, "
                 f"min delta to NOW: {min_delta_to_now_s} s]"
             )
-            wait_before_next_batch = (args.wait_between_batches is not None
-                                      and current_batch_size < args.batch_size)
+            wait_before_next_batch = (
+                args.wait_between_batches is not None
+                and current_batch_size < args.batch_size
+            )
             current_batch_size = 0
 
             # Add the min and max date of the batch to `insert_triples`.

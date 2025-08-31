@@ -380,9 +380,11 @@ class UpdateWikidataCommand(QleverCommand):
             )
 
             # Construct update operation.
+            delete_block = " . \n  ".join(delete_triples)
+            insert_block = " . \n  ".join(insert_triples)
             delete_insert_operation = (
-                f"DELETE {{\n  {' . \n  '.join(delete_triples)} .\n}} "
-                f"INSERT {{\n  {' . \n  '.join(insert_triples)} .\n}} "
+                f"DELETE {{\n  {delete_block} .\n}} "
+                f"INSERT {{\n  {insert_block} .\n}} "
                 f"WHERE {{ }}\n"
             )
 

@@ -88,7 +88,7 @@
                                     class="dropdown-item"
                                     target="_blank"
                                     href="https://github.com/ad-freiburg/qlever-control"
-                                    >qlever-control on GitHub</a
+                                    >QLever-control on GitHub</a
                                 >
                             </li>
                             <li>
@@ -107,6 +107,48 @@
 
         <div id="page-main" class="page container-lg">
             <!-- <div class="main-title">SPARQL Engine Comparison</div> -->
+            <div class="accordion mb-3" id="helpAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingHelp">
+                        <button
+                            class="accordion-button collapsed bg-info bg-opacity-25 py-2"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapseHelp"
+                            aria-expanded="false"
+                            aria-controls="collapseHelp"
+                        >
+                            What am I looking at here?
+                        </button>
+                    </h2>
+                    <div
+                        id="collapseHelp"
+                        class="accordion-collapse collapse"
+                        aria-labelledby="headingHelp"
+                        data-bs-parent="#helpAccordion"
+                    >
+                        <div class="accordion-body bg-info bg-opacity-10 pb-1">
+                            <p>
+                                Each table shows the <strong>aggregate metrics</strong> for all SPARQL engines on the
+                                given benchmark.
+                            </p>
+                            <ul>
+                                <li><strong>Column headers</strong>: Hover over them to see what each metric means.</li>
+                                <li><strong>Sorting</strong>: Click any column header to sort by that metric.</li>
+                                <li>
+                                    <strong>Engine rows</strong>: Click a row to view the individual query details for
+                                    that engine on the given benchmark.
+                                </li>
+                                <li>
+                                    <strong>Compare results</strong>: Use the button to see a per-query performance
+                                    comparison of all engines on the given benchmark.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="main-table-container"></div>
         </div>
 
@@ -238,12 +280,66 @@
         </div>
 
         <div id="page-comparison" class="page hidden container-lg" data-kb="">
+            <div class="accordion mb-1" id="comparisonHelpAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="comparisonHeadingHelp">
+                        <button
+                            class="accordion-button collapsed bg-info bg-opacity-25 py-2"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapseComparisonHelp"
+                            aria-expanded="false"
+                            aria-controls="collapseComparisonHelp"
+                        >
+                            What am I looking at here?
+                        </button>
+                    </h2>
+                    <div
+                        id="collapseComparisonHelp"
+                        class="accordion-collapse collapse"
+                        aria-labelledby="comparisonHeadingHelp"
+                        data-bs-parent="#comparisonHelpAccordion"
+                    >
+                        <div class="accordion-body bg-info bg-opacity-10 pb-1">
+                            <p>
+                                This table shows the <strong>per-query runtime performance comparison</strong>
+                                of multiple SPARQL engines on the selected benchmark.
+                            </p>
+                            <ul>
+                                <li>
+                                    <span class="text-success fw-bold">Green cells</span>: Best runtime performance for
+                                    that query.
+                                </li>
+                                <li>
+                                    <span class="text-danger fw-bold">Red cells</span>: Query failed on that engine.
+                                </li>
+                                <li>
+                                    <span class="fw-bold">⚠️ in a cell</span>: Result size for that engine differs from the majority.
+                                </li>
+                                <li>
+                                    <span class="fw-bold">⚠️ next to a query</span>: Result sizes differ across all
+                                    engines.
+                                </li>
+                                <li>
+                                    <span class="fw-bold">Click a cell</span>: Shows some more information which can be
+                                    copied.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="d-flex align-items-start">
                 <!-- Accordion takes most of the space -->
                 <div class="flex-grow-1">
                     <div class="py-2 pe-3" id="columns-checkbox-container">
                         <div class="d-flex align-items-center flex-wrap gap-3">
-                            <label class="fw-bold">Show Engines:</label>
+                            <label
+                                class="fw-bold"
+                                title="Toggle which engines are displayed in the table"
+                                style="cursor: pointer"
+                                >Show Engines:</label
+                            >
                             <div class="d-flex flex-wrap gap-3 mt-1" id="columnCheckboxContainer">
                                 <!-- Checkboxes will be added here dynamically -->
                             </div>
@@ -258,14 +354,14 @@
             <div class="d-flex align-items-center justify-content-between flex-wrap">
                 <!-- Left side: Label + dropdown -->
                 <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap py-2">
-                    <label for="orderColumnsDropdown" class="fw-bold" style="font-size: 0.95rem"
+                    <label
+                        for="orderColumnsDropdown"
+                        title="Change how the engines are ordered from left to right"
+                        class="fw-bold"
+                        style="font-size: 0.95rem; cursor: pointer"
                         >Order Engines by Metric:</label
                     >
-                    <select
-                        class="form-select form-select-sm"
-                        id="orderColumnsDropdown"
-                        style="max-width: 250px"
-                    >
+                    <select class="form-select form-select-sm" id="orderColumnsDropdown" style="max-width: 250px">
                         <option value="gmeanTime-asc">Geometric Mean ↑</option>
                         <option value="gmeanTime-desc">Geometric Mean ↓</option>
                         <option value="failed-asc">Failed Queries ↑</option>

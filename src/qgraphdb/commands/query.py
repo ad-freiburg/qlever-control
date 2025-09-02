@@ -7,7 +7,7 @@ class QueryCommand(QoxigraphQueryCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["port", "host_name", "access_token"],
+            "server": ["override_port", "host_name", "access_token"],
         }
 
     def execute(self, args) -> bool:

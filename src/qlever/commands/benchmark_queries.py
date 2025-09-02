@@ -15,7 +15,7 @@ import rdflib
 import yaml
 from termcolor import colored
 
-from qlever import script_name
+from qlever import engine_name, script_name
 from qlever.command import QleverCommand
 from qlever.commands.clear_cache import ClearCacheCommand
 from qlever.commands.ui import dict_to_yaml
@@ -236,6 +236,20 @@ class BenchmarkQueriesCommand(QleverCommand):
                 " This benchmark description would be displayed as additional "
                 "help text on the evaluation web app for the given dataset. "
                 "Only relevant when --result-file argument is passed."
+            ),
+        )
+        subparser.add_argument(
+            "--restart-on-hang",
+            action="store_true",
+            help=(
+                "Enable automatic server recovery during benchmarking. "
+                "If a query continues running for more than 30 seconds past the "
+                "configured timeout, the benchmark runner will assume the SPARQL "
+                "server is stuck. It will then stop and restart the server for "
+                "the current engine, and resume execution with the next query."
+                "NOTE: This only works if all the server parameters for start and "
+                "stop are configured in the Qleverfile and no arguments are needed "
+                f"for the {script_name} start and {script_name} stop commands."
             ),
         )
 
@@ -495,6 +509,34 @@ class BenchmarkQueriesCommand(QleverCommand):
         except Exception:
             pass
         return single_int_result
+
+    @staticmethod
+    def restart_on_hang() -> None:
+        """
+        Restart the SPARQL server after the server hangs i.e. doesn't return
+        results after timeout + 30s
+        Extremely useful for benchmarking oxigraph (doesn't have timeout implemented)
+        and blazegraph (doesn't terminate query execution often at timeout)
+        Only useful when Qleverfile in CWD and configured properly i.e. no command
+        line args needed to call stop and start commands
+        """
+        stop_cmd = f"{script_name} stop"
+        start_cmd = f"{script_name} start"
+        try:
+            run_command(stop_cmd)
+            time.sleep(2)
+        except Exception as e:
+            log.warning(f"{script_name} process could not be stopped!: {e}")
+        try:
+            run_command(start_cmd)
+            time.sleep(5)
+            log.info(f"Successfully restarted {engine_name} server after hang!")
+        except Exception as e:
+            log.warning(
+                f"{script_name} server could not be restarted. This might affect "
+                f"the benchmark process!: {e}"
+            )
+        return
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -776,17 +818,20 @@ class BenchmarkQueriesCommand(QleverCommand):
             )
             start_time = time.time()
             try:
+                max_time = None
+                if args.restart_on_hang and timeout:
+                    max_time = timeout + 32
                 http_code = run_curl_command(
                     sparql_endpoint,
                     headers={"Accept": accept_header},
                     params={"query": query},
                     result_file=result_file,
+                    max_time=max_time,
                 ).strip()
+                time_seconds = time.time() - start_time
                 if http_code == "200":
-                    time_seconds = time.time() - start_time
                     error_msg = None
                 else:
-                    time_seconds = time.time() - start_time
                     error_msg = {
                         "short": f"HTTP code: {http_code}",
                         "long": re.sub(
@@ -795,6 +840,12 @@ class BenchmarkQueriesCommand(QleverCommand):
                     }
             except Exception as e:
                 time_seconds = time.time() - start_time
+                if (
+                    timeout
+                    and args.restart_on_hang
+                    and time_seconds > timeout + 30
+                ):
+                    self.restart_on_hang()
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
                 error_msg = {

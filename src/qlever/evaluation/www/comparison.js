@@ -496,7 +496,7 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
     if (rowCount < 25) domLayout = "autoHeight";
 
     if (domLayout === "normal") {
-        gridDiv.style.height = `${document.documentElement.clientHeight - 205}px`;
+        gridDiv.style.height = `${document.documentElement.clientHeight - 235}px`;
     }
     // Default column ordering = first option of orderColumnsDropdown
     const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime", "asc");

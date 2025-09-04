@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import glob
-import shlex
 from pathlib import Path
 
 import rdflib
 
+import qlever.util as util
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import binary_exists, run_command
 
 
 class IndexCommand(QleverCommand):
@@ -34,27 +32,18 @@ class IndexCommand(QleverCommand):
                 "ruleset",
             ],
             "server": ["timeout", "read_only"],
-            "runtime": ["system", "image", "index_container"],
+            "runtime": [
+                "system",
+                "image",
+                "index_container",
+                "license_file_path",
+            ],
         }
 
     def additional_arguments(self, subparser):
         pass
 
-    def update_config_ttl(self, args) -> None:
-        try:
-            timeout = int(args.timeout[:-1])
-        except ValueError:
-            timeout = 0
-
-        config_dict = {
-            "repositoryID": args.name,
-            "label": f"{args.name} repository TTL config file",
-            "throw-QueryEvaluationException-on-timeout": "true",
-            "read-only": "true" if args.read_only else "false",
-            "query-timeout": str(timeout),
-            "ruleset": args.ruleset,
-            "entity-index-size": str(args.entity_index_size),
-        }
+    def update_config_ttl(self, config_dict: dict[str, str]) -> None:
         graph = rdflib.Graph()
         graph.parse(Path.cwd() / "config.ttl", format="ttl")
         for sub, pred, obj in graph:
@@ -69,6 +58,25 @@ class IndexCommand(QleverCommand):
         )
 
     @staticmethod
+    def construct_config_ttl_dict(args) -> dict[str, str]:
+        try:
+            timeout = int(args.timeout[:-1])
+        except ValueError:
+            timeout = 0
+
+        config_dict = {
+            "repositoryID": args.name,
+            "label": f"{args.name} repository TTL config file",
+            "throw-QueryEvaluationException-on-timeout": "true",
+            "read-only": "true" if args.read_only == "yes" else "false",
+            "query-timeout": str(timeout),
+            "ruleset": args.ruleset,
+            "entity-index-size": str(args.entity_index_size),
+        }
+
+        return config_dict
+
+    @staticmethod
     def wrap_cmd_in_container(args, cmd: str) -> str:
         return Containerize().containerize_command(
             cmd=cmd,
@@ -76,40 +84,59 @@ class IndexCommand(QleverCommand):
             run_subcommand="run --rm",
             image_name=args.image,
             container_name=args.index_container,
-            volumes=[("$(pwd)", "/opt/data")],
-            working_directory="/opt/data",
+            volumes=[
+                ("$(pwd)", "/opt/graphdb/home"),
+                (
+                    str(args.license_file_path.resolve()),
+                    "/opt/graphdb/graphdb.license",
+                ),
+            ],
+            working_directory="/opt/graphdb/home",
         )
 
     def execute(self, args) -> bool:
+        license_file_path = (
+            str(args.license_file_path.resolve())
+            if args.system == "native"
+            else "/opt/graphdb/graphdb.license"
+        )
+        print(license_file_path)
         index_cmd = (
-            f"{args.index_binary} preload {args.jvm_args} "
-            f"-c config.ttl -t {args.threads} "
-            f"{args.input_files}"
+            f"{args.index_binary} preload {args.jvm_args} -c config.ttl "
+            f"-t {args.threads} -Dgraphdb.home={args.name}_index "
+            f"-Dgraphdb.license.file={license_file_path} {args.input_files}"
         )
         index_cmd += f" | tee {args.name}.index-log.txt"
 
         if args.system != "native":
             index_cmd = self.wrap_cmd_in_container(args, index_cmd)
 
+        config_dict = self.construct_config_ttl_dict(args)
+        log.info(
+            "Following options of GraphDB config.ttl will be updated "
+            "with the values from Qleverfile as shown below:\n"
+        )
+        for option, value in config_dict.items():
+            log.info(f"{option} = {value}")
+        log.info("")
+
         # Show the command line.
         self.show(index_cmd, only_show=args.show)
         if args.show:
+            if not Path("config.ttl").exists():
+                log.warning(
+                    "config.ttl file not found in current working directory! "
+                    "The index command will fail in its absence!"
+                )
             return True
 
         # Check if all of the input files exist.
-        for pattern in shlex.split(args.input_files):
-            if len(glob.glob(pattern)) == 0:
-                log.error(f'No file matching "{pattern}" found')
-                log.info("")
-                log.info(
-                    f"Did you call `{self.script_name} get-data`? If you did, "
-                    "check GET_DATA_CMD and INPUT_FILES in the Qleverfile"
-                )
-                return False
+        if not util.input_files_exist(args.input_files, self.script_name):
+            return False
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            if not binary_exists(args.index_binary, "index-binary"):
+            if not util.binary_exists(args.index_binary, "index-binary"):
                 return False
         else:
             if Containerize().is_running(args.system, args.index_container):
@@ -119,10 +146,26 @@ class IndexCommand(QleverCommand):
                 )
                 return False
 
+        if not Path("config.ttl").exists():
+            log.error(
+                "config.ttl file not found in the current working directory! "
+                f"Did you call {self.script_name} setup-config {args.name}?"
+            )
+            return False
+
+        index_dir = Path(f"{args.name}_index/data/repositories/{args.name}")
+        if index_dir.exists():
+            log.error(
+                f"Index directory found in {args.name}_index/data/repositories "
+                "which shows presence of a previous index\n"
+            )
+            log.info("Aborting the index operation...")
+            return False
+
         # Run the index command.
         try:
-            self.update_config_ttl(args)
-            run_command(index_cmd, show_output=True)
+            self.update_config_ttl(config_dict)
+            util.run_command(index_cmd, show_output=True)
         except Exception as e:
             log.error(f"Building the index failed: {e}")
             return False

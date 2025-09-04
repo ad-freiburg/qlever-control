@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 
 def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
     """Define additional jena specific Qleverfile parameters"""
@@ -9,6 +11,7 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
 
     index_args = all_args["index"]
     server_args = all_args["server"]
+    runtime_args = all_args["runtime"]
 
     index_args["index_binary"] = arg(
         "--index-binary",
@@ -89,15 +92,24 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         default="30s",
         help="The maximal time in seconds a query is allowed to run",
     )
-    server_args["override_port"] = arg(
-        "--override-port",
-        type=int,
-        default=None,
-        help="Override the default GraphDB port i.e. 7200",
-    )
     server_args["read_only"] = arg(
         "--read-only",
-        action="store_true",
-        default=True,
-        help="When true, the REST API will not permit mutation operations",
+        type=str,
+        choices=["yes", "no"],
+        default="yes",
+        help=(
+            "The HTTP server will not permit mutation operations in "
+            "read-only mode"
+        ),
+    )
+
+    runtime_args["license_file_path"] = arg(
+        "--license-file-path",
+        type=Path,
+        required=True,
+        help=(
+            "Path to the GraphDB license file. For more details, check out "
+            "instructions on https://graphdb.ontotext.com/documentation/11.0/"
+            "set-up-your-license.html"
+        )
     )

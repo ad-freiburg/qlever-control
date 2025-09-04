@@ -5,15 +5,16 @@ from qoxigraph.commands.query import QueryCommand as QoxigraphQueryCommand
 
 class QueryCommand(QoxigraphQueryCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
-        return {
-            "data": ["name"],
-            "server": ["override_port", "host_name", "access_token"],
-        }
+        qleverfile_args = super().relevant_qleverfile_arguments()
+        if qleverfile_args.get("data"):
+            qleverfile_args["data"].append("name")
+        else:
+            qleverfile_args["data"] = ["name"]
+        return qleverfile_args
 
     def execute(self, args) -> bool:
         if not args.sparql_endpoint:
-            port = 7200 if not args.override_port else args.override_port
             args.sparql_endpoint = (
-                f"{args.host_name}:{port}/repositories/{args.name}"
+                f"{args.host_name}:{args.port}/repositories/{args.name}"
             )
         super().execute(args)

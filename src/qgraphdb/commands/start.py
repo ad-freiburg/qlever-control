@@ -3,10 +3,10 @@ from __future__ import annotations
 import subprocess
 import time
 
+import qlever.util as util
 from qlever.command import QleverCommand
 from qlever.containerize import Containerize
 from qlever.log import log
-from qlever.util import binary_exists, is_server_alive, run_command
 
 
 class StartCommand(QleverCommand):
@@ -29,9 +29,14 @@ class StartCommand(QleverCommand):
                 "host_name",
                 "heap_size_gb",
                 "server_binary",
-                "override_port",
+                "port",
             ],
-            "runtime": ["system", "image", "server_container"],
+            "runtime": [
+                "system",
+                "image",
+                "server_container",
+                "license_file_path",
+            ],
         }
 
     def additional_arguments(self, subparser):
@@ -58,18 +63,28 @@ class StartCommand(QleverCommand):
             run_subcommand=run_subcommand,
             image_name=args.image,
             container_name=args.server_container,
-            volumes=[("$(pwd)", "/opt/data")],
-            working_directory="/opt/data",
+            volumes=[
+                ("$(pwd)", "/opt/graphdb/home"),
+                (
+                    str(args.license_file_path.resolve()),
+                    "/opt/graphdb/graphdb.license",
+                ),
+            ],
+            working_directory="/opt/graphdb/home",
             ports=[(args.port, args.port)],
         )
 
     def execute(self, args) -> bool:
-        port = 7200 if not args.override_port else args.override_port
-        start_cmd = (
-            f'env GDB_HEAP_SIZE="{args.heap_size_gb}" {args.server_binary} -s'
+        license_file_path = (
+            str(args.license_file_path.resolve())
+            if args.system == "native"
+            else "/opt/graphdb/graphdb.license"
         )
-        if port != 7200:
-            start_cmd += f" -Dgraphdb.connector.port={port}"
+        start_cmd = (
+            f'env GDB_HEAP_SIZE="{args.heap_size_gb}" {args.server_binary} -s '
+            f"-Dgraphdb.home={args.name}_index -Dgraphdb.connector.port="
+            f"{args.port} -Dgraphdb.license.file={license_file_path}"
+        )
 
         if args.system == "native":
             if not args.run_in_foreground:
@@ -86,22 +101,11 @@ class StartCommand(QleverCommand):
 
         # When running natively, check if the binary exists and works.
         if args.system == "native":
-            if not binary_exists(args.server_binary, "server-binary"):
-                return False
-        else:
-            if Containerize().is_running(args.system, args.server_container):
-                log.error(
-                    f"Server container {args.server_container} already exists!\n"
-                )
-                log.info(
-                    f"To kill the existing server, use `{self.script_name} stop`"
-                )
+            if not util.binary_exists(args.server_binary, "server-binary"):
                 return False
 
-        endpoint_url = (
-            f"http://{args.host_name}:{port}/repositories/{args.name}"
-        )
-        if is_server_alive(url=endpoint_url):
+        endpoint_url = f"http://{args.host_name}:{args.port}/repositories"
+        if util.is_server_alive(url=endpoint_url):
             log.error(f"GraphDB server already running on {endpoint_url}\n")
             log.info(
                 f"To kill the existing server, use `{self.script_name} stop`"
@@ -109,7 +113,7 @@ class StartCommand(QleverCommand):
             return False
 
         try:
-            process = run_command(
+            process = util.run_command(
                 start_cmd,
                 use_popen=args.run_in_foreground,
             )
@@ -134,7 +138,7 @@ class StartCommand(QleverCommand):
         log_cmd = f"exec tail -f {args.name}.server-log.txt"
         log_proc = subprocess.Popen(log_cmd, shell=True)
         time.sleep(2)
-        while not is_server_alive(endpoint_url):
+        while not util.is_server_alive(endpoint_url):
             time.sleep(1)
 
         log.info(f"GraphDB sparql endpoint for queries is {endpoint_url}")

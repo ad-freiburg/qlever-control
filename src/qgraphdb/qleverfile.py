@@ -108,8 +108,7 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         type=Path,
         required=True,
         help=(
-            "Path to the GraphDB license file. For more details, check out "
-            "instructions on https://graphdb.ontotext.com/documentation/11.0/"
-            "set-up-your-license.html"
+            "Path to the GraphDB license file. Get the free license file from "
+            "https://www.ontotext.com/products/graphdb/#try-graphdb"
         )
     )

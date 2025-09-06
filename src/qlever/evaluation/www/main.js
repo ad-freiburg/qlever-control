@@ -121,6 +121,7 @@ function updateMainPage(performanceData, additionalData) {
 
     // Clear container if any existing content
     container.innerHTML = "";
+    const fragment = document.createDocumentFragment();
 
     // For each knowledge base (kb) key in performanceData
     for (const kb of Object.keys(performanceData)) {
@@ -196,7 +197,7 @@ function updateMainPage(performanceData, additionalData) {
         // Append header and grid div to section
         section.appendChild(header);
         section.appendChild(gridDiv);
-        container.appendChild(section);
+        fragment.appendChild(section);
 
         // Get table data from function you provided
         const tableData = getAllQueryStatsByKb(performanceData, kb);
@@ -235,6 +236,7 @@ function updateMainPage(performanceData, additionalData) {
             },
         });
     }
+    container.appendChild(fragment);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

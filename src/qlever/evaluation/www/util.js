@@ -445,3 +445,53 @@ function createTooltipContainer(params) {
     container.appendChild(textDiv);
     return container;
 }
+
+function escapeLatex(str) {
+    if (!str) return "";
+
+    const replacements = {
+        "\\": "\\textbackslash{}",
+        "{": "\\{",
+        "}": "\\}",
+        $: "\\$",
+        "&": "\\&",
+        "#": "\\#",
+        _: "\\_",
+        "%": "\\%",
+        "~": "\\textasciitilde{}",
+        "^": "\\textasciicircum{}",
+        "<": "\\textless{}",
+        ">": "\\textgreater{}",
+    };
+
+    return str.replace(/([\\{}$&#_%~^<>])/g, (match) => replacements[match] || match).trim();
+}
+
+function csvToLatexTable(csvText) {
+    // Split CSV into rows
+    const rows = csvText
+        .trim()
+        .split("\n")
+        .map((row) => row.split(","));
+
+    const colAlign = "l" + "r".repeat(rows[0].length - 1);
+
+    // Build LaTeX table
+    let latex = `% Required packages (uncomment in LaTeX preamble):
+% \\usepackage{booktabs}
+% \\usepackage[table]{xcolor}
+
+\\rowcolors{2}{gray!15}{white}
+\\begin{tabular}{${colAlign}}
+\\toprule
+${rows[0].map((h) => `\\textbf{${escapeLatex(h)}}`).join(" & ")} \\\\ 
+\\midrule
+${rows
+    .slice(1)
+    .map((r) => r.map((c) => escapeLatex(c)).join(" & ") + " \\\\")
+    .join("\n")}
+\\bottomrule
+\\end{tabular}`;
+
+    return latex;
+}

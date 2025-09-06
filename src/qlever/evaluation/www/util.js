@@ -393,10 +393,9 @@ function createBenchmarkDescriptionInfoPill(indexDescription, isBgLight = true, 
     infoPill.setAttribute("tabindex", 0);
     infoPill.className = "badge border rounded-pill ms-2";
     if (isBgLight) {
-        infoPill.className += " bg-light text-dark border-dark"
-    }
-    else {
-        infoPill.className += " bg-dark text-light border-light"
+        infoPill.className += " bg-light text-dark border-dark";
+    } else {
+        infoPill.className += " bg-dark text-light border-light";
     }
     infoPill.style.cursor = "pointer";
     infoPill.style.padding = "0.25em 0.45em";
@@ -421,4 +420,28 @@ function createBenchmarkDescriptionInfoPill(indexDescription, isBgLight = true, 
 
 function removeTitleInfoPill() {
     document.querySelector("#mainTitleWrapper a")?.remove();
+}
+
+function createTooltipContainer(params) {
+    const isSparql = typeof params.value !== "string";
+    const tooltipText = isSparql ? params.value.sparql : params.value;
+    const tooltipTitle = params.value.title;
+
+    const container = document.createElement("div");
+    container.className = "custom-tooltip";
+
+    const textDiv = document.createElement("div");
+    textDiv.className = "tooltip-text";
+    const pre = document.createElement("pre");
+    pre.textContent = tooltipText;
+    if (tooltipTitle) {
+        textDiv.innerHTML = `<b>${tooltipTitle}</b><br><br>`;
+    }
+    if (isSparql) {
+        textDiv.appendChild(pre);
+    } else {
+        textDiv.textContent = tooltipText;
+    }
+    container.appendChild(textDiv);
+    return container;
 }

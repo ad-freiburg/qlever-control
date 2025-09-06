@@ -24,7 +24,6 @@ function setDetailsPageEvents() {
     document.querySelector("#detailsCompareExecTreesBtn").addEventListener("click", () => {
         goToCompareExecTreesPage(detailsGridApi, "Query Runtimes");
     });
-    
 }
 
 /**
@@ -94,20 +93,7 @@ function getQueryResultsDict(headers, queryResults) {
 class CustomDetailsTooltip {
     eGui;
     init(params) {
-        const tooltipText = typeof params.value === "string" ? params.value : params.value.sparql;
-        const tooltipTitle = params.value.title;
-
-        const container = document.createElement("div");
-        container.className = "custom-tooltip";
-
-        const textDiv = document.createElement("div");
-        textDiv.className = "tooltip-text";
-        if (tooltipTitle) {
-            textDiv.innerHTML = `<b>${tooltipTitle}</b><br><br><pre>${tooltipText}</pre>`;
-        } else {
-            textDiv.textContent = tooltipText;
-        }
-        container.appendChild(textDiv);
+        const container = createTooltipContainer(params);
         this.eGui = container;
     }
 

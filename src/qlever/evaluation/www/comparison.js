@@ -55,9 +55,13 @@ function setComparisonPageEvents() {
         const sortedColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
         const showMetrics = document.querySelector("#showMetrics").checked;
         sortedColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             columnDefs: sortedColumnDefs,
             maintainColumnOrder: false,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
@@ -81,9 +85,13 @@ function setComparisonPageEvents() {
             queryHeader = "Metric/Query";
         }
         columnDefs[0].headerName = queryHeader;
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             pinnedTopRowData: pinnedMetricData,
             columnDefs: columnDefs,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
@@ -101,14 +109,30 @@ function setComparisonPageEvents() {
         const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
         const showMetrics = document.querySelector("#showMetrics").checked;
         visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             columnDefs: visibleColumnDefs,
             maintainColumnOrder: true,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
     document.querySelector("#goToCompareExecTreesBtn").addEventListener("click", () => {
         goToCompareExecTreesPage(gridApi, "Performance Comparison");
+    });
+
+    document.querySelector("#comparisonDownloadTsv").addEventListener("click", () => {
+        const kb = document.querySelector("#page-comparison").dataset.kb;
+        if (!gridApi) {
+            alert(`The evaluation results table for ${kb} could not be downloaded!`);
+            return;
+        }
+        gridApi.exportDataAsCsv({
+            fileName: `${kb}_evaluation_results.tsv`,
+            columnSeparator: "\t",
+        });
     });
 }
 
@@ -259,10 +283,14 @@ function updateHiddenColumns(enginesToDisplay) {
     const visibleColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
     const showMetrics = document.querySelector("#showMetrics").checked;
     visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+    const colState = gridApi.getColumnState();
     gridApi.updateGridOptions({
         columnDefs: visibleColumnDefs,
         rowData: visibleRowData,
         maintainColumnOrder: false,
+    });
+    gridApi.applyColumnState({
+        state: colState,
     });
 }
 
@@ -302,7 +330,7 @@ class WarningCellRenderer {
             if (params.showResultSize) {
                 //container.appendChild(document.createElement("br"));
                 const resultSizeLine = document.createElement("div");
-                resultSizeLine.textContent = engineStats.result_size_to_display;
+                resultSizeLine.textContent = engineStats?.result_size_to_display;
                 resultSizeLine.style.color = "#888";
                 resultSizeLine.style.fontSize = "90%";
                 resultSizeLine.style.marginTop = "-8px";
@@ -357,42 +385,32 @@ function getTooltipValue(params) {
 
 class CustomTooltip {
     init(params) {
-        const tooltipText = typeof params.value === "string" ? params.value : params.value.sparql;
-        const tooltipTitle = params.value.title;
+        const container = createTooltipContainer(params);
 
-        const container = document.createElement("div");
-        container.className = "custom-tooltip";
-
-        const textDiv = document.createElement("div");
-        textDiv.className = "tooltip-text";
-        if (tooltipTitle) {
-            textDiv.innerHTML = `<b>${tooltipTitle}</b><br><br><pre>${tooltipText}</pre>`;
-        } else {
-            textDiv.textContent = tooltipText;
+        if (window.isSecureContext) {
+            // Copy button
+            const copyButton = document.createElement("button");
+            copyButton.innerHTML = "📄";
+            copyButton.className = "copy-btn";
+            copyButton.title = "Copy";
+    
+            copyButton.onclick = () => {
+                navigator.clipboard
+                    .writeText(tooltipText)
+                    .then(() => {
+                        copyButton.innerHTML = "✅";
+                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                    })
+                    .catch((err) => {
+                        console.error("Failed to copy full SPARQL query:", err);
+                        copyButton.innerHTML = "❌";
+                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                    });
+            };
+    
+            container.appendChild(copyButton);
         }
 
-        // Copy button
-        const copyButton = document.createElement("button");
-        copyButton.innerHTML = "📄";
-        copyButton.className = "copy-btn";
-        copyButton.title = "Copy";
-
-        copyButton.onclick = () => {
-            navigator.clipboard
-                .writeText(tooltipText)
-                .then(() => {
-                    copyButton.innerHTML = "✅";
-                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
-                })
-                .catch((err) => {
-                    console.error("Failed to copy full SPARQL query:", err);
-                    copyButton.innerHTML = "❌";
-                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
-                });
-        };
-
-        container.appendChild(textDiv);
-        container.appendChild(copyButton);
         this.eGui = container;
     }
 

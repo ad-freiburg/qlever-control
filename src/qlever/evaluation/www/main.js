@@ -3,6 +3,8 @@
  */
 const QUERY_STATS_KEYS = ["ameanTime", "gmeanTime", "medianTime", "under1s", "between1to5s", "over5s", "failed"];
 
+const mainGridApis = {};
+
 /**
  * Given a knowledge base (kb), get all query stats for each engine to display
  * on the main page of evaluation web app as a table.
@@ -145,6 +147,29 @@ function updateMainPage(performanceData, additionalData) {
             infoPill = createBenchmarkDescriptionInfoPill(indexDescription);
         }
 
+        const btnGroup = document.createElement("div");
+        btnGroup.className = "d-flex align-items-center gap-2";
+
+        const downloadBtn = document.createElement("button");
+        downloadBtn.className = "btn btn-outline-dark btn-sm";
+        downloadBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
+            </svg>
+        `;
+        downloadBtn.title = "Download as TSV";
+        downloadBtn.onclick = () => {
+            if (!mainGridApis || !mainGridApis.hasOwnProperty(kb)) {
+                alert(`The aggregate metrics table for ${kb} could not be downloaded!`);
+                return;
+            }
+            mainGridApis[kb].exportDataAsCsv({
+                fileName: `${kb}_aggregate_metrics.tsv`,
+                columnSeparator: "\t",
+            });
+        };
+
         const compareBtn = document.createElement("button");
         compareBtn.className = "btn btn-outline-dark btn-sm";
         compareBtn.textContent = "Compare Results";
@@ -152,13 +177,16 @@ function updateMainPage(performanceData, additionalData) {
             router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
         };
 
+        btnGroup.appendChild(downloadBtn);
+        btnGroup.appendChild(compareBtn);
+
         titleWrapper.appendChild(title);
         if (infoPill) {
             titleWrapper.appendChild(infoPill);
             new bootstrap.Popover(infoPill);
         }
         header.appendChild(titleWrapper);
-        header.appendChild(compareBtn);
+        header.appendChild(btnGroup);
 
         // Grid div with ag-theme-balham styling
         const gridDiv = document.createElement("div");
@@ -202,6 +230,9 @@ function updateMainPage(performanceData, additionalData) {
             tooltipShowDelay: 500,
             onRowClicked: onRowClicked,
             suppressDragLeaveHidesColumns: true,
+            onGridReady: (params) => {
+                mainGridApis[kb] = params.api;
+            },
         });
     }
 }
@@ -224,8 +255,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     queries.forEach((query) => {
                         try {
                             query.sparql = spfmt.format(query.sparql);
-                        }
-                        catch (err) {
+                        } catch (err) {
                             console.log(err);
                         }
                     });

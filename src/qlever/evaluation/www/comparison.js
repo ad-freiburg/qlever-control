@@ -122,6 +122,18 @@ function setComparisonPageEvents() {
     document.querySelector("#goToCompareExecTreesBtn").addEventListener("click", () => {
         goToCompareExecTreesPage(gridApi, "Performance Comparison");
     });
+
+    document.querySelector("#comparisonDownloadTsv").addEventListener("click", () => {
+        const kb = document.querySelector("#page-comparison").dataset.kb;
+        if (!gridApi) {
+            alert(`The evaluation results table for ${kb} could not be downloaded!`);
+            return;
+        }
+        gridApi.exportDataAsCsv({
+            fileName: `${kb}_evaluation_results.tsv`,
+            columnSeparator: "\t",
+        });
+    });
 }
 
 /**

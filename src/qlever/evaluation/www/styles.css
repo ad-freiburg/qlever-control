@@ -65,7 +65,7 @@ body {
 }
 
 #comparison-grid .ag-row-focus {
-  background-color: unset !important;
+    background-color: unset !important;
 }
 
 /* .ag-row-focus {
@@ -86,7 +86,6 @@ body {
     color: white;
     border-radius: 4px;
     font-size: 12px;
-    max-width: 600px;
 }
 
 .tooltip-text {
@@ -109,8 +108,8 @@ body {
 }
 
 .form-check-input:checked {
-  background-color: #212529;
-  border-color: #212529;
+    background-color: #212529;
+    border-color: #212529;
 }
 
 #meta-info,

@@ -511,7 +511,7 @@ class BenchmarkQueriesCommand(QleverCommand):
         return single_int_result
 
     @staticmethod
-    def restart_on_hang() -> None:
+    def restart_on_hang(start_only: bool = False) -> None:
         """
         Restart the SPARQL server after the server hangs i.e. doesn't return
         results after timeout + 30s
@@ -522,15 +522,20 @@ class BenchmarkQueriesCommand(QleverCommand):
         """
         stop_cmd = f"{script_name} stop"
         start_cmd = f"{script_name} start"
+        if not start_only:
+            try:
+                run_command(stop_cmd)
+                time.sleep(2)
+            except Exception as e:
+                log.warning(f"{script_name} process could not be stopped!: {e}")
         try:
-            run_command(stop_cmd)
-            time.sleep(2)
-        except Exception as e:
-            log.warning(f"{script_name} process could not be stopped!: {e}")
-        try:
+            if script_name == "qvirtuoso":
+                Path("virtuoso.trx").unlink(missing_ok=True)
             run_command(start_cmd)
             time.sleep(5)
-            log.info(f"Successfully restarted {engine_name} server after hang!")
+            log.info(
+                f"Successfully restarted {engine_name} server after hang!"
+            )
         except Exception as e:
             log.warning(
                 f"{script_name} server could not be restarted. This might affect "
@@ -846,6 +851,10 @@ class BenchmarkQueriesCommand(QleverCommand):
                     and time_seconds > timeout + 30
                 ):
                     self.restart_on_hang()
+                elif (
+                    "exit code 52" in str(e) or "exit code 7" in str(e)
+                ) and args.restart_on_hang:
+                    self.restart_on_hang(start_only=True)
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
                 error_msg = {

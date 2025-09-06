@@ -387,27 +387,30 @@ class CustomTooltip {
     init(params) {
         const container = createTooltipContainer(params);
 
-        // Copy button
-        const copyButton = document.createElement("button");
-        copyButton.innerHTML = "📄";
-        copyButton.className = "copy-btn";
-        copyButton.title = "Copy";
+        if (window.isSecureContext) {
+            // Copy button
+            const copyButton = document.createElement("button");
+            copyButton.innerHTML = "📄";
+            copyButton.className = "copy-btn";
+            copyButton.title = "Copy";
+    
+            copyButton.onclick = () => {
+                navigator.clipboard
+                    .writeText(tooltipText)
+                    .then(() => {
+                        copyButton.innerHTML = "✅";
+                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                    })
+                    .catch((err) => {
+                        console.error("Failed to copy full SPARQL query:", err);
+                        copyButton.innerHTML = "❌";
+                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                    });
+            };
+    
+            container.appendChild(copyButton);
+        }
 
-        copyButton.onclick = () => {
-            navigator.clipboard
-                .writeText(tooltipText)
-                .then(() => {
-                    copyButton.innerHTML = "✅";
-                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
-                })
-                .catch((err) => {
-                    console.error("Failed to copy full SPARQL query:", err);
-                    copyButton.innerHTML = "❌";
-                    setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
-                });
-        };
-
-        container.appendChild(copyButton);
         this.eGui = container;
     }
 

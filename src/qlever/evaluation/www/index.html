@@ -314,16 +314,16 @@
                                     <span class="text-danger fw-bold">Red cells</span>: Query failed on that engine.
                                 </li>
                                 <li>
-                                    <span class="fw-bold">⚠️ in a cell</span>: Result size for that engine differs from
+                                    <span class="fw-bold">⚠️ in an engine column cell</span>: Result size for that engine differs from
                                     the majority.
                                 </li>
                                 <li>
-                                    <span class="fw-bold">⚠️ next to a query</span>: Result sizes differ across all
+                                    <span class="fw-bold">⚠️ in the query column cell</span>: Result sizes differ across all
                                     engines.
                                 </li>
                                 <li>
                                     <span class="fw-bold">Click a cell</span>: Shows some more information which can be
-                                    copied.
+                                    copied. (Copying feature only works in a secure context i.e. https or localhost)
                                 </li>
                             </ul>
                         </div>
@@ -375,7 +375,7 @@
                 </div>
 
                 <!-- Right side: toggles -->
-                <div class="d-flex align-items-baseline gap-3 ms-3 flex-wrap">
+                <div class="d-flex align-items-center gap-3 ms-3 flex-wrap">
                     <button id="comparisonDownloadTsv" class="btn btn-outline-dark btn-sm" title="Download as TSV">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"

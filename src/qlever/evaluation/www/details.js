@@ -24,7 +24,6 @@ function setDetailsPageEvents() {
     document.querySelector("#detailsCompareExecTreesBtn").addEventListener("click", () => {
         goToCompareExecTreesPage(detailsGridApi, "Query Runtimes");
     });
-    
 }
 
 /**

@@ -55,9 +55,13 @@ function setComparisonPageEvents() {
         const sortedColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
         const showMetrics = document.querySelector("#showMetrics").checked;
         sortedColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             columnDefs: sortedColumnDefs,
             maintainColumnOrder: false,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
@@ -81,9 +85,13 @@ function setComparisonPageEvents() {
             queryHeader = "Metric/Query";
         }
         columnDefs[0].headerName = queryHeader;
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             pinnedTopRowData: pinnedMetricData,
             columnDefs: columnDefs,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
@@ -101,9 +109,13 @@ function setComparisonPageEvents() {
         const visibleColumnDefs = getComparisonColumnDefs(enginesToDisplay, showResultSize);
         const showMetrics = document.querySelector("#showMetrics").checked;
         visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+        const colState = gridApi.getColumnState();
         gridApi.updateGridOptions({
             columnDefs: visibleColumnDefs,
             maintainColumnOrder: true,
+        });
+        gridApi.applyColumnState({
+            state: colState,
         });
     });
 
@@ -259,10 +271,14 @@ function updateHiddenColumns(enginesToDisplay) {
     const visibleColumnDefs = getComparisonColumnDefs(sortedEngines, showResultSize);
     const showMetrics = document.querySelector("#showMetrics").checked;
     visibleColumnDefs[0].headerName = showMetrics ? "Metric/Query" : "Query";
+    const colState = gridApi.getColumnState();
     gridApi.updateGridOptions({
         columnDefs: visibleColumnDefs,
         rowData: visibleRowData,
         maintainColumnOrder: false,
+    });
+    gridApi.applyColumnState({
+        state: colState,
     });
 }
 
@@ -302,7 +318,7 @@ class WarningCellRenderer {
             if (params.showResultSize) {
                 //container.appendChild(document.createElement("br"));
                 const resultSizeLine = document.createElement("div");
-                resultSizeLine.textContent = engineStats.result_size_to_display;
+                resultSizeLine.textContent = engineStats?.result_size_to_display;
                 resultSizeLine.style.color = "#888";
                 resultSizeLine.style.fontSize = "90%";
                 resultSizeLine.style.marginTop = "-8px";

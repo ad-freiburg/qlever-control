@@ -449,10 +449,11 @@ class CustomTooltip {
 function getPinnedMetricData(engines, kb) {
     let pinnedMetricData = [];
     const metricKeyNameObj = {
-        gmeanTime: "Geometric Mean",
+        gmeanTime2: "Geometric Mean (P=2)",
+        gmeanTime10: "Geometric Mean (P=10)",
         failed: "Failed Queries",
-        medianTime: "Median",
-        ameanTime: "Arithmetic Mean",
+        medianTime: "Median (P=2)",
+        ameanTime: "Arithmetic Mean (P=2)",
     };
     for (const [metric, metricName] of Object.entries(metricKeyNameObj)) {
         let metricData = { query: metricName };
@@ -570,7 +571,7 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
         gridDiv.style.height = `${document.documentElement.clientHeight - 235}px`;
     }
     // Default column ordering = first option of orderColumnsDropdown
-    const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime", "asc");
+    const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime2", "asc");
     const comparisonGridOptions = {
         columnDefs: getComparisonColumnDefs(sortedEngines),
         rowData: rowData,

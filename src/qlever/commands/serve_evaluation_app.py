@@ -39,6 +39,7 @@ def get_query_data(
 
     for query in queries:
         # Have the old query and sparql keys to not break the web app
+        query["serverRestarted"] = bool(query.get("server_restarted"))
         query["sparql"] = query.pop("query")
         query["query"] = query.pop("name")
         runtime = float(query["runtime_info"]["client_time"])

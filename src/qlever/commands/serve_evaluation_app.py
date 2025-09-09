@@ -108,6 +108,8 @@ def create_json_data(
             data["additional_data"]["kbs"][dataset] = {
                 "description": queries_data.get("description"),
                 "title": queries_data.get("title"),
+                "name": queries_data.get("name"),
+                "scale": queries_data.get("scale"),
             }
             query_data = get_query_data(
                 queries_data["queries"],

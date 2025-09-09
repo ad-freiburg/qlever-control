@@ -1,7 +1,16 @@
 /**
  * List of query statistics keys (values unused, so just keys kept)
  */
-const QUERY_STATS_KEYS = ["ameanTime", "gmeanTime2", "gmeanTime10", "medianTime", "under1s", "between1to5s", "over5s", "failed"];
+const QUERY_STATS_KEYS = [
+    "ameanTime",
+    "gmeanTime2",
+    "gmeanTime10",
+    "medianTime",
+    "under1s",
+    "between1to5s",
+    "over5s",
+    "failed",
+];
 
 const mainGridApis = {};
 
@@ -105,7 +114,8 @@ function mainTableColumnDefs() {
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
-            headerTooltip: "Percentage of all queries that successfully completed in more than 1 second and up to 5 seconds",
+            headerTooltip:
+                "Percentage of all queries that successfully completed in more than 1 second and up to 5 seconds",
             tooltipComponent: CustomDetailsTooltip,
             flex: 1,
         },
@@ -141,8 +151,17 @@ function updateMainPage(performanceData, additionalData) {
     container.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
+    const sortedKbNames = Object.entries(additionalData.kbs)
+        .sort(([keyA, kbA], [keyB, kbB]) => {
+            // Sort by scale descending
+            if (kbB.scale !== kbA.scale) return kbA.scale - kbB.scale;
+            // If scales are equal, sort by name ascending
+            return kbA.name.localeCompare(kbB.name);
+        })
+        .map(([key, _kb]) => key);
+
     // For each knowledge base (kb) key in performanceData
-    for (const kb of Object.keys(performanceData)) {
+    for (const kb of sortedKbNames) {
         // Create section wrapper
         const section = document.createElement("div");
         section.className = "kg-section";
@@ -154,16 +173,17 @@ function updateMainPage(performanceData, additionalData) {
         const titleWrapper = document.createElement("div");
         titleWrapper.className = "d-inline-flex align-items-center";
 
+        const benchmarkDescription = additionalData.kbs[kb].description;
+        const benchmarkName = additionalData.kbs[kb].name;
+
         const title = document.createElement("h5");
-        title.textContent = capitalize(kb);
+        title.textContent = benchmarkName || capitalize(kb);
         title.style.fontWeight = "bold";
         title.classList.add("mb-1");
 
-        const indexDescription = additionalData.kbs[kb].description;
-
         let infoPill = null;
-        if (indexDescription) {
-            infoPill = createBenchmarkDescriptionInfoPill(indexDescription);
+        if (benchmarkDescription) {
+            infoPill = createBenchmarkDescriptionInfoPill(benchmarkDescription);
         }
 
         const btnGroup = document.createElement("div");

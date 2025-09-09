@@ -153,10 +153,13 @@ function updateMainPage(performanceData, additionalData) {
 
     const sortedKbNames = Object.entries(additionalData.kbs)
         .sort(([keyA, kbA], [keyB, kbB]) => {
-            // Sort by scale descending
-            if (kbB.scale !== kbA.scale) return kbA.scale - kbB.scale;
-            // If scales are equal, sort by name ascending
-            return kbA.name.localeCompare(kbB.name);
+            const scaleA = kbA?.scale ?? 0;
+            const scaleB = kbB?.scale ?? 0;
+            const nameA = kbA?.name ?? "";
+            const nameB = kbB?.name ?? "";
+
+            if (scaleB !== scaleA) return scaleA - scaleB;
+            return nameA.localeCompare(nameB);
         })
         .map(([key, _kb]) => key);
 

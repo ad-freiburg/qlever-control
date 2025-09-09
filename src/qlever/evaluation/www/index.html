@@ -133,15 +133,38 @@
                                 given benchmark.
                             </p>
                             <ul>
-                                <li><strong>Column headers</strong>: Hover over them to see what each metric means.</li>
-                                <li><strong>Sorting</strong>: Click any column header to sort by that metric.</li>
+                                <li>
+                                    <strong>Column headers</strong>: Hover over any header to see detailed explanations
+                                    of the metrics, including how failed queries are penalized.
+                                </li>
+                                <li>
+                                    <strong>Sorting</strong>: Click a column header to sort by that metric. Hold
+                                    <kbd class="bg-info">Shift</kbd> and click multiple headers to sort by more than one
+                                    column in order.
+                                </li>
+                                <li>
+                                    <strong>Filtering</strong>: Each column has a built-in filter menu with powerful
+                                    options to quickly narrow down the results.
+                                </li>
+                                <li>
+                                    <strong>Column resizing</strong>: Drag the edges of column headers to resize. Hold
+                                    <kbd class="bg-info">Shift</kbd> while resizing to change the column width without
+                                    shifting neighboring columns.
+                                </li>
+                                <li>
+                                    <strong>Column reordering</strong>: Drag and drop column headers to reorder them.
+                                </li>
                                 <li>
                                     <strong>Engine rows</strong>: Click a row to view the individual query details for
                                     that engine on the given benchmark.
                                 </li>
                                 <li>
-                                    <strong>Compare results</strong>: Use the button to see a per-query performance
-                                    comparison of all engines on the given benchmark.
+                                    <strong>Compare results</strong>: Use the compare button to see a per-query
+                                    performance comparison of all engines.
+                                </li>
+                                <li>
+                                    <strong>Download</strong>: Export the table contents as <code>TSV</code> for offline
+                                    analysis or reporting.
                                 </li>
                             </ul>
                         </div>
@@ -314,16 +337,20 @@
                                     <span class="text-danger fw-bold">Red cells</span>: Query failed on that engine.
                                 </li>
                                 <li>
-                                    <span class="fw-bold">⚠️ in an engine column cell</span>: Result size for that engine differs from
-                                    the majority.
+                                    <span class="fw-bold">⚠️ in an engine column cell</span>: Result size for that
+                                    engine differs from the majority.
                                 </li>
                                 <li>
-                                    <span class="fw-bold">⚠️ in the query column cell</span>: Result sizes differ across all
-                                    engines.
+                                    <span class="fw-bold">⚠️ in the query column cell</span>: Result sizes differ across
+                                    all engines.
                                 </li>
                                 <li>
-                                    <span class="fw-bold">Click a cell</span>: Shows some more information which can be
+                                    <span class="fw-bold">Click a cell</span>: Shows additional information which can be
                                     copied. (Copying feature only works in a secure context i.e. https or localhost)
+                                </li>
+                                <li>
+                                    <strong>Other features</strong>: Sorting, filtering, resizing, reordering, and TSV
+                                    export are all available.
                                 </li>
                             </ul>
                         </div>
@@ -363,8 +390,10 @@
                         >Order Engines by Metric:</label
                     >
                     <select class="form-select form-select-sm" id="orderColumnsDropdown" style="max-width: 250px">
-                        <option value="gmeanTime-asc">Geometric Mean ↑</option>
-                        <option value="gmeanTime-desc">Geometric Mean ↓</option>
+                        <option value="gmeanTime2-asc">Geometric Mean (P=2) ↑</option>
+                        <option value="gmeanTime2-desc">Geometric Mean (P=2) ↓</option>
+                        <option value="gmeanTime10-asc">Geometric Mean (P=10) ↑</option>
+                        <option value="gmeanTime10-desc">Geometric Mean (P=10) ↓</option>
                         <option value="failed-asc">Failed Queries ↑</option>
                         <option value="failed-desc">Failed Queries ↓</option>
                         <option value="medianTime-asc">Median ↑</option>

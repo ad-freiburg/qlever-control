@@ -296,14 +296,11 @@ function updateHiddenColumns(enginesToDisplay) {
 
 class WarningCellRenderer {
     init(params) {
-        if (params.pinned) console.log(params);
         const value = params.value;
         const container = document.createElement("div");
         container.style.whiteSpace = "normal";
 
-        const warning = document.createElement("span");
-        warning.textContent = "⚠️";
-        warning.style.marginRight = "4px";
+        const warning = getWarningSpan("⚠️");
 
         if (params.node.rowPinned) {
             container.classList.add("fw-bold");
@@ -320,13 +317,28 @@ class WarningCellRenderer {
                 container.appendChild(warning);
             }
         } else {
-            const engineStatsColumn = params.column.getColId() + "_stats";
+            const engine = params.column.getColId();
+            const kb = document.querySelector("#page-comparison").dataset.kb;
+            const timeout = performanceData[kb][engine].timeout;
+            const engineStatsColumn = engine + "_stats";
             const engineStats = params.data[engineStatsColumn];
-            if (engineStats && typeof engineStats === "object" && engineStats.size_warning) {
-                warning.title = `Result size ${engineStats.result_size_to_display} doesn't match the majority ${engineStats.majority_result_size}!`;
-                container.appendChild(warning);
+            let cellValue = `${value} s`;
+            if (engineStats && typeof engineStats === "object") {
+                if (engineStats.size_warning) {
+                    warning.title = `Result size ${engineStats.result_size_to_display} doesn't match the majority ${engineStats.majority_result_size}!`;
+                    container.appendChild(warning);
+                }
+                if (typeof engineStats.results === "string") {
+                    if (engineStats.serverRestarted) {
+                        const serverRestartWarning = getWarningSpan("‼️");
+                        serverRestartWarning.title =
+                            "Server was restarted after this query because of no response after timeout + 30s!";
+                        container.appendChild(serverRestartWarning);
+                    }
+                    cellValue = timeout && value >= timeout ? "timeout" : "failed";
+                }
             }
-            container.appendChild(document.createTextNode(`${value} s`));
+            container.appendChild(document.createTextNode(cellValue));
             if (params.showResultSize) {
                 //container.appendChild(document.createElement("br"));
                 const resultSizeLine = document.createElement("div");
@@ -339,6 +351,13 @@ class WarningCellRenderer {
             }
         }
         this.eGui = container;
+
+        function getWarningSpan(symbol) {
+            const warning = document.createElement("span");
+            warning.textContent = symbol;
+            warning.style.marginRight = "4px";
+            return warning;
+        }
     }
 
     getGui() {
@@ -370,12 +389,20 @@ function getTooltipValue(params) {
         }
         return null;
     }
-    const engineStatsColumn = params.column.getColId() + "_stats";
+    const engine = params.column.getColId();
+    const kb = document.querySelector("#page-comparison").dataset.kb;
+    const timeout = performanceData[kb][engine].timeout;
+    const engineStatsColumn = engine + "_stats";
     const engineStats = params.data[engineStatsColumn];
 
     if (engineStats && typeof engineStats === "object") {
         if (typeof engineStats.results === "string") {
-            return engineStats.results;
+            const runtime = params.value;
+            if (timeout && runtime >= timeout) {
+                return `Query timed out after ${runtime} s\n\n${engineStats.results}`;
+            } else {
+                return `Query failed in ${runtime} s\n\n${engineStats.results}`;
+            }
         } else {
             return `Result size: ${engineStats.result_size_to_display}`;
         }
@@ -393,7 +420,7 @@ class CustomTooltip {
             copyButton.innerHTML = "📄";
             copyButton.className = "copy-btn";
             copyButton.title = "Copy";
-    
+
             copyButton.onclick = () => {
                 navigator.clipboard
                     .writeText(tooltipText)
@@ -407,7 +434,7 @@ class CustomTooltip {
                         setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
                     });
             };
-    
+
             container.appendChild(copyButton);
         }
 
@@ -422,10 +449,11 @@ class CustomTooltip {
 function getPinnedMetricData(engines, kb) {
     let pinnedMetricData = [];
     const metricKeyNameObj = {
-        gmeanTime: "Geometric Mean",
+        gmeanTime2: "Geometric Mean (P=2)",
+        gmeanTime10: "Geometric Mean (P=10)",
         failed: "Failed Queries",
-        medianTime: "Median",
-        ameanTime: "Arithmetic Mean",
+        medianTime: "Median (P=2)",
+        ameanTime: "Arithmetic Mean (P=2)",
     };
     for (const [metric, metricName] of Object.entries(metricKeyNameObj)) {
         let metricData = { query: metricName };
@@ -455,11 +483,37 @@ function getComparisonColumnDefs(engines, showResultSize) {
             tooltipComponent: CustomTooltip,
         },
     ];
+    const kb = document.querySelector("#page-comparison").dataset.kb;
     for (const engine of engines) {
+        const timeout = performanceData[kb][engine].timeout;
         columnDefs.push({
             field: engine,
             type: "numericColumn",
             filter: "agNumberColumnFilter",
+            filterValueGetter: (params) => {
+                let value = params.data[engine];
+                const engineStats = params.data[`${engine}_stats`];
+                if (typeof engineStats.results === "string") {
+                    value = timeout && value >= timeout ? timeout * 1000 : timeout * 100;
+                }
+                return value;
+            },
+            filterParams: {
+                allowedCharPattern: "0-9\\.adefilmotuADEFILMOTU\\s",
+                numberParser: (text) => {
+                    if (text == null) return null;
+                    const lower = text.toLowerCase().trim();
+                    if ("failed".includes(lower)) return timeout * 100;
+                    if ("timeout".includes(lower)) return timeout * 1000;
+                    return parseFloat(text);
+                },
+                numberFormatter: (value) => {
+                    if (value == null) return null;
+                    if (value === timeout * 100) return "failed";
+                    if (value === timeout * 1000) return "timeout";
+                    return value.toString();
+                },
+            },
             flex: 1,
             cellRenderer: WarningCellRenderer,
             cellRendererParams: { showResultSize: showResultSize },
@@ -517,7 +571,7 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
         gridDiv.style.height = `${document.documentElement.clientHeight - 235}px`;
     }
     // Default column ordering = first option of orderColumnsDropdown
-    const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime", "asc");
+    const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime2", "asc");
     const comparisonGridOptions = {
         columnDefs: getComparisonColumnDefs(sortedEngines),
         rowData: rowData,

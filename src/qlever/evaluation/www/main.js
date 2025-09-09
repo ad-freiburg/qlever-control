@@ -1,7 +1,7 @@
 /**
  * List of query statistics keys (values unused, so just keys kept)
  */
-const QUERY_STATS_KEYS = ["ameanTime", "gmeanTime", "medianTime", "under1s", "between1to5s", "over5s", "failed"];
+const QUERY_STATS_KEYS = ["ameanTime", "gmeanTime2", "gmeanTime10", "medianTime", "under1s", "between1to5s", "over5s", "failed"];
 
 const mainGridApis = {};
 
@@ -38,7 +38,7 @@ function getAllQueryStatsByKb(performanceData, kb) {
  * It applies proper formatting and filters based on the type of each metric.
  * @returns {Array<Object>} ag-Grid gridOptions object
  */
-function mainTableColumnDefs(penaltyFactor) {
+function mainTableColumnDefs() {
     // Define custom formatting and filters based on column keys
     return [
         {
@@ -47,6 +47,77 @@ function mainTableColumnDefs(penaltyFactor) {
             filter: "agTextColumnFilter",
             headerTooltip: "Name of the SPARQL engine being benchmarked.",
             tooltipComponent: CustomDetailsTooltip,
+            flex: 1.25,
+        },
+        {
+            headerName: "Geometric Mean (P=2)",
+            field: "gmeanTime2",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Geometric mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 2`,
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1.6,
+        },
+        {
+            headerName: "Geometric Mean (P=10)",
+            field: "gmeanTime10",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Geometric mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 10`,
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1.6,
+        },
+        {
+            headerName: "Median (P=2)",
+            field: "medianTime",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Median runtime of all queries. Failed queries are penalized with a runtime of timeout × 2`,
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1.25,
+        },
+        {
+            headerName: "Arithmetic Mean (P=2)",
+            field: "ameanTime",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
+            headerTooltip: `Arithmetic mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 2`,
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1.6,
+        },
+        {
+            headerName: "<= 1s",
+            field: "under1s",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of all queries that successfully finished in 1 second or less",
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1,
+        },
+        {
+            headerName: "(1s, 5s]",
+            field: "between1to5s",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of all queries that successfully completed in more than 1 second and up to 5 seconds",
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1,
+        },
+        {
+            headerName: "> 5s",
+            field: "over5s",
+            filter: "agNumberColumnFilter",
+            type: "numericColumn",
+            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
+            headerTooltip: "Percentage of all queries that successfully completed in more than 5 seconds",
+            tooltipComponent: CustomDetailsTooltip,
+            flex: 1,
         },
         {
             headerName: "Failed",
@@ -56,60 +127,7 @@ function mainTableColumnDefs(penaltyFactor) {
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
             headerTooltip: "Percentage of queries that failed to return results.",
             tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "Arithmetic Mean",
-            field: "ameanTime",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
-            headerTooltip: `Arithmetic mean of all query runtimes, including penalties for failed queries. (Runtime for failed queries = timeout * ${penaltyFactor})`,
-            tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "Geometric Mean",
-            field: "gmeanTime",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
-            headerTooltip: `Geometric mean of all query runtimes, using log scale, includes failed query penalties. (Runtime for failed queries = timeout * ${penaltyFactor})`,
-            tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "Median",
-            field: "medianTime",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
-            headerTooltip: `Median runtime of all queries, including penalties for failed ones. (Runtime for failed queries = timeout * ${penaltyFactor})`,
-            tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "<= 1s",
-            field: "under1s",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
-            headerTooltip: "Percentage of successful queries that completed in 1 second or less.",
-            tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "(1s, 5s]",
-            field: "between1to5s",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
-            headerTooltip: "Percentage of successful queries completed in more than 1 second and up to 5 seconds.",
-            tooltipComponent: CustomDetailsTooltip,
-        },
-        {
-            headerName: "> 5s",
-            field: "over5s",
-            filter: "agNumberColumnFilter",
-            type: "numericColumn",
-            valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}%` : "N/A"),
-            headerTooltip: "Percentage of successful queries that took more than 5 seconds to complete.",
-            tooltipComponent: CustomDetailsTooltip,
+            flex: 1,
         },
     ];
 }
@@ -213,18 +231,18 @@ function updateMainPage(performanceData, additionalData) {
             router.navigate(`/details?kb=${encodeURIComponent(kb)}&engine=${encodeURIComponent(engine)}`);
         };
 
-        const penaltyFactor = additionalData.penalty?.toString() ?? "Penalty Factor";
+        // const penaltyFactor = additionalData.penalty?.toString() ?? "Penalty Factor";
 
         // Initialize ag-Grid instance
         agGrid.createGrid(gridDiv, {
-            columnDefs: mainTableColumnDefs(penaltyFactor),
+            columnDefs: mainTableColumnDefs(),
             rowData: rowData,
             defaultColDef: {
                 sortable: true,
                 filter: true,
                 resizable: true,
-                flex: 1,
-                minWidth: 100,
+                wrapHeaderText: true,
+                autoHeaderHeight: true,
             },
             domLayout: "autoHeight",
             rowStyle: { fontSize: "14px", cursor: "pointer" },

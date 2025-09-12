@@ -414,6 +414,8 @@ class CustomTooltip {
     init(params) {
         const container = createTooltipContainer(params);
 
+        const tooltipText = typeof params.value !== "string" ? params.value.sparql : params.value;
+
         if (window.isSecureContext) {
             // Copy button
             const copyButton = document.createElement("button");
@@ -564,12 +566,9 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
     const rowCount = tableData.query.length;
     const rowData = getGridRowData(rowCount, tableData);
     gridDiv.innerHTML = "";
-    let domLayout = "normal";
-    if (rowCount < 25) domLayout = "autoHeight";
 
-    if (domLayout === "normal") {
-        gridDiv.style.height = `${document.documentElement.clientHeight - 235}px`;
-    }
+    gridDiv.style.height = `${document.documentElement.clientHeight - 235}px`;
+
     // Default column ordering = first option of orderColumnsDropdown
     const sortedEngines = sortEngines(Object.keys(performanceData[kb]), kb, "gmeanTime2", "asc");
     const comparisonGridOptions = {
@@ -582,7 +581,7 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
             flex: 1,
             minWidth: 100,
         },
-        domLayout: domLayout,
+        domLayout: "normal",
         rowStyle: { fontSize: "14px", cursor: "pointer" },
         onGridReady: (params) => {
             gridApi = params.api;

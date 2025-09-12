@@ -151,7 +151,6 @@ function setTabsToDefault() {
 let exec_tree_listener = null;
 
 function updateTabsWithSelectedRow(rowData) {
-    console.log(rowData);
     const sparqlQuery = rowData?.sparql;
     if (sparqlQuery) {
         for (const div of document.querySelectorAll("#query-tab-pane div")) {
@@ -281,12 +280,9 @@ function updateDetailsPage(performanceData, kb, engine) {
     const rowCount = tableData.query.length;
     const rowData = getGridRowData(rowCount, tableData);
     gridDiv.innerHTML = "";
-    let domLayout = "normal";
-    if (rowCount < 25) domLayout = "autoHeight";
 
-    if (domLayout === "normal") {
-        gridDiv.style.height = `${document.documentElement.clientHeight - 150}px`;
-    }
+    gridDiv.style.height = `${document.documentElement.clientHeight - 150}px`;
+
     let selectedRow = null;
     const detailsGridOptions = {
         columnDefs: getQueryRuntimesColumnDefs(),
@@ -296,7 +292,7 @@ function updateDetailsPage(performanceData, kb, engine) {
             filter: true,
             resizable: true,
         },
-        domLayout: domLayout,
+        domLayout: "normal",
         onGridReady: (params) => {
             detailsGridApi = params.api;
         },

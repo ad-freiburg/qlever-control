@@ -13,7 +13,7 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
     just with a different Docker image name
     """
 
-    IMAGE = "ontotext/graphdb:11.0.1"
+    IMAGE = "docker.io/ontotext/graphdb:11.0.1"
 
     def additional_arguments(self, subparser) -> None:
         super().additional_arguments(subparser)

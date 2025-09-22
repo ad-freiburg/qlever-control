@@ -1,5 +1,5 @@
 # Dockerfile
-FROM openlink/virtuoso-opensource-7:latest
+FROM docker.io/openlink/virtuoso-opensource-7:latest
 
 # Build arguments for host UID/GID
 ARG UID

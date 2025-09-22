@@ -77,8 +77,8 @@ class IndexCommand(QleverCommand):
 
         if args.buffer_strings:
             index_cmd += (
-                f" --buffer-strings {args.buffer_strings}"
-                f" --buffer-tensors {args.buffer_tensors}"
+                f" --buffer-strings {args.buffer_strings}B"
+                f" --buffer-tensors {args.buffer_tensors}B"
             )
 
         if args.prefixes:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import errno
 import glob
 import re
@@ -89,7 +90,7 @@ def run_curl_command(
     headers: dict[str, str] = {},
     params: dict[str, str] = {},
     result_file: str | None = None,
-    max_time: int | None = None
+    max_time: int | None = None,
 ) -> str:
     """
     Run `curl` with the given `url`, `headers`, and `params`. If `result_file`
@@ -391,3 +392,44 @@ def get_container_image_id(system: str, image: str) -> str:
         )
         image_id = ""
     return image_id
+
+
+def parse_memory(value: str) -> str:
+    """
+    Validate memory size string like '4G'.
+    Returns the string unchanged if valid, raises argparse.ArgumentTypeError otherwise.
+    """
+    if not re.match(r"^\d+[G]$", value, re.IGNORECASE):
+        raise argparse.ArgumentTypeError(
+            f"Invalid memory size '{value}'. Use format like 4G, 32G."
+        )
+    return value.upper()
+
+
+def add_memory_options(subparser, index=True, server=True):
+    """
+    Add total memory-related options to a subparser for setup-config command.
+    """
+    if index:
+        subparser.add_argument(
+            "--total-index-memory",
+            type=parse_memory,
+            default="4G",
+            help=(
+                "Maximum memory budget for indexing. All relevant [index] "
+                "options in the Qleverfile will be auto-generated with sensible "
+                "defaults that together stay within this limit. "
+            ),
+        )
+
+    if server:
+        subparser.add_argument(
+            "--total-server-memory",
+            type=parse_memory,
+            default="4G",
+            help=(
+                "Maximum memory budget for the server. All relevant [server] "
+                "options in the Qleverfile will be auto-generated with sensible "
+                "defaults that together stay within this limit. "
+            ),
+        )

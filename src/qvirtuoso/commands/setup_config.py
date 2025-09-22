@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import qlever.util as util
 from qlever.log import log
 from qlever.util import run_command
 from qoxigraph.commands.setup_config import (
@@ -14,14 +15,24 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
         "23abbfbe9eb78d47dd70d8aca08cef0e81202bfb/binsrc/virtuoso/virtuoso.ini"
     )
 
-    ENGINE_SPECIFIC_PARAMETERS = {
-        "index": {
+    def additional_arguments(self, subparser) -> None:
+        super().additional_arguments(subparser)
+        util.add_memory_options(subparser)
+
+    @staticmethod
+    def construct_engine_specific_params(args) -> dict[str, dict[str, str]]:
+        index_params = {
             "ISQL_PORT": 1111,
-            "FREE_MEMORY_GB": "4G",
+            "FREE_MEMORY_GB": args.total_index_memory,
             "NUM_PARALLEL_LOADERS": 1,
-        },
-        "server": {"MAX_QUERY_MEMORY": "2G", "TIMEOUT": "30s"},
-    }
+        }
+        total_server_memory = int(args.total_server_memory[:-1])
+        max_query_memory = max(2, total_server_memory // 5)
+        server_params = {
+            "MAX_QUERY_MEMORY": f"{max_query_memory}G",
+            "TIMEOUT": "30s",
+        }
+        return {"index": index_params, "server": server_params}
 
     def execute(self, args) -> bool:
         qleverfile_successfully_created = super().execute(args)

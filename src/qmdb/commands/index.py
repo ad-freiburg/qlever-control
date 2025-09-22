@@ -73,10 +73,14 @@ class IndexCommand(QleverCommand):
             )
 
         # Additional mdb index args
-        index_cmd += (
-            f" --buffer-strings {args.buffer_strings} --buffer-tensors "
-            f"{args.buffer_tensors} --btree-permutations {args.btree_permutations}"
-        )
+        index_cmd += f" --btree-permutations {args.btree_permutations}"
+
+        if args.buffer_strings:
+            index_cmd += (
+                f" --buffer-strings {args.buffer_strings}"
+                f" --buffer-tensors {args.buffer_tensors}"
+            )
+
         if args.prefixes:
             index_cmd += f" --prefixes {args.prefixes}"
         if args.extra_args:
@@ -145,4 +149,3 @@ class IndexCommand(QleverCommand):
             return False
 
         return True
-

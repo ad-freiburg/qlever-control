@@ -10,9 +10,6 @@ from qlever.log import log
 from qlever.util import binary_exists, is_server_alive, run_command
 
 MDB_SPECIFIC_SERVER_ARGS = [
-    "port",
-    "timeout",
-    "threads",
     "strings_dynamic",
     "strings_static",
     "tensors_dynamic",
@@ -39,8 +36,15 @@ class StartCommand(QleverCommand):
     def relevant_qleverfile_arguments(self) -> dict[str : list[str]]:
         return {
             "data": ["name"],
-            "server": ["host_name", "server_binary", "extra_args"]
-            + MDB_SPECIFIC_SERVER_ARGS,
+            "server": [
+                "host_name",
+                "server_binary",
+                "timeout",
+                "port",
+                "threads",
+                "extra_args",
+                *MDB_SPECIFIC_SERVER_ARGS,
+            ],
             "runtime": ["system", "image", "server_container"],
         }
 
@@ -61,7 +65,7 @@ class StartCommand(QleverCommand):
         if not args.run_in_foreground:
             run_subcommand += " -d"
         if not args.run_in_foreground:
-            cmd = f"{cmd}> {args.name}.server-log.txt 2>&1"
+            cmd = f"{cmd} > {args.name}.server-log.txt 2>&1"
         return Containerize().containerize_command(
             cmd=cmd,
             container_system=args.system,
@@ -74,24 +78,27 @@ class StartCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        start_cmd = f"{args.server_binary} server {args.name}_index "
         try:
-            args.timeout = int(args.timeout[:-1])
+            timeout = int(args.timeout[:-1])
         except ValueError as e:
             log.error(f"Invalid timeout value {args.timeout}. Error: {e}")
             return False
 
+        start_cmd = (
+            f"{args.server_binary} server {args.name}_index "
+            f"--port {args.port} --threads {args.threads} --timeout {timeout} "
+        )
         for arg in MDB_SPECIFIC_SERVER_ARGS:
             if (arg_value := getattr(args, arg)) is not None and arg_value:
-                start_cmd += f"--{arg.replace('_', '-')} {arg_value} "
+                start_cmd += f"--{arg.replace('_', '-')} {arg_value}B "
 
         if args.extra_args:
-            start_cmd += f"{args.extra_args} "
+            start_cmd += args.extra_args
 
         if args.system == "native":
             if not args.run_in_foreground:
                 start_cmd = (
-                    f"nohup {start_cmd}> {args.name}.server-log.txt 2>&1 &"
+                    f"nohup {start_cmd} > {args.name}.server-log.txt 2>&1 &"
                 )
         else:
             start_cmd = self.wrap_cmd_in_container(args, start_cmd)

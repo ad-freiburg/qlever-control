@@ -32,13 +32,13 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
     index_args["buffer_strings"] = arg(
         "--buffer-strings",
         type=str,
-        default="2GB",
+        default=None,
         help="Size of buffer for strings used during import",
     )
     index_args["buffer_tensors"] = arg(
         "--buffer-tensors",
         type=str,
-        default="2GB",
+        default=None,
         help="Size of buffer for tensors used during import",
     )
     index_args["prefixes"] = arg(

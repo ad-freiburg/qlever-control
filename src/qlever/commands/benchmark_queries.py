@@ -511,7 +511,7 @@ class BenchmarkQueriesCommand(QleverCommand):
         return single_int_result
 
     @staticmethod
-    def restart_on_hang(start_only: bool = False) -> None:
+    def restart_on_hang(start_only: bool = False) -> bool:
         """
         Restart the SPARQL server after the server hangs i.e. doesn't return
         results after timeout + 30s
@@ -536,12 +536,13 @@ class BenchmarkQueriesCommand(QleverCommand):
             log.info(
                 f"Successfully restarted {engine_name} server after hang!"
             )
+            return True
         except Exception as e:
             log.warning(
                 f"{script_name} server could not be restarted. This might affect "
                 f"the benchmark process!: {e}"
             )
-        return
+            return False
 
     def execute(self, args) -> bool:
         # We can't have both `--remove-offset-and-limit` and `--limit`.
@@ -822,6 +823,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                 f"qlever.example_queries.result.{abs(hash(curl_cmd))}.tmp"
             )
             start_time = time.time()
+            server_restarted = False
             try:
                 max_time = None
                 if args.restart_on_hang and timeout:
@@ -850,11 +852,11 @@ class BenchmarkQueriesCommand(QleverCommand):
                     and args.restart_on_hang
                     and time_seconds > timeout + 30
                 ):
-                    self.restart_on_hang()
+                    server_restarted = self.restart_on_hang()
                 elif (
                     "exit code 52" in str(e) or "exit code 7" in str(e)
                 ) and args.restart_on_hang:
-                    self.restart_on_hang(start_only=True)
+                    server_restarted = self.restart_on_hang(start_only=True)
                 if args.log_level == "DEBUG":
                     traceback.print_exc()
                 error_msg = {
@@ -900,6 +902,7 @@ class BenchmarkQueriesCommand(QleverCommand):
                     result_size=result_length,
                     max_result_size=args.max_results_output_file,
                     accept_header=accept_header,
+                    server_restarted=server_restarted,
                 )
                 result_yml_query_records["queries"].append(query_record)
 
@@ -1036,6 +1039,7 @@ class BenchmarkQueriesCommand(QleverCommand):
         result_size: int | None,
         max_result_size: int,
         accept_header: str,
+        server_restarted: bool,
     ) -> dict[str, Any]:
         """
         Construct a dictionary with query information for output result yaml file
@@ -1045,6 +1049,7 @@ class BenchmarkQueriesCommand(QleverCommand):
             "description": description,
             "query": query,
             "runtime_info": {},
+            "server_restarted": server_restarted,
         }
         if result_size is None:
             results = f"{result['short']}: {result['long']}"

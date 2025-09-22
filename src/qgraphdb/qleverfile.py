@@ -26,7 +26,7 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
     index_args["threads"] = arg(
         "--threads",
         type=int,
-        default=2,
+        default=None,
         help=("Number of rdf parsers."),
     )
     index_args["entity_index_size"] = arg(
@@ -67,6 +67,16 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
             "which determine the applied semantics."
         ),
     )
+    index_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default="",
+        help=(
+            "Additional arguments to pass directly to the importrdf binary. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
+        ),
+    )
 
     server_args["heap_size_gb"] = arg(
         "--heap_size_gb",
@@ -100,6 +110,27 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
         help=(
             "The HTTP server will not permit mutation operations in "
             "read-only mode"
+        ),
+    )
+    server_args["extra_env_args"] = arg(
+        "--extra-env-args",
+        type=str,
+        default="",
+        help=(
+            "Additional environment variable arguments to pass directly to "
+            "the graphdb binary as a string of key=value pairs. This allows "
+            "advanced users to specify options not exposed in Qleverfile. "
+            "The string is appended verbatim to the bash env command."
+        ),
+    )
+    server_args["extra_args"] = arg(
+        "--extra-args",
+        type=str,
+        default="",
+        help=(
+            "Additional arguments to pass directly to the graphdb binary. "
+            "This allows advanced users to specify options not exposed in "
+            "Qleverfile. The string is appended verbatim to the command."
         ),
     )
 

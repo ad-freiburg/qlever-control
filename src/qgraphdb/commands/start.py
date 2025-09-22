@@ -30,6 +30,8 @@ class StartCommand(QleverCommand):
                 "heap_size_gb",
                 "server_binary",
                 "port",
+                "extra_env_args",
+                "extra_args",
             ],
             "runtime": [
                 "system",
@@ -81,9 +83,10 @@ class StartCommand(QleverCommand):
             else "/opt/graphdb/graphdb.license"
         )
         start_cmd = (
-            f'env GDB_HEAP_SIZE="{args.heap_size_gb}" {args.server_binary} -s '
-            f"-Dgraphdb.home={args.name}_index -Dgraphdb.connector.port="
-            f"{args.port} -Dgraphdb.license.file={license_file_path}"
+            f'env GDB_HEAP_SIZE="{args.heap_size_gb}" {args.extra_env_args} '
+            f"{args.server_binary} -s -Dgraphdb.home={args.name}_index "
+            f"-Dgraphdb.connector.port={args.port} {args.extra_args} "
+            f"-Dgraphdb.license.file={license_file_path}"
         )
 
         if args.system == "native":

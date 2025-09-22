@@ -30,13 +30,13 @@ class IndexCommand(QleverCommand):
                 "jvm_args",
                 "entity_index_size",
                 "ruleset",
+                "extra_args",
             ],
             "server": ["timeout", "read_only"],
             "runtime": [
                 "system",
                 "image",
                 "index_container",
-                "license_file_path",
             ],
         }
 
@@ -84,27 +84,15 @@ class IndexCommand(QleverCommand):
             run_subcommand="run --rm",
             image_name=args.image,
             container_name=args.index_container,
-            volumes=[
-                ("$(pwd)", "/opt/graphdb/home"),
-                (
-                    str(args.license_file_path.resolve()),
-                    "/opt/graphdb/graphdb.license",
-                ),
-            ],
+            volumes=[("$(pwd)", "/opt/graphdb/home")],
             working_directory="/opt/graphdb/home",
         )
 
     def execute(self, args) -> bool:
-        license_file_path = (
-            str(args.license_file_path.resolve())
-            if args.system == "native"
-            else "/opt/graphdb/graphdb.license"
-        )
-        print(license_file_path)
         index_cmd = (
             f"{args.index_binary} preload {args.jvm_args} -c config.ttl "
-            f"-t {args.threads} -Dgraphdb.home={args.name}_index "
-            f"-Dgraphdb.license.file={license_file_path} {args.input_files}"
+            f"{'-t ' + args.threads if args.threads is not None else ''}"
+            f"-Dgraphdb.home={args.name}_index {args.extra_args} {args.input_files}"
         )
         index_cmd += f" | tee {args.name}.index-log.txt"
 
@@ -153,14 +141,14 @@ class IndexCommand(QleverCommand):
             )
             return False
 
-        index_dir = Path(f"{args.name}_index/data/repositories/{args.name}")
-        if index_dir.exists():
-            log.error(
-                f"Index directory found in {args.name}_index/data/repositories "
-                "which shows presence of a previous index\n"
-            )
-            log.info("Aborting the index operation...")
-            return False
+        # index_dir = Path(f"{args.name}_index/data/repositories/{args.name}")
+        # if index_dir.exists():
+        #     log.error(
+        #         f"Index directory found in {args.name}_index/data/repositories "
+        #         "which shows presence of a previous index\n"
+        #     )
+        #     log.info("Aborting the index operation...")
+        #     return False
 
         # Run the index command.
         try:

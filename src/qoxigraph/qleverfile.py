@@ -29,7 +29,7 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
     index_args["extra_args"] = arg(
         "--extra-args",
         type=str,
-        default=None,
+        default="",
         help=(
             "Additional arguments to pass directly to the oxigraph load process. "
             "This allows advanced users to specify options not exposed in "
@@ -57,10 +57,16 @@ def qleverfile_args(all_args: dict[str, dict[str, tuple]]) -> None:
             "read-only mode"
         ),
     )
+    server_args["timeout"] = arg(
+        "--timeout",
+        type=str,
+        default="60s",
+        help="The maximal time in seconds a query is allowed to run",
+    )
     server_args["extra_args"] = arg(
         "--extra-args",
         type=str,
-        default=None,
+        default="",
         help=(
             "Additional arguments to pass directly to the oxigraph "
             "serve/serve-read-only. This allows advanced users to specify "

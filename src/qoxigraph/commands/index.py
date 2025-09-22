@@ -49,11 +49,10 @@ class IndexCommand(QleverCommand):
         )
 
     def execute(self, args) -> bool:
-        extra_args = "" if not args.extra_args else f"{args.extra_args} "
         index_cmd = (
             f"load {'--lenient ' if args.lenient else ''}"
             f"--location {args.name}_index/ --file {args.input_files} "
-            f"{extra_args}|& tee {args.name}.index-log.txt"
+            f"{args.extra_args} |& tee {args.name}.index-log.txt"
         )
 
         if args.system == "native":

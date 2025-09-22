@@ -97,6 +97,22 @@ function getSingleResult(queryData) {
     return singleResult;
 }
 
+/**
+ * Displays the loading spinner by updating the relevant CSS classes.
+ */
+function showSpinner() {
+  document.querySelector("#spinner").classList.remove("d-none", "d-flex");
+  document.querySelector("#spinner").classList.add("d-flex");
+}
+
+/**
+ * Hides the loading spinner by updating the relevant CSS classes.
+ */
+function hideSpinner() {
+  document.querySelector("#spinner").classList.remove("d-none", "d-flex");
+  document.querySelector("#spinner").classList.add("d-none");
+}
+
 function addTextElementsToExecTreeForTreant(tree_node, is_ancestor_cached = false) {
     if (tree_node["text"] == undefined) {
         var text = {};
@@ -388,35 +404,35 @@ function extractFirstUrl(text) {
     return null;
 }
 
-function createBenchmarkDescriptionInfoPill(indexDescription, isBgLight = true, tooltipPlacement = "right") {
-    infoPill = document.createElement("a");
+function createBenchmarkDescriptionInfoPill(indexDescription, tooltipPlacement = "right") {
+    const infoPill = document.createElement("a");
     infoPill.setAttribute("tabindex", 0);
-    infoPill.className = "badge border rounded-pill ms-2";
-    if (isBgLight) {
-        infoPill.className += " bg-light text-dark border-dark";
-    } else {
-        infoPill.className += " bg-dark text-light border-light";
-    }
+    
+    infoPill.className = "mx-2";
+    infoPill.style.color = "var(--bs-body-color)";
     infoPill.style.cursor = "pointer";
-    infoPill.style.padding = "0.25em 0.45em";
-    infoPill.style.fontSize = "0.65rem"; // smaller
-    infoPill.style.lineHeight = "1";
-    infoPill.style.textDecoration = "none";
-    infoPill.textContent = "ℹ";
+    
+    const icon = document.createElement("i");
+    icon.className = "bi bi-info-circle-fill";
+    icon.style.fontSize = "0.8rem";
+    infoPill.appendChild(icon);
+
+    // Bootstrap popover attributes
     infoPill.setAttribute("data-bs-toggle", "popover");
     infoPill.setAttribute("data-bs-trigger", "focus");
     infoPill.setAttribute("data-bs-placement", tooltipPlacement);
     infoPill.setAttribute("data-bs-html", "true");
-    infoPill.setAttribute("data-bs-custom-class", "bg-dark");
     infoPill.setAttribute(
         "data-bs-content",
         anchorme({
             input: indexDescription,
-            options: { attributes: { target: "_blank", class: "text-info" } },
+            options: { attributes: { target: "_blank", class: "text-primary" } },
         })
     );
+
     return infoPill;
 }
+
 
 function removeTitleInfoPill() {
     document.querySelector("#mainTitleWrapper a")?.remove();

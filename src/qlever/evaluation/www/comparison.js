@@ -300,7 +300,7 @@ class WarningCellRenderer {
         const container = document.createElement("div");
         container.style.whiteSpace = "normal";
 
-        const warning = getWarningSpan("⚠️");
+        const warning = getWarningSpan("bi-exclamation-triangle-fill");
 
         if (params.node.rowPinned) {
             container.classList.add("fw-bold");
@@ -308,34 +308,30 @@ class WarningCellRenderer {
                 container.appendChild(document.createTextNode(`${value}`));
             } else {
                 const unit = params.data.query === "Failed Queries" ? "%" : "s";
-                container.appendChild(document.createTextNode(`${value.toFixed(2)} ${unit}`));
+                container.appendChild(document.createTextNode(`${value.toFixed(2)}${unit}`));
             }
         } else if (params.column.getColId() === "query") {
-            container.appendChild(document.createTextNode(`${value}  `));
             if (params.data.row_warning) {
                 warning.title = "The result sizes for the engines do not match!";
                 container.appendChild(warning);
             }
+            container.appendChild(document.createTextNode(`${value}`));
         } else {
             const engine = params.column.getColId();
             const kb = document.querySelector("#page-comparison").dataset.kb;
             const timeout = performanceData[kb][engine].timeout;
             const engineStatsColumn = engine + "_stats";
             const engineStats = params.data[engineStatsColumn];
-            let cellValue = `${value} s`;
+            let cellValue = `${value}s`;
             if (engineStats && typeof engineStats === "object") {
                 if (engineStats.size_warning) {
-                    warning.title = `Result size ${engineStats.result_size_to_display} doesn't match the majority ${engineStats.majority_result_size}!`;
                     container.appendChild(warning);
                 }
                 if (typeof engineStats.results === "string") {
-                    if (engineStats.serverRestarted) {
-                        const serverRestartWarning = getWarningSpan("‼️");
-                        serverRestartWarning.title =
-                            "Server was restarted after this query because of no response after timeout + 30s!";
-                        container.appendChild(serverRestartWarning);
-                    }
                     cellValue = timeout && value >= timeout ? "timeout" : "failed";
+                    if (engineStats.serverRestarted) {
+                        container.appendChild(getWarningSpan("bi-bootstrap-reboot"));
+                    }
                 }
             }
             container.appendChild(document.createTextNode(cellValue));
@@ -352,10 +348,9 @@ class WarningCellRenderer {
         }
         this.eGui = container;
 
-        function getWarningSpan(symbol) {
-            const warning = document.createElement("span");
-            warning.textContent = symbol;
-            warning.style.marginRight = "4px";
+        function getWarningSpan(cls) {
+            const warning = document.createElement("i");
+            warning.className = `bi ${cls} me-2`;
             return warning;
         }
     }
@@ -371,9 +366,9 @@ function comparisonGridCellStyle(params) {
 
     if (engineStats && typeof engineStats === "object") {
         if (typeof engineStats.results === "string") {
-            return { backgroundColor: "#f6ccd0" };
+            return { backgroundColor: "var(--bs-danger-border-subtle)" };
         } else if (engineStats.has_best_runtime) {
-            return { backgroundColor: "#c5e1d4" };
+            return { backgroundColor: "var(--bs-success-border-subtle)" };
         }
     }
     return {};
@@ -396,16 +391,47 @@ function getTooltipValue(params) {
     const engineStats = params.data[engineStatsColumn];
 
     if (engineStats && typeof engineStats === "object") {
+        let tooltipLines = [];
         if (typeof engineStats.results === "string") {
             const runtime = params.value;
-            if (timeout && runtime >= timeout) {
-                return `Query timed out after ${runtime} s\n\n${engineStats.results}`;
+            const serverRestarted = engineStats.serverRestarted;
+
+            const isTimeout = timeout && runtime >= timeout;
+
+            if (isTimeout) {
+                tooltipLines.push(`Query timed out after ${runtime} s`);
+
+                if (serverRestarted) {
+                    if (runtime >= timeout + 30) {
+                        tooltipLines.push(
+                            "Server was restarted after this query due to no response after timeout + 30s!"
+                        );
+                    } else {
+                        tooltipLines.push("Server was restarted after this query because the server crashed!");
+                    }
+                }
             } else {
-                return `Query failed in ${runtime} s\n\n${engineStats.results}`;
+                tooltipLines.push(`Query failed in ${runtime} s`);
+
+                if (serverRestarted) {
+                    tooltipLines.push("Server was restarted after this query because the server crashed!");
+                }
             }
+
+            tooltipLines.push(engineStats.results); // add results after an empty line
         } else {
-            return `Result size: ${engineStats.result_size_to_display}`;
+            if (engineStats.size_warning) {
+                let resultSize = engineStats.result_size_to_display;
+                if (resultSize.startsWith("1 [")) {
+                    resultSize = resultSize.slice(3, -1);
+                }
+                tooltipLines.push(
+                    `Result size ${resultSize} doesn't match the majority ${engineStats.majority_result_size}!`
+                );
+            }
+            tooltipLines.push(`Result size: ${engineStats.result_size_to_display}`);
         }
+        return tooltipLines.join("\n\n");
     }
     return null;
 }
@@ -419,21 +445,25 @@ class CustomTooltip {
         if (window.isSecureContext) {
             // Copy button
             const copyButton = document.createElement("button");
-            copyButton.innerHTML = "📄";
-            copyButton.className = "copy-btn";
+            // copyButton.innerHTML = "copy";
+            copyButton.className = "copy-btn btn-sm";
             copyButton.title = "Copy";
+
+            const copyIcon = document.createElement("i");
+            copyIcon.className = "bi bi-copy";
+            copyButton.appendChild(copyIcon);
 
             copyButton.onclick = () => {
                 navigator.clipboard
                     .writeText(tooltipText)
                     .then(() => {
-                        copyButton.innerHTML = "✅";
-                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                        copyIcon.className = "bi bi-check-circle-fill"; // success
+                        setTimeout(() => (copyIcon.className = "bi bi-copy"), 1000);
                     })
                     .catch((err) => {
-                        console.error("Failed to copy full SPARQL query:", err);
-                        copyButton.innerHTML = "❌";
-                        setTimeout(() => (copyButton.innerHTML = "📋"), 1000);
+                        console.error("Failed to copy:", err);
+                        copyIcon.className = "bi bi-x-circle-fill"; // failure
+                        setTimeout(() => (copyIcon.className = "bi bi-copy"), 1000);
                     });
             };
 
@@ -537,13 +567,13 @@ function updateComparisonPage(performanceData, kb, kbAdditionalData) {
     if (kbAdditionalData.title) title = kbAdditionalData.title;
     let infoPill = null;
     if (kbAdditionalData.description) {
-        infoPill = createBenchmarkDescriptionInfoPill(kbAdditionalData.description, false, "bottom");
-    }
-    if (infoPill) {
-        document.querySelector("#mainTitleWrapper").appendChild(infoPill);
-        new bootstrap.Popover(infoPill);
+        infoPill = createBenchmarkDescriptionInfoPill(kbAdditionalData.description, "bottom");
     }
     titleNode.innerHTML = title;
+    if (infoPill) {
+        titleNode.appendChild(infoPill);
+        new bootstrap.Popover(infoPill);
+    }
     if (lastKb === kb) return;
     pageNode.dataset.kb = kb;
     document.querySelector("#orderColumnsDropdown").selectedIndex = 0;

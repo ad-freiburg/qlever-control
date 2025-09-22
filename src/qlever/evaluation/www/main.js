@@ -59,24 +59,24 @@ function mainTableColumnDefs() {
             flex: 1.25,
         },
         {
-            headerName: "Geometric Mean (P=2)",
+            headerName: "Geom. Mean (P=2)",
             field: "gmeanTime2",
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
             headerTooltip: `Geometric mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 2`,
             tooltipComponent: CustomDetailsTooltip,
-            flex: 1.6,
+            flex: 1.3,
         },
         {
-            headerName: "Geometric Mean (P=10)",
+            headerName: "Geom. Mean (P=10)",
             field: "gmeanTime10",
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
             headerTooltip: `Geometric mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 10`,
             tooltipComponent: CustomDetailsTooltip,
-            flex: 1.6,
+            flex: 1.3,
         },
         {
             headerName: "Median (P=2)",
@@ -89,14 +89,14 @@ function mainTableColumnDefs() {
             flex: 1.25,
         },
         {
-            headerName: "Arithmetic Mean (P=2)",
+            headerName: "Arith. Mean (P=2)",
             field: "ameanTime",
             filter: "agNumberColumnFilter",
             type: "numericColumn",
             valueFormatter: ({ value }) => (value != null ? `${value.toFixed(2)}s` : "N/A"),
             headerTooltip: `Arithmetic mean of all query runtimes. Failed queries are penalized with a runtime of timeout × 2`,
             tooltipComponent: CustomDetailsTooltip,
-            flex: 1.6,
+            flex: 1.3,
         },
         {
             headerName: "<= 1s",
@@ -193,13 +193,10 @@ function updateMainPage(performanceData, additionalData) {
         btnGroup.className = "d-flex align-items-center gap-2";
 
         const downloadBtn = document.createElement("button");
-        downloadBtn.className = "btn btn-outline-dark btn-sm";
-        downloadBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
-                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
-            </svg>
-        `;
+        downloadBtn.className = "btn btn-outline-theme btn-sm";
+        const downloadIcon = document.createElement("i");
+        downloadIcon.className = "bi bi-download";
+        downloadBtn.appendChild(downloadIcon);
         downloadBtn.title = "Download as TSV";
         downloadBtn.onclick = () => {
             if (!mainGridApis || !mainGridApis.hasOwnProperty(kb)) {
@@ -213,7 +210,7 @@ function updateMainPage(performanceData, additionalData) {
         };
 
         const compareBtn = document.createElement("button");
-        compareBtn.className = "btn btn-outline-dark btn-sm";
+        compareBtn.className = "btn btn-outline-theme btn-sm";
         compareBtn.textContent = "Compare Results";
         compareBtn.onclick = () => {
             router.navigate(`/comparison?kb=${encodeURIComponent(kb)}`);
@@ -230,9 +227,12 @@ function updateMainPage(performanceData, additionalData) {
         header.appendChild(titleWrapper);
         header.appendChild(btnGroup);
 
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute("data-bs-theme") || "light";
+
         // Grid div with ag-theme-balham styling
         const gridDiv = document.createElement("div");
-        gridDiv.className = "ag-theme-balham";
+        gridDiv.className = currentTheme === "light" ? "ag-theme-balham" : "ag-theme-balham-dark";
         gridDiv.style.width = "100%";
 
         // Append header and grid div to section
@@ -264,8 +264,6 @@ function updateMainPage(performanceData, additionalData) {
                 sortable: true,
                 filter: true,
                 resizable: true,
-                wrapHeaderText: true,
-                autoHeaderHeight: true,
             },
             domLayout: "autoHeight",
             rowStyle: { fontSize: "14px", cursor: "pointer" },
@@ -280,10 +278,68 @@ function updateMainPage(performanceData, additionalData) {
     container.appendChild(fragment);
 }
 
+function setThemeTogglerListener() {
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const themeToggleIcon = document.getElementById("themeToggleIcon");
+
+    themeToggleBtn.addEventListener("click", () => {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute("data-bs-theme") || "light";
+        const newTheme = currentTheme === "light" ? "dark" : "light";
+
+        // Update Bootstrap theme
+        html.setAttribute("data-bs-theme", newTheme);
+
+        // Update toggle icon
+        themeToggleIcon.className = newTheme === "light" ? "bi bi-moon-fill" : "bi bi-sun-fill";
+        themeToggleBtn.title = `Click to change to ${currentTheme} mode!`;
+
+        // Update all Ag-Grid containers
+        const grids = document.querySelectorAll(".ag-theme-balham, .ag-theme-balham-dark");
+        grids.forEach((grid) => {
+            if (newTheme === "light") {
+                grid.classList.remove("ag-theme-balham-dark");
+                grid.classList.add("ag-theme-balham");
+            } else {
+                grid.classList.remove("ag-theme-balham");
+                grid.classList.add("ag-theme-balham-dark");
+            }
+        });
+    });
+}
+
+function applyPreferredTheme() {
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const themeToggleIcon = document.getElementById("themeToggleIcon");
+
+    const html = document.documentElement;
+    const theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+    html.setAttribute("data-bs-theme", theme);
+    themeToggleIcon.className = theme === "light" ? "bi bi-moon-fill" : "bi bi-sun-fill";
+    themeToggleBtn.title = `Click to change to ${theme === "light" ? "dark" : "light"} mode!`;
+
+    // Update all Ag-Grid containers
+    const grids = document.querySelectorAll(".ag-theme-balham, .ag-theme-balham-dark");
+    grids.forEach((grid) => {
+        if (theme === "light") {
+            grid.classList.remove("ag-theme-balham-dark");
+            grid.classList.add("ag-theme-balham");
+        } else {
+            grid.classList.remove("ag-theme-balham");
+            grid.classList.add("ag-theme-balham-dark");
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     router = new Navigo("/", { hash: true });
 
+    setThemeTogglerListener();
+    applyPreferredTheme();
+
     try {
+        showSpinner();
         const yaml_path = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/[^/]*$/, "/");
         const response = await fetch(`${yaml_path}yaml_data`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -390,5 +446,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
         console.error("Error loading /yaml_data:", err);
         showPage("error");
+    } finally {
+        hideSpinner();
     }
 });

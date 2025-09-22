@@ -299,7 +299,7 @@ function updateDetailsPage(performanceData, kb, engine) {
         getRowStyle: (params) => {
             let rowStyle = { fontSize: "14px", cursor: "pointer" };
             if (params.data.failed === true) {
-                rowStyle.backgroundColor = "#f6ccd0";
+                rowStyle.backgroundColor = "var(--bs-danger-border-subtle)";
             }
             return rowStyle;
         },
@@ -310,7 +310,7 @@ function updateDetailsPage(performanceData, kb, engine) {
             selectedRow = event.api.getSelectedRows();
             onRuntimeRowSelected(event, performanceData, kb, engine);
         },
-        tooltipShowDelay: 500,
+        tooltipShowDelay: 1500,
         suppressDragLeaveHidesColumns: true,
     };
     // Initialize ag-Grid instance

@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from qlever.log import log
-from qlever.util import run_curl_command
+from qlever.util import add_memory_options, run_curl_command
 from qoxigraph.commands.setup_config import (
     SetupConfigCommand as QoxigraphSetupConfigCommand,
 )
@@ -18,10 +18,24 @@ class SetupConfigCommand(QoxigraphSetupConfigCommand):
 
     IMAGE = "adfreiburg/qblazegraph"
 
-    ENGINE_SPECIFIC_PARAMETERS = {
-        "index": {"JVM_ARGS": "-Xmx4G"},
-        "server": {"JVM_ARGS": "-Xmx4G", "TIMEOUT": "60s", "READ_ONLY": "yes"}
-    }
+    @staticmethod
+    def construct_engine_specific_params(args) -> dict[str, dict[str, str]]:
+        index_memory = args.total_index_memory
+        server_memory = args.total_server_memory
+        return {
+            "index": {
+                "JVM_ARGS": f"-Xms{index_memory} -Xmx{index_memory}"
+            },
+            "server": {
+                "JVM_ARGS": f"-Xms{server_memory} -Xmx{server_memory}",
+                "TIMEOUT": "60s",
+                "READ_ONLY": "yes",
+            },
+        }
+    
+    def additional_arguments(self, subparser) -> None:
+        super().additional_arguments(subparser)
+        add_memory_options(subparser)
 
     def execute(self, args) -> bool:
         qleverfile_successfully_created = super().execute(args)

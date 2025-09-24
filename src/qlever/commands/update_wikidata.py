@@ -217,8 +217,11 @@ class UpdateWikidataCommand(QleverCommand):
                         f"before processing the next batch"
                     )
                     log.info("")
-                    time.sleep(args.wait_between_batches)
                     wait_before_next_batch = False
+                    for _ in range(args.wait_between_batches):
+                        if self.ctrl_c_pressed:
+                            break
+                        time.sleep(1)
 
             # Check if the `args.batch_size` is reached (note that we come here
             # after a `continue` due to an error).

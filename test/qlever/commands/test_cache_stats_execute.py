@@ -112,11 +112,11 @@ class TestCacheStatsCommand(unittest.TestCase):
         mock_check_output.assert_any_call(expected_settings_call, shell=True)
 
         # Verify that detailed stats and settings were logged as a table
-        mock_log.info.assert_any_call("cache-max-size      : 10 GB")
+        mock_log.info.assert_any_call("cache-max-size : 10 GB")
         mock_log.info.assert_any_call("cache-size-pinned   : 2,000,000,000")
         mock_log.info.assert_any_call("cache-size-unpinned : 1,000,000,000")
         mock_log.info.assert_any_call("test-stat           : 500")
-        mock_log.info.assert_any_call("test-setting        : 1,000")
+        mock_log.info.assert_any_call("test-setting   : 1,000")
 
         self.assertTrue(result)
 

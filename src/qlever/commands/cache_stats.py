@@ -67,6 +67,8 @@ class CacheStatsCommand(QleverCommand):
             )
             cache_stats_dict = json.loads(cache_stats)
             cache_settings_dict = json.loads(cache_settings)
+            if isinstance(cache_settings_dict, list):
+                cache_settings_dict = cache_settings_dict[0]
         except Exception as e:
             log.error(f"Failed to get cache stats and settings: {e}")
             return False

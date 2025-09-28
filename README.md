@@ -5,7 +5,7 @@ for QLever (pronounced "Clever"), a graph database implementing the
 [RDF](https://www.w3.org/TR/rdf11-concepts/) and
 [SPARQL](https://www.w3.org/TR/sparql11-overview/) standards. 
 For a detailed description of what QLever is and what it can do, see 
-[here](https://github.com/ad-freiburg/qlever/blob/master/README.md).
+[here](https://github.com/ad-freiburg/qlever).
 
 # Installation
 
@@ -57,8 +57,8 @@ autocompletion.
 
 By default, `qlever` uses [QLever's official Docker
 image](https://hub.docker.com/r/adfreiburg/qlever). In principle, that image
-runs on Linux, macOS, and Windows. On Linux, Docker run natively
-and incur only a relatively small overhead regarding performance and RAM
+runs on Linux, macOS, and Windows. On Linux, Docker runs natively
+and incurs only a relatively small overhead regarding performance and RAM
 consumption. On macOS and Windows, Docker runs in a virtual machine, which
 incurs a significant and sometimes unpredictable overhead. For example, `qlever
 index` might abort prematurely (without a proper error message) because the
@@ -68,7 +68,7 @@ For optimal performance, compile QLever from source on your machine. For Linux,
 this is relatively straightforward: just follow the `RUN` instructions in the
 [Dockerfile](https://github.com/ad-freiburg/qlever/blob/master/Dockerfile). For
 macOS, this is more complicated, see [this
-workflow](https://github.com/ad-freiburg/qlever/actions/workflows/macos.yml).
+workflow](https://github.com/ad-freiburg/qlever/blob/master/.github/workflows/macos.yml).
 
 # Use with your own dataset
 

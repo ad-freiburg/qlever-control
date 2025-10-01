@@ -50,6 +50,7 @@ class SettingsCommand(QleverCommand):
             "spatial-join-max-num-threads",
             "syntax-test-mode",
             "throw-on-unbound-variables",
+            "treat-default-graph-as-named-graph",
             "use-binsearch-transitive-path",
         ]
         subparser.add_argument(
